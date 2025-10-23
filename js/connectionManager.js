@@ -311,8 +311,12 @@ function findCandidate(movingPiece) {
   const adjustedTolerance =
     CONFIG.CONNECTION_TOLERANCE / (zoomLevel * zoomLevel);
 
-  // Query spatial index with coarse radius: sqrt(tolerance)*3 for broad capture
-  const coarseR = Math.sqrt(adjustedTolerance) * 3;
+  // Calculate radius based on 1.5 times the longest side of the moving piece
+  const bmpW = movingPiece.bitmap.width * movingPiece.scale;
+  const bmpH = movingPiece.bitmap.height * movingPiece.scale;
+  const longestSide = Math.max(bmpW, bmpH);
+  const coarseR = longestSide * 1.5;
+
   const centerX = movingWD.worldCorners.nw.x; // rough anchor
   const centerY = movingWD.worldCorners.nw.y;
   const neighborIds = spatialIndex.queryRadius(centerX, centerY, coarseR);
@@ -323,8 +327,10 @@ function findCandidate(movingPiece) {
       movingId: movingPiece.id,
       queryCenter: { x: centerX, y: centerY },
       queryRadius: coarseR,
+      pieceSize: { width: bmpW, height: bmpH },
+      longestSide: longestSide,
       foundNeighbors: neighborIds,
-      tolerance: CONFIG.CONNECTION_TOLERANCE,
+      adjustedTolerance: adjustedTolerance,
     });
   }
 

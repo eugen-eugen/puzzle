@@ -18,7 +18,7 @@ const pieceElements = new Map(); // id -> DOM element
 let currentDrag = null;
 let selectedPieceId = null;
 
-const SCALE = 0.35; // initial downscale factor for display vs original image size
+const SCALE = 0.7; // initial downscale factor for display vs original image size
 let spatialIndex = null;
 
 export function scatterInitialPieces(container, pieces) {
@@ -161,8 +161,14 @@ function attachPieceEvents(el, piece) {
 
   el.addEventListener("dblclick", () => {
     // Rotate 90° on double-click
-    piece.rotation = (piece.rotation + 90) % 360;
-    el.style.transform = `rotate(${piece.rotation}deg)`;
+    // If piece is in a group, rotate the entire group around this piece's center
+    if (piece.groupId) {
+      rotateGroup(piece, 90);
+    } else {
+      // Single piece rotation
+      piece.rotation = (piece.rotation + 90) % 360;
+      el.style.transform = `rotate(${piece.rotation}deg)`;
+    }
   });
 }
 
@@ -272,6 +278,64 @@ function moveSinglePiece(piece, deltaX, deltaY) {
   }
 }
 
+function rotateGroup(selectedPiece, rotationDegrees) {
+  // Get all pieces in the same group as the selected piece
+  const groupPieces = getGroupPieces(selectedPiece);
+
+  // Calculate the rotation center (center of the selected piece)
+  const selectedEl = pieceElements.get(selectedPiece.id);
+  if (!selectedEl) return;
+
+  const scaledW = selectedEl.offsetWidth;
+  const scaledH = selectedEl.offsetHeight;
+  const centerX = selectedPiece.displayX + scaledW / 2;
+  const centerY = selectedPiece.displayY + scaledH / 2;
+
+  // Convert rotation to radians
+  const rad = (rotationDegrees * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+
+  groupPieces.forEach((piece) => {
+    // Update piece rotation
+    piece.rotation = (piece.rotation + rotationDegrees) % 360;
+    if (piece.rotation < 0) piece.rotation += 360;
+
+    // Calculate piece center before rotation
+    const pieceEl = pieceElements.get(piece.id);
+    if (!pieceEl) return;
+
+    const pieceScaledW = pieceEl.offsetWidth;
+    const pieceScaledH = pieceEl.offsetHeight;
+    const pieceCenterX = piece.displayX + pieceScaledW / 2;
+    const pieceCenterY = piece.displayY + pieceScaledH / 2;
+
+    // Rotate piece center around selected piece center
+    const dx = pieceCenterX - centerX;
+    const dy = pieceCenterY - centerY;
+    const newCenterX = centerX + (dx * cos - dy * sin);
+    const newCenterY = centerY + (dx * sin + dy * cos);
+
+    // Update piece position (convert back from center to top-left)
+    piece.displayX = newCenterX - pieceScaledW / 2;
+    piece.displayY = newCenterY - pieceScaledH / 2;
+
+    // Update DOM element
+    pieceEl.style.left = piece.displayX + "px";
+    pieceEl.style.top = piece.displayY + "px";
+    pieceEl.style.transform = `rotate(${piece.rotation}deg)`;
+
+    // Update spatial index
+    if (spatialIndex) {
+      spatialIndex.update({
+        id: piece.id,
+        x: piece.displayX + pieceScaledW / 2,
+        y: piece.displayY + pieceScaledH / 2,
+      });
+    }
+  });
+}
+
 function applyHighlight(pieceId, candidateData) {
   // Remove previous highlight classes
   pieceElements.forEach((el) => el.classList.remove("candidate-highlight"));
@@ -319,22 +383,24 @@ function installGlobalListeners(container) {
     const piece = findPiece(selectedPieceId);
     if (!piece) return;
     if (e.key === "r" || e.key === "R") {
-      piece.rotation = (piece.rotation + (e.shiftKey ? 270 : 90)) % 360;
-      pieceEl.style.transform = `rotate(${piece.rotation}deg)`;
+      const rotationAmount = e.shiftKey ? 270 : 90; // Shift+R = counter-clockwise
+
+      // If piece is in a group, rotate the entire group around this piece's center
+      if (piece.groupId) {
+        rotateGroup(piece, rotationAmount);
+      } else {
+        // Single piece rotation
+        piece.rotation = (piece.rotation + rotationAmount) % 360;
+        pieceEl.style.transform = `rotate(${piece.rotation}deg)`;
+      }
     }
   });
 }
 
-// Temporary lookup; to be replaced with centralized state reference.
+// Lookup piece by ID from state
 function findPiece(id) {
-  // We expect global state from gameEngine; import lazily to avoid circular refs.
-  try {
-    const { state } = require("./gameEngine.js"); // will fail in ESM
-    return state.pieces.find((p) => p.id === id);
-  } catch {
-    // Fallback: no direct access; return null (rotation already stored on element side)
-    return null;
-  }
+  // Use the imported state from gameEngine
+  return state.pieces.find((p) => p.id === id);
 }
 
 // transferPieceToTable removed (single-window mode)

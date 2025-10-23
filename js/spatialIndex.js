@@ -44,6 +44,7 @@ export class SpatialIndex {
         this.grid[this._index(oldCell.col, oldCell.row)].delete(piece.id);
       }
       this.grid[this._index(newCol, newRow)].add(piece.id);
+      console.log("new index: " + newCol + ":" + newRow);
       this.itemMap.set(piece.id, { col: newCol, row: newRow });
     }
   }
