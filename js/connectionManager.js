@@ -321,19 +321,6 @@ function findCandidate(movingPiece) {
   const centerY = movingWD.worldCorners.nw.y;
   const neighborIds = spatialIndex.queryRadius(centerX, centerY, coarseR);
 
-  // Debug: Log spatial index results for NW corner piece left-to-right movement
-  if (movingPiece.gridX === 0 && movingPiece.gridY === 0) {
-    console.log("[findCandidate] Spatial index query for NW corner:", {
-      movingId: movingPiece.id,
-      queryCenter: { x: centerX, y: centerY },
-      queryRadius: coarseR,
-      pieceSize: { width: bmpW, height: bmpH },
-      longestSide: longestSide,
-      foundNeighbors: neighborIds,
-      adjustedTolerance: adjustedTolerance,
-    });
-  }
-
   let best = null;
   neighborIds.forEach((id) => {
     if (id === movingPiece.id) return;
@@ -341,8 +328,7 @@ function findCandidate(movingPiece) {
     if (!candidate) return;
 
     // Skip pieces that are already in the same group as the moving piece
-    if (movingPiece.groupId && candidate.groupId === movingPiece.groupId)
-      return;
+    if (candidate.groupId === movingPiece.groupId) return;
 
     // Debug: Log each candidate evaluation for NW corner
     if (movingPiece.gridX === 0 && movingPiece.gridY === 0) {
@@ -451,33 +437,22 @@ function finePlace(movingPiece, highlightData) {
 }
 
 function getMovingGroupPieces(movingPiece) {
-  // If moving piece has no group, return just this piece
-  if (!movingPiece.groupId) {
-    return [movingPiece];
-  }
-
+  // All pieces always have a groupId now
   // Find all pieces with the same groupId as the moving piece
   return state.pieces.filter((p) => p.groupId === movingPiece.groupId);
 }
 
 function mergeGroups(pieceA, pieceB) {
-  // Naive grouping: assign groupId on pieces; later replace with union-find.
-  if (!pieceA.groupId && !pieceB.groupId) {
-    const newGroupId =
-      "g" + Date.now() + Math.random().toString(16).slice(2, 6);
-    pieceA.groupId = newGroupId;
-    pieceB.groupId = newGroupId;
-  } else if (pieceA.groupId && !pieceB.groupId) {
-    pieceB.groupId = pieceA.groupId;
-  } else if (!pieceA.groupId && pieceB.groupId) {
-    pieceA.groupId = pieceB.groupId;
-  } else if (pieceA.groupId !== pieceB.groupId) {
-    // Merge: reassign all from pieceB.groupId to pieceA.groupId
+  // Simplified grouping: all pieces always have groupIds
+  if (pieceA.groupId !== pieceB.groupId) {
+    // Merge: reassign all pieces from pieceB.groupId to pieceA.groupId
     const from = pieceB.groupId;
     const to = pieceA.groupId;
     state.pieces.forEach((p) => {
       if (p.groupId === from) p.groupId = to;
     });
+
+    console.debug(`[mergeGroups] Merged group ${from} into ${to}`);
   }
 
   // Update progress after group merge

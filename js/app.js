@@ -119,27 +119,18 @@ function updateProgress() {
     return;
   }
 
-  // Calculate score using the corrected formula:
-  // Score = <amount of pieces> - <amount of ungrouped pieces> - (g-1)*Heaviside(g-1)
-  // This ensures 0% at start (all ungrouped) and 100% when all pieces form one group
+  // Calculate score using the simplified formula:
+  // Score = totalPieces - (numberOfGroups - 1)
+  // This ensures 0% at start (all pieces in separate groups) and 100% when all pieces form one group
 
   const totalPieces = state.totalPieces;
 
-  // Count ungrouped pieces (pieces without groupId or groupId === null)
-  const ungroupedPieces = state.pieces.filter((piece) => !piece.groupId).length;
-
-  // Count unique groups (pieces with groupId)
-  const groupIds = new Set(
-    state.pieces.filter((piece) => piece.groupId).map((piece) => piece.groupId)
-  );
+  // Count unique groups (all pieces have groupId now)
+  const groupIds = new Set(state.pieces.map((piece) => piece.groupId));
   const numberOfGroups = groupIds.size; // g in the formula
 
-  // Heaviside step function: H(g-1) = 0 if g≤1, else 1
-  const heavisideValue = numberOfGroups <= 1 ? 0 : 1;
-
-  // Apply the corrected scoring formula
-  const score =
-    totalPieces - ungroupedPieces - (numberOfGroups - 1) * heavisideValue;
+  // Apply the simplified scoring formula
+  const score = totalPieces - (numberOfGroups - 1);
   const percentage = ((score / totalPieces) * 100).toFixed(1);
 
   progressDisplay.textContent = `${score} / ${totalPieces} (${percentage}%)`;
@@ -385,7 +376,7 @@ function checkPuzzleCorrectness() {
       ([direction, expectedNeighbor]) => {
         if (expectedNeighbor) {
           // Check if they're in the same group (connected)
-          if (!piece.groupId || piece.groupId !== expectedNeighbor.groupId) {
+          if (piece.groupId !== expectedNeighbor.groupId) {
             isCorrect = false;
             reasons.push(
               `Not connected to expected neighbor at (${expectedNeighbor.gridX}, ${expectedNeighbor.gridY})`
@@ -502,7 +493,7 @@ function checkPuzzleCorrectness() {
       Object.entries(expectedNeighbors).forEach(
         ([direction, expectedNeighbor]) => {
           if (expectedNeighbor) {
-            if (!piece.groupId || piece.groupId !== expectedNeighbor.groupId) {
+            if (piece.groupId !== expectedNeighbor.groupId) {
               isCorrect = false;
             } else {
               // Check relative positioning

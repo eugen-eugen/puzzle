@@ -161,8 +161,9 @@ function attachPieceEvents(el, piece) {
 
   el.addEventListener("dblclick", () => {
     // Rotate 90° on double-click
-    // If piece is in a group, rotate the entire group around this piece's center
-    if (piece.groupId) {
+    // If piece is in a group with other pieces, rotate the entire group around this piece's center
+    const groupPieces = getGroupPieces(piece);
+    if (groupPieces.length > 1) {
       rotateGroup(piece, 90);
     } else {
       // Single piece rotation
@@ -202,18 +203,12 @@ function moveGroup(draggedPiece, deltaX, deltaY) {
 }
 
 function getGroupPieces(piece) {
-  // If piece has no group, return just this piece
-  if (!piece.groupId) {
-    return [piece];
-  }
-
+  // All pieces always have a groupId now
   // Find all pieces with the same groupId
   return state.pieces.filter((p) => p.groupId === piece.groupId);
 }
 
 function detachPieceFromGroup(piece) {
-  if (!piece.groupId) return; // Already not in a group
-
   const oldGroupId = piece.groupId;
 
   console.debug(
@@ -223,8 +218,9 @@ function detachPieceFromGroup(piece) {
     oldGroupId
   );
 
-  // Remove this piece from the group
-  piece.groupId = null;
+  // Create a new unique group for this piece
+  const newGroupId = "g" + piece.id + "_" + Date.now();
+  piece.groupId = newGroupId;
 
   // Add visual indication that this piece is detached
   const el = pieceElements.get(piece.id);
@@ -234,18 +230,12 @@ function detachPieceFromGroup(piece) {
     setTimeout(() => el.classList.remove("detached-piece"), 1000);
   }
 
-  // If the group now has only one piece left, remove its groupId too
-  const remainingGroupPieces = state.pieces.filter(
-    (p) => p.groupId === oldGroupId
+  console.debug(
+    "[pieceRenderer] Piece",
+    piece.id,
+    "moved to new group",
+    newGroupId
   );
-  if (remainingGroupPieces.length === 1) {
-    console.debug(
-      "[pieceRenderer] Group",
-      oldGroupId,
-      "now has only one piece, ungrouping"
-    );
-    remainingGroupPieces[0].groupId = null;
-  }
 
   // Update progress after detachment
   updateProgress();
@@ -385,8 +375,9 @@ function installGlobalListeners(container) {
     if (e.key === "r" || e.key === "R") {
       const rotationAmount = e.shiftKey ? 270 : 90; // Shift+R = counter-clockwise
 
-      // If piece is in a group, rotate the entire group around this piece's center
-      if (piece.groupId) {
+      // If piece is in a group with other pieces, rotate the entire group around this piece's center
+      const groupPieces = getGroupPieces(piece);
+      if (groupPieces.length > 1) {
         rotateGroup(piece, rotationAmount);
       } else {
         // Single piece rotation

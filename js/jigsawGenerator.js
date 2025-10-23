@@ -242,8 +242,9 @@ export function generateJigsawPieces(img, targetCount) {
         east = o === 1 ? 1 : -1;
       }
 
+      const pieceId = id++;
       pieces.push({
-        id: id++,
+        id: pieceId,
         gridX: c,
         gridY: r,
         w: pieceW,
@@ -255,6 +256,7 @@ export function generateJigsawPieces(img, targetCount) {
         bitmap: canvas,
         pad,
         edges: { north, east, south, west },
+        groupId: "g" + pieceId, // Each piece starts in its own group
         // Geometry waypoints (local coordinates BEFORE pad translation)
         corners: {
           nw: { x: 0, y: 0 },
