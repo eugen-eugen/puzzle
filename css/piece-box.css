@@ -1,0 +1,26 @@
+/* piece-box.css - styling for piece box window */
+.pieces-container {
+  flex:1;
+  overflow:hidden;
+  position:relative;
+  cursor:grab;
+  background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0);
+  background-size:20px 20px;
+}
+.pieces-container:active {cursor:grabbing;}
+.pieces-viewport {
+  width:100%;
+  height:100%;
+  transform-origin:0 0;
+  transition:transform 0.1s ease-out;
+  position:relative;
+}
+.piece {position:absolute;cursor:grab;user-select:none;}
+.piece:active {cursor:grabbing;}
+.piece img {display:block;}
+.ready-connect {box-shadow:0 0 0 2px var(--accent-green),0 0 12px 4px rgba(46,168,98,.5);}
+.near-connect {box-shadow:0 0 0 2px var(--accent-yellow),0 0 8px 3px rgba(215,185,56,.4);}
+.connected-group-outline {outline:2px solid var(--accent-blue);}
+.piece.selected {outline:2px solid var(--accent-blue); box-shadow:0 0 6px 2px rgba(46,114,216,.6);} 
+.piece.candidate-highlight {outline:3px solid var(--accent-green); box-shadow:0 0 10px 4px rgba(46,168,98,.7);}
+.piece.detached-piece {outline:2px dashed var(--danger); box-shadow:0 0 8px 3px rgba(201,72,72,.6); animation:detach-flash 0.3s ease-out;}
