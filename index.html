@@ -2,8 +2,14 @@
 <html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
-  <title>Puzzle Piece Box</title>
+  <title>Puzzle Lab</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="theme-color" content="#222a36" />
+  <meta name="description" content="Offline-capable procedural jigsaw puzzle from any image." />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="manifest.json" />
   <link rel="stylesheet" href="css/main.css" />
   <link rel="stylesheet" href="css/piece-box.css" />
   <link rel="stylesheet" href="css/animations.css" />
@@ -65,7 +71,6 @@
           <li><strong>Shift + Drag:</strong> Detach a piece from its group (red outline shows detachment)</li>
           <li><strong>Zoom Controls:</strong> Use +/- buttons, mouse wheel, or keyboard (+, -, 0 to reset)</li>
           <li><strong>Pan View:</strong> Ctrl+drag on empty space or middle-click to move around the puzzle area</li>
-</invoke>
           <li><strong>Progress tracking:</strong> Score shows completion based on groups formed</li>
         </ul>
 
@@ -83,5 +88,14 @@
   </div>
 
   <script type="module" src="js/app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./service-worker.js').catch(err => {
+          console.warn('SW registration failed', err);
+        });
+      });
+    }
+  </script>
 </body>
 </html>
