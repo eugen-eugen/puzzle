@@ -175,6 +175,42 @@ For best iOS appearance add a real `apple-touch-icon` (180x180). After adding, r
 | iOS opens in Safari UI | Not added via "Add to Home Screen" | Re-add through share sheet |
 
 ---
+## 🌐 Internationalization (i18n)
+The UI now supports multiple languages via lightweight JSON resource files.
+
+### Current Locales
+- English (`i18n/en.json`)
+- Deutsch / German (`i18n/de.json`)
+
+### How It Works
+- Each translatable element in the DOM has a `data-i18n` attribute (inner HTML) or `data-i18n-title` / `data-i18n-aria-label` for attributes.
+- Large help content and modal bodies use an HTML string value (e.g. `help.bodyHtml`).
+- Dynamic runtime strings (progress, errors, resume modal) use a `t(key, params)` helper from `js/i18n.js`.
+- Placeholders like `{score}`, `{total}`, `{percent}`, `{error}` are replaced with values passed in `params`.
+- Selected language persists in `localStorage` under key `lang`.
+
+### Adding a New Language
+1. Copy `i18n/en.json` → `i18n/<code>.json` (e.g. `fr.json`).
+2. Translate values (keep placeholder tokens intact).
+3. Add `<option value="<code>">XX</option>` to the language `<select id="langSelect">` in `index.html`.
+4. (Optional) If right‑to‑left language, apply `document.documentElement.dir = 'rtl';` in `loadLanguage()` when detecting locale code.
+5. Bump `SW_VERSION` in `service-worker.js` so new locale file is cached offline.
+
+### Translation Key Guidelines
+- Namespace with feature/topic: `resume.title`, `status.loadingImage`, `help.bodyHtml`.
+- Avoid embedding runtime numbers directly—use placeholders.
+- Keep punctuation & emoji in the value (emoji are language neutral here).
+
+### Fallback Behavior
+If a locale fails to load, the loader falls back to English once and logs a warning to console.
+
+### Example Runtime Use
+```
+progressDisplay.textContent = t('status.progressFormat', { score, total, percent });
+alert(t('error.generate', { error: e.message }));
+```
+
+---
 
 ---
 ## 🧪 Development Notes

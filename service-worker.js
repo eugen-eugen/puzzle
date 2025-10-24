@@ -1,6 +1,6 @@
 /* Service Worker for Puzzle Lab PWA */
 /* eslint-disable no-restricted-globals */
-const SW_VERSION = "v1.0.0";
+const SW_VERSION = "v1.1.0"; // bumped for i18n assets
 const STATIC_CACHE = `puzzle-static-${SW_VERSION}`;
 const CORE_ASSETS = [
   "/",
@@ -20,6 +20,9 @@ const CORE_ASSETS = [
   "/js/persistence.js",
   "/js/imageProcessor.js",
   "/js/windowManager.js",
+  "/js/i18n.js",
+  "/i18n/en.json",
+  "/i18n/de.json",
 ];
 
 self.addEventListener("install", (event) => {

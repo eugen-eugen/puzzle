@@ -16,27 +16,31 @@
 </head>
 <body>
   <header class="top-bar">
-    <div class="logo">🧩 Puzzle Lab</div>
+    <div class="logo" data-i18n="header.logo">🧩 Puzzle Lab</div>
     <div class="controls">
       <input id="imageInput" type="file" accept="image/png,image/jpeg" />
       <div class="slider-container">
-        <label for="pieceSlider">Pieces:</label>
+        <label for="pieceSlider" data-i18n="label.pieces">Pieces:</label>
         <input id="pieceSlider" type="range" min="0" max="100" value="0" />
         <span id="pieceDisplay" class="piece-count">0</span>
       </div>
       <div class="zoom-controls">
-        <button id="zoomOutButton" class="zoom-btn" title="Zoom Out">−</button>
+        <button id="zoomOutButton" class="zoom-btn" data-i18n-title="button.zoomOut" title="Zoom Out">−</button>
         <span id="zoomDisplay" class="zoom-level">100%</span>
-        <button id="zoomInButton" class="zoom-btn" title="Zoom In">+</button>
-        <button id="zoomResetButton" class="zoom-reset-btn" title="Reset Zoom">⌂</button>
+        <button id="zoomInButton" class="zoom-btn" data-i18n-title="button.zoomIn" title="Zoom In">+</button>
+        <button id="zoomResetButton" class="zoom-reset-btn" data-i18n-title="button.zoomReset" title="Reset Zoom">⌂</button>
       </div>
-      <button id="checkButton" class="check-btn" style="display:none;">Check! ✓</button>
-      <button id="helpButton" class="help-btn">?</button>
-      <span id="progressDisplay" class="progress">0 / 0 (0%)</span>
+      <button id="checkButton" class="check-btn" style="display:none;" data-i18n="button.check">Check! ✓</button>
+      <button id="helpButton" class="help-btn" data-i18n="button.help">?</button>
+      <span id="progressDisplay" class="progress" data-i18n="status.emptyProgress">0 / 0 (0%)</span>
+      <select id="langSelect" class="lang-select" aria-label="Language selector">
+        <option value="en">EN</option>
+        <option value="de">DE</option>
+      </select>
     </div>
   </header>
   <main class="layout">
-    <section id="piecesContainer" class="pieces-container" aria-label="Piece Box">
+  <section id="piecesContainer" class="pieces-container" data-i18n-aria-label="aria.pieceBox" aria-label="Piece Box">
       <div id="piecesViewport" class="pieces-viewport">
         <div class="placeholder">Load an image and generate puzzle pieces.</div>
       </div>
@@ -47,43 +51,10 @@
   <div id="helpModal" class="modal" style="display:none;">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>🧩 How to Play Puzzle Lab</h2>
+  <h2 data-i18n="help.title">🧩 How to Play Puzzle Lab</h2>
         <span class="close-btn" id="closeHelp">&times;</span>
       </div>
-      <div class="modal-body">
-        <h3>🎯 Getting Started</h3>
-        <ul>
-          <li><strong>Upload Image:</strong> Click "Choose File" to select a JPEG or PNG image</li>
-          <li><strong>Set Pieces:</strong> Use the slider to choose puzzle size (1-1000 pieces)</li>
-          <li><strong>Puzzle generates automatically</strong> as you move the slider</li>
-        </ul>
-
-        <h3>🔧 Playing the Puzzle</h3>
-        <ul>
-          <li><strong>Drag pieces:</strong> Click and drag to move puzzle pieces around</li>
-          <li><strong>Rotate pieces:</strong> Right-click on pieces to rotate them</li>
-          <li><strong>Auto-connect:</strong> Pieces snap together automatically when close and aligned</li>
-          <li><strong>Group movement:</strong> Connected pieces move together as a group</li>
-        </ul>
-
-        <h3>🎮 Advanced Controls</h3>
-        <ul>
-          <li><strong>Shift + Drag:</strong> Detach a piece from its group (red outline shows detachment)</li>
-          <li><strong>Zoom Controls:</strong> Use +/- buttons, mouse wheel, or keyboard (+, -, 0 to reset)</li>
-          <li><strong>Pan View:</strong> Ctrl+drag on empty space or middle-click to move around the puzzle area</li>
-          <li><strong>Progress tracking:</strong> Score shows completion based on groups formed</li>
-        </ul>
-
-        <h3>✅ Completion & Validation</h3>
-        <ul>
-          <li><strong>100% Score:</strong> When all pieces are connected in one group</li>
-          <li><strong>Check Button:</strong> Appears at 100% - click to validate puzzle correctness</li>
-          <li><strong>Green outlines:</strong> Correctly placed pieces in proper positions and rotation</li>
-          <li><strong>Red blinking:</strong> Incorrectly placed pieces (wrong position/rotation)</li>
-        </ul>
-
-        <p class="tip"><strong>💡 Tip:</strong> The slider position 0 shows the original image for reference!</p>
-      </div>
+      <div class="modal-body" data-i18n="help.bodyHtml"></div>
     </div>
   </div>
 

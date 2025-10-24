@@ -10,6 +10,7 @@ import {
 // Persistence (lazy-loaded after definitions to avoid circular issues)
 // We'll dynamically import persistence so this file can export helpers first.
 import { state } from "./gameEngine.js";
+import { initI18n, t, applyTranslations } from "./i18n.js";
 
 // ================================
 // Module Constants (replacing magic numbers)
@@ -163,7 +164,7 @@ function viewportToScreen(viewportX, viewportY) {
 
 function updateProgress() {
   if (state.totalPieces === 0) {
-    progressDisplay.textContent = "0 / 0 (0%)";
+    progressDisplay.textContent = t("status.emptyProgress");
     return;
   }
 
@@ -181,7 +182,11 @@ function updateProgress() {
   const score = totalPieces - (numberOfGroups - 1);
   const percentage = ((score / totalPieces) * 100).toFixed(1);
 
-  progressDisplay.textContent = `${score} / ${totalPieces} (${percentage}%)`;
+  progressDisplay.textContent = t("status.progressFormat", {
+    score,
+    total: totalPieces,
+    percent: percentage,
+  });
 
   // Show Check button when 100% is reached
   if (percentage === "100.0") {
@@ -206,7 +211,9 @@ async function generatePuzzle() {
     // Show original image when slider is at 0
     piecesViewport.innerHTML = `
       <div class="original-image-container">
-        <img src="${currentImage.src}" alt="Original image" style="max-width:100%;max-height:100%;object-fit:contain;" />
+        <img src="${currentImage.src}" alt="${t(
+      "alt.originalImage"
+    )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
       </div>
     `;
     state.pieces = [];
@@ -217,7 +224,7 @@ async function generatePuzzle() {
 
   isGenerating = true;
   piecesViewport.innerHTML = "";
-  progressDisplay.textContent = "Generating...";
+  progressDisplay.textContent = t("status.generating");
 
   try {
     const { pieces, rows, cols } = generateJigsawPieces(
@@ -232,8 +239,8 @@ async function generatePuzzle() {
     if (persistence && persistence.markDirty) persistence.markDirty();
   } catch (e) {
     console.error(e);
-    alert("Failed to generate puzzle: " + e.message);
-    progressDisplay.textContent = "Error";
+    alert(t("error.generate", { error: e.message }));
+    progressDisplay.textContent = t("status.error");
   } finally {
     isGenerating = false;
   }
@@ -245,7 +252,7 @@ imageInput.addEventListener("change", async (e) => {
   if (!file) return;
 
   try {
-    progressDisplay.textContent = "Loading image...";
+    progressDisplay.textContent = t("status.loadingImage");
     currentImage = await processImage(file);
 
     // Reset slider to 0 and show original image
@@ -255,7 +262,9 @@ imageInput.addEventListener("change", async (e) => {
     // Show original image
     piecesViewport.innerHTML = `
       <div class="original-image-container">
-        <img src="${currentImage.src}" alt="Original image" style="max-width:100%;max-height:100%;object-fit:contain;" />
+        <img src="${currentImage.src}" alt="${t(
+      "alt.originalImage"
+    )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
       </div>
     `;
 
@@ -265,8 +274,8 @@ imageInput.addEventListener("change", async (e) => {
     if (persistence && persistence.markDirty) persistence.markDirty();
   } catch (e) {
     console.error(e);
-    alert("Failed to load image: " + e.message);
-    progressDisplay.textContent = "Error";
+    alert(t("error.loadImage", { error: e.message }));
+    progressDisplay.textContent = t("status.error");
   }
 });
 
@@ -754,11 +763,53 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
-// Initialize display
-updatePieceDisplay();
-updateZoomDisplay();
+// Bootstrap with i18n before initializing UI & persistence
+async function bootstrap() {
+  await initI18n();
+  applyTranslations();
+  updatePieceDisplay();
+  updateZoomDisplay();
+  initCommChannel(updateProgress);
 
-initCommChannel(updateProgress);
+  // Late-load persistence module and attempt auto-resume AFTER i18n so modal is translated
+  import("./persistence.js")
+    .then((mod) => {
+      persistence = mod;
+      mod.initPersistence({
+        getViewportState,
+        applyViewportState,
+        getSliderValue,
+        setSliderValue,
+        getCurrentImage,
+        setImage: (img) => (currentImage = img),
+        regenerate: generatePuzzle,
+        getState: () => state,
+        setPieces: (pieces) => {
+          state.pieces = pieces;
+          state.totalPieces = pieces.length;
+        },
+        redrawPiecesContainer: () => {
+          piecesViewport.innerHTML = "";
+          scatterInitialPieces(piecesViewport, state.pieces);
+          updateProgress();
+        },
+        renderPiecesFromState: () => {
+          piecesViewport.innerHTML = "";
+          renderPiecesAtPositions(piecesViewport, state.pieces);
+          updateProgress();
+        },
+        markDirtyHook: () => updateProgress(),
+        showResumePrompt: createResumeModal,
+        afterDiscard: () => {
+          updateProgress();
+        },
+      });
+      mod.tryOfferResume();
+    })
+    .catch((err) => console.warn("Persistence module load failed", err));
+}
+
+bootstrap();
 
 // Create and show a custom modal dialog for resuming a saved game
 function createResumeModal({ onResume, onDiscard, onCancel }) {
@@ -795,14 +846,20 @@ function createResumeModal({ onResume, onDiscard, onCancel }) {
   overlay.id = "resume-modal-overlay";
   overlay.innerHTML = `
     <div class="resume-modal" role="dialog" aria-modal="true" aria-labelledby="resume-modal-title">
-      <h2 id="resume-modal-title">Resume Puzzle?</h2>
-      <p>We found a previously saved puzzle session. Would you like to continue where you left off or start a new puzzle?</p>
+      <h2 id="resume-modal-title">${t("resume.title")}</h2>
+      <p>${t("resume.message")}</p>
       <div class="resume-actions">
-        <button class="resume-primary" data-action="resume">Resume</button>
-        <button class="resume-warn" data-action="cancel">Cancel</button>
-        <button class="resume-danger" data-action="discard">Start New</button>
+        <button class="resume-primary" data-action="resume">${t(
+          "resume.resume"
+        )}</button>
+        <button class="resume-warn" data-action="cancel">${t(
+          "resume.cancel"
+        )}</button>
+        <button class="resume-danger" data-action="discard">${t(
+          "resume.discard"
+        )}</button>
       </div>
-      <div class="resume-meta">Autosave Active</div>
+      <div class="resume-meta">${t("resume.meta")}</div>
     </div>`;
   document.body.appendChild(overlay);
 
@@ -846,43 +903,7 @@ function createResumeModal({ onResume, onDiscard, onCancel }) {
   firstBtn && firstBtn.focus();
 }
 
-// Late-load persistence module and attempt auto-resume
-import("./persistence.js")
-  .then((mod) => {
-    persistence = mod;
-    mod.initPersistence({
-      getViewportState,
-      applyViewportState,
-      getSliderValue,
-      setSliderValue,
-      getCurrentImage,
-      setImage: (img) => (currentImage = img),
-      regenerate: generatePuzzle,
-      getState: () => state,
-      setPieces: (pieces) => {
-        state.pieces = pieces;
-        state.totalPieces = pieces.length;
-      },
-      redrawPiecesContainer: () => {
-        piecesViewport.innerHTML = "";
-        scatterInitialPieces(piecesViewport, state.pieces);
-        updateProgress();
-      },
-      renderPiecesFromState: () => {
-        piecesViewport.innerHTML = "";
-        renderPiecesAtPositions(piecesViewport, state.pieces);
-        updateProgress();
-      },
-      markDirtyHook: () => updateProgress(),
-      showResumePrompt: createResumeModal,
-      afterDiscard: () => {
-        // Reset visible UI state after discard if needed
-        updateProgress();
-      },
-    });
-    mod.tryOfferResume();
-  })
-  .catch((err) => console.warn("Persistence module load failed", err));
+// (Persistence dynamic import moved into bootstrap())
 
 // Export functions for use by other modules
 export {
