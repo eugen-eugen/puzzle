@@ -1,8 +1,15 @@
 // spatialIndex.js - uniform grid spatial index for pieces
 // Provides efficient neighbor queries for proximity checks & potential connection detection.
 
+// ================================
+// Module Constants
+// ================================
+const DEFAULT_CELL_SIZE = 180; // Fallback cell size in pixels
+const MIN_CELL_SIZE = 80; // Lower bound for dynamic heuristic
+const CELL_SIZE_MULTIPLIER = 2.5; // avg piece size * multiplier
+
 export class SpatialIndex {
-  constructor(boundsWidth, boundsHeight, cellSize = 180) {
+  constructor(boundsWidth, boundsHeight, cellSize = DEFAULT_CELL_SIZE) {
     this.w = boundsWidth;
     this.h = boundsHeight;
     this.cellSize = cellSize;
@@ -86,6 +93,9 @@ export class SpatialIndex {
 }
 
 export function chooseCellSize(avgPieceSize) {
-  // Rough heuristic: 2.5x average size
-  return Math.max(80, Math.round(avgPieceSize * 2.5));
+  // Rough heuristic: MULTIPLIER * average size clamped to minimum
+  return Math.max(
+    MIN_CELL_SIZE,
+    Math.round(avgPieceSize * CELL_SIZE_MULTIPLIER)
+  );
 }

@@ -18,7 +18,17 @@ const pieceElements = new Map(); // id -> DOM element
 let currentDrag = null;
 let selectedPieceId = null;
 
-const SCALE = 0.7; // initial downscale factor for display vs original image size
+// ================================
+// Module Constants (magic numbers -> named)
+// ================================
+const DEFAULT_RENDER_SCALE = 0.7; // initial downscale factor for display vs original image size
+const MIN_RENDERED_DIMENSION = 24; // Minimum drawn width/height to keep piece interactable
+const OUTSIDE_THRESHOLD_PX = 40; // Distance from right boundary to mark piece as 'outside'
+const DETACH_FLASH_DURATION_MS = 1000; // Duration of detached visual indicator
+const CONNECTION_TOLERANCE_SQ = 30 * 30; // Squared distance tolerance passed to connection manager (~30px)
+
+// Keep old constant name for backward compatibility inside this module (if referenced elsewhere)
+const SCALE = DEFAULT_RENDER_SCALE;
 let spatialIndex = null;
 
 export function scatterInitialPieces(container, pieces) {
@@ -38,8 +48,8 @@ export function scatterInitialPieces(container, pieces) {
     wrapper.dataset.id = p.id;
     // Use a canvas element to draw the piece bitmap (already clipped) scaled down.
     const canvas = document.createElement("canvas");
-    const scaledW = Math.max(24, p.bitmap.width * SCALE);
-    const scaledH = Math.max(24, p.bitmap.height * SCALE);
+    const scaledW = Math.max(MIN_RENDERED_DIMENSION, p.bitmap.width * SCALE);
+    const scaledH = Math.max(MIN_RENDERED_DIMENSION, p.bitmap.height * SCALE);
     canvas.width = scaledW;
     canvas.height = scaledH;
     const ctx = canvas.getContext("2d");
@@ -72,7 +82,72 @@ export function scatterInitialPieces(container, pieces) {
   initConnectionManager({
     spatialIndex,
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
-    tolerance: 900, // default squared distance tolerance (~30px)
+    tolerance: CONNECTION_TOLERANCE_SQ, // squared distance tolerance (~30px)
+    onHighlightChange: (pieceId, data) => applyHighlight(pieceId, data),
+    getPieceElement: (id) => pieceElements.get(id),
+  });
+  installGlobalListeners(container);
+}
+
+// Render pieces using their saved displayX/displayY and rotation instead of scattering.
+// Creates a fresh spatial index reflecting current positions.
+export function renderPiecesAtPositions(container, pieces) {
+  const areaW = container.clientWidth || 800;
+  const areaH = container.clientHeight || 600;
+  console.debug("[pieceRenderer] renderPiecesAtPositions count", pieces.length);
+  pieceElements.clear();
+  // Initialize spatial index based on average size similar to scatter
+  const avgSize =
+    (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
+    (pieces[0]?.scale || SCALE || 0.7);
+  spatialIndex = new SpatialIndex(areaW, areaH, chooseCellSize(avgSize));
+  pieces.forEach((p) => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "piece";
+    wrapper.dataset.id = p.id;
+    const canvas = document.createElement("canvas");
+    const scale = p.scale || SCALE;
+    const scaledW = Math.max(24, p.bitmap.width * scale);
+    const scaledH = Math.max(24, p.bitmap.height * scale);
+    canvas.width = scaledW;
+    canvas.height = scaledH;
+    const ctx = canvas.getContext("2d");
+    ctx.save();
+    ctx.scale(scale, scale);
+    ctx.drawImage(p.bitmap, 0, 0);
+    ctx.restore();
+    wrapper.style.width = scaledW + "px";
+    wrapper.style.height = scaledH + "px";
+    // Use saved position; if missing, fallback to random placement
+    const left =
+      typeof p.displayX === "number"
+        ? p.displayX
+        : Math.random() * (areaW - scaledW);
+    const top =
+      typeof p.displayY === "number"
+        ? p.displayY
+        : Math.random() * (areaH - scaledH);
+    wrapper.style.left = left + "px";
+    wrapper.style.top = top + "px";
+    wrapper.style.transform = `rotate(${p.rotation}deg)`;
+    wrapper.appendChild(canvas);
+    // Normalize state fields in case they were absent
+    p.displayX = left;
+    p.displayY = top;
+    p.scale = scale;
+    pieceElements.set(p.id, wrapper);
+    attachPieceEvents(wrapper, p);
+    container.appendChild(wrapper);
+    spatialIndex.insert({
+      id: p.id,
+      x: left + scaledW / 2,
+      y: top + scaledH / 2,
+    });
+  });
+  initConnectionManager({
+    spatialIndex,
+    getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
+    tolerance: 900,
     onHighlightChange: (pieceId, data) => applyHighlight(pieceId, data),
     getPieceElement: (id) => pieceElements.get(id),
   });
@@ -140,7 +215,7 @@ function attachPieceEvents(el, piece) {
     const container = el.parentElement;
     const cRect = container.getBoundingClientRect();
     // Note: boundary checking might need adjustment for zoom, but keeping simple for now
-    if (newLeft + el.offsetWidth > cRect.width + 40) {
+    if (newLeft + el.offsetWidth > cRect.width + OUTSIDE_THRESHOLD_PX) {
       if (!el.dataset.outside)
         console.debug("[pieceRenderer] outside threshold", piece.id);
       el.dataset.outside = "true";
@@ -227,7 +302,10 @@ function detachPieceFromGroup(piece) {
   if (el) {
     el.classList.add("detached-piece");
     // Remove the class after a short time to show the action
-    setTimeout(() => el.classList.remove("detached-piece"), 1000);
+    setTimeout(
+      () => el.classList.remove("detached-piece"),
+      DETACH_FLASH_DURATION_MS
+    );
   }
 
   console.debug(

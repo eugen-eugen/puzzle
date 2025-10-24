@@ -2,8 +2,31 @@
 import { initCommChannel } from "./windowManager.js";
 import { processImage } from "./imageProcessor.js";
 import { generateJigsawPieces } from "./jigsawGenerator.js";
-import { scatterInitialPieces, getPieceElement } from "./pieceRenderer.js";
+import {
+  scatterInitialPieces,
+  getPieceElement,
+  renderPiecesAtPositions,
+} from "./pieceRenderer.js";
+// Persistence (lazy-loaded after definitions to avoid circular issues)
+// We'll dynamically import persistence so this file can export helpers first.
 import { state } from "./gameEngine.js";
+
+// ================================
+// Module Constants (replacing magic numbers)
+// ================================
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 5.0;
+const ZOOM_STEP_FACTOR = 1.2; // Button zoom multiplier
+const WHEEL_ZOOM_IN_FACTOR = 1.1; // Mouse wheel up (zoom in)
+const WHEEL_ZOOM_OUT_FACTOR = 0.9; // Mouse wheel down (zoom out)
+const LOG_SCALE_MAX_EXP = 3; // Slider maps 0..100 => 10^0 .. 10^3
+const MAX_PIECES = 1000; // Clamp maximum piece count for UI
+const BASE_EXPECTED_PIECE_SIZE = 100; // Heuristic size unit for correctness checks
+const DEFAULT_CORRECTNESS_SCALE_FALLBACK = 0.35; // Fallback scale if piece.scale missing
+const NEIGHBOR_POSITION_TOLERANCE_FACTOR = 0.5; // Fraction of expected size allowed for neighbor deltas
+const BLINK_INTERVAL_MS = 300; // Interval between blink frames
+const BLINK_HALF_CYCLES = 8; // Half cycles (on/off) => 4 full blinks
+const BLINK_START_DELAY_MS = 100; // Delay before starting blink effect
 
 const imageInput = document.getElementById("imageInput");
 const pieceSlider = document.getElementById("pieceSlider");
@@ -22,6 +45,7 @@ const zoomDisplay = document.getElementById("zoomDisplay");
 
 let currentImage = null;
 let isGenerating = false;
+let persistence = null; // module ref once loaded
 
 // Zoom and pan state
 let zoomLevel = 1.0;
@@ -34,11 +58,9 @@ let lastPanY = 0;
 // Convert slider position (0-100) to piece count using logarithmic scale
 function sliderToPieceCount(sliderValue) {
   if (sliderValue === 0) return 0;
-  // Logarithmic scale: 1 to 1000 pieces
-  // Using formula: pieces = Math.round(Math.pow(10, 0 + (3 * sliderValue / 100)))
-  const logValue = (sliderValue / 100) * 3; // Maps 0-100 to 0-3
+  const logValue = (sliderValue / 100) * LOG_SCALE_MAX_EXP;
   const pieces = Math.round(Math.pow(10, logValue));
-  return Math.max(1, Math.min(1000, pieces));
+  return Math.max(1, Math.min(MAX_PIECES, pieces));
 }
 
 // Update the piece count display
@@ -58,7 +80,7 @@ function updateZoomDisplay() {
 
 function setZoom(newZoomLevel, centerX = null, centerY = null) {
   const oldZoom = zoomLevel;
-  zoomLevel = Math.max(0.1, Math.min(5.0, newZoomLevel));
+  zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoomLevel));
 
   // If zoom center is provided, adjust pan to zoom to that point
   if (centerX !== null && centerY !== null) {
@@ -85,6 +107,32 @@ function resetZoomAndPan() {
 
 function getCurrentZoom() {
   return zoomLevel;
+}
+
+function getViewportState() {
+  return { zoomLevel, panX, panY };
+}
+
+function applyViewportState(v) {
+  if (!v) return;
+  if (typeof v.zoomLevel === "number") zoomLevel = v.zoomLevel;
+  if (typeof v.panX === "number") panX = v.panX;
+  if (typeof v.panY === "number") panY = v.panY;
+  updateViewportTransform();
+  updateZoomDisplay();
+}
+
+function getSliderValue() {
+  return parseInt(pieceSlider.value, 10) || 0;
+}
+
+function setSliderValue(val) {
+  pieceSlider.value = String(val);
+  updatePieceDisplay();
+}
+
+function getCurrentImage() {
+  return currentImage;
 }
 
 // Coordinate transformation functions
@@ -141,6 +189,11 @@ function updateProgress() {
   } else {
     checkButton.style.display = "none";
   }
+
+  // Trigger debounced auto-save if persistence is active
+  if (persistence && persistence.requestAutoSave) {
+    persistence.requestAutoSave();
+  }
 }
 
 // Generate puzzle with current slider value
@@ -176,6 +229,7 @@ async function generatePuzzle() {
     scatterInitialPieces(piecesViewport, pieces);
     clearAllPieceOutlines(); // Clear any previous validation feedback
     updateProgress();
+    if (persistence && persistence.markDirty) persistence.markDirty();
   } catch (e) {
     console.error(e);
     alert("Failed to generate puzzle: " + e.message);
@@ -208,6 +262,7 @@ imageInput.addEventListener("change", async (e) => {
     state.pieces = [];
     state.totalPieces = 0;
     updateProgress();
+    if (persistence && persistence.markDirty) persistence.markDirty();
   } catch (e) {
     console.error(e);
     alert("Failed to load image: " + e.message);
@@ -393,11 +448,14 @@ function checkPuzzleCorrectness() {
             const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
 
             // Expected piece dimensions (rough estimate)
-            const expectedPieceSize = 100 * (piece.scale || 0.35); // Adjust based on actual piece size
+            const expectedPieceSize =
+              BASE_EXPECTED_PIECE_SIZE *
+              (piece.scale || DEFAULT_CORRECTNESS_SCALE_FALLBACK);
 
             // Check if the relative positioning makes sense for the direction
             let positionIsCorrect = false;
-            const tolerance = expectedPieceSize * 0.5; // Allow some tolerance
+            const tolerance =
+              expectedPieceSize * NEIGHBOR_POSITION_TOLERANCE_FACTOR; // Allow some tolerance
 
             switch (direction) {
               case "north":
@@ -504,8 +562,11 @@ function checkPuzzleCorrectness() {
 
               const deltaX = neighborX - pieceX;
               const deltaY = neighborY - pieceY;
-              const expectedPieceSize = 100 * (piece.scale || 0.35);
-              const tolerance = expectedPieceSize * 0.5;
+              const expectedPieceSize =
+                BASE_EXPECTED_PIECE_SIZE *
+                (piece.scale || DEFAULT_CORRECTNESS_SCALE_FALLBACK);
+              const tolerance =
+                expectedPieceSize * NEIGHBOR_POSITION_TOLERANCE_FACTOR;
 
               let positionIsCorrect = false;
               switch (direction) {
@@ -560,7 +621,7 @@ function checkPuzzleCorrectness() {
           }
           blinkCount++;
 
-          if (blinkCount >= 8) {
+          if (blinkCount >= BLINK_HALF_CYCLES) {
             // Blink 4 times (8 half-cycles)
             console.log(
               `[checkPuzzleCorrectness] Finished blinking for piece ${piece.id}`
@@ -568,14 +629,14 @@ function checkPuzzleCorrectness() {
             clearInterval(blinkInterval);
             drawPieceOutline(piece, "#c94848", 4); // End with red outline
           }
-        }, 300); // 300ms intervals for blinking
+        }, BLINK_INTERVAL_MS); // intervals for blinking
       }
     });
 
     console.log(
       `[checkPuzzleCorrectness] Started blinking for ${blinkingPieces} pieces`
     );
-  }, 100); // Small delay before starting blink effect
+  }, BLINK_START_DELAY_MS); // Small delay before starting blink effect
 }
 
 // Handle Check button click
@@ -615,11 +676,11 @@ pieceSlider.addEventListener("input", () => {
 
 // Zoom button event listeners
 zoomInButton.addEventListener("click", () => {
-  setZoom(zoomLevel * 1.2);
+  setZoom(zoomLevel * ZOOM_STEP_FACTOR);
 });
 
 zoomOutButton.addEventListener("click", () => {
-  setZoom(zoomLevel / 1.2);
+  setZoom(zoomLevel / ZOOM_STEP_FACTOR);
 });
 
 zoomResetButton.addEventListener("click", () => {
@@ -629,7 +690,8 @@ zoomResetButton.addEventListener("click", () => {
 // Mouse wheel zoom
 piecesContainer.addEventListener("wheel", (e) => {
   e.preventDefault();
-  const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+  const zoomFactor =
+    e.deltaY > 0 ? WHEEL_ZOOM_OUT_FACTOR : WHEEL_ZOOM_IN_FACTOR;
   setZoom(zoomLevel * zoomFactor, e.clientX, e.clientY);
 });
 
@@ -666,6 +728,7 @@ document.addEventListener("mouseup", (e) => {
     isPanning = false;
     piecesContainer.style.cursor = "grab";
   }
+  if (persistence && persistence.requestAutoSave) persistence.requestAutoSave();
 });
 
 // Keyboard shortcuts for zoom and pan
@@ -678,11 +741,11 @@ document.addEventListener("keydown", (e) => {
     case "+":
     case "=":
       e.preventDefault();
-      setZoom(zoomLevel * 1.2);
+      setZoom(zoomLevel * ZOOM_STEP_FACTOR);
       break;
     case "-":
       e.preventDefault();
-      setZoom(zoomLevel / 1.2);
+      setZoom(zoomLevel / ZOOM_STEP_FACTOR);
       break;
     case "0":
       e.preventDefault();
@@ -697,6 +760,130 @@ updateZoomDisplay();
 
 initCommChannel(updateProgress);
 
+// Create and show a custom modal dialog for resuming a saved game
+function createResumeModal({ onResume, onDiscard, onCancel }) {
+  // Avoid duplicate modal
+  const existing = document.getElementById("resume-modal-overlay");
+  if (existing) existing.remove();
+
+  // Inject styles once
+  if (!document.getElementById("resume-modal-styles")) {
+    const style = document.createElement("style");
+    style.id = "resume-modal-styles";
+    style.textContent = `
+      #resume-modal-overlay { position: fixed; inset:0; background: rgba(0,0,0,0.55); display:flex; align-items:center; justify-content:center; z-index:10000; }
+      .resume-modal { background:#1f1f1f; color:#f5f5f5; padding:24px 28px 30px; width: min(420px, 90%); border-radius:12px; box-shadow:0 10px 32px rgba(0,0,0,0.4); font-family: system-ui, sans-serif; animation: fadeIn 160ms ease-out; }
+      .resume-modal h2 { margin:0 0 12px; font-size:1.35rem; letter-spacing:0.5px; }
+      .resume-modal p { margin:0 0 20px; line-height:1.45; font-size:0.95rem; color:#d0d0d0; }
+      .resume-actions { display:flex; gap:12px; flex-wrap:wrap; }
+      .resume-actions button { flex:1 1 auto; cursor:pointer; border:none; border-radius:8px; padding:12px 14px; font-size:0.9rem; font-weight:600; letter-spacing:0.4px; transition: background 140ms, transform 120ms; }
+      .resume-primary { background:#2d7ef7; color:#fff; }
+      .resume-primary:hover { background:#1f6bd8; }
+      .resume-warn { background:#444; color:#eee; }
+      .resume-warn:hover { background:#555; }
+      .resume-danger { background:#c44545; color:#fff; }
+      .resume-danger:hover { background:#b23838; }
+      .resume-actions button:active { transform: translateY(1px); }
+      .resume-meta { margin-top:16px; font-size:0.7rem; text-transform:uppercase; opacity:0.6; letter-spacing:1px; text-align:right; }
+      @keyframes fadeIn { from { opacity:0; transform: translateY(6px);} to { opacity:1; transform: translateY(0);} }
+      @media (max-width:520px){ .resume-actions { flex-direction:column; } }
+    `;
+    document.head.appendChild(style);
+  }
+
+  const overlay = document.createElement("div");
+  overlay.id = "resume-modal-overlay";
+  overlay.innerHTML = `
+    <div class="resume-modal" role="dialog" aria-modal="true" aria-labelledby="resume-modal-title">
+      <h2 id="resume-modal-title">Resume Puzzle?</h2>
+      <p>We found a previously saved puzzle session. Would you like to continue where you left off or start a new puzzle?</p>
+      <div class="resume-actions">
+        <button class="resume-primary" data-action="resume">Resume</button>
+        <button class="resume-warn" data-action="cancel">Cancel</button>
+        <button class="resume-danger" data-action="discard">Start New</button>
+      </div>
+      <div class="resume-meta">Autosave Active</div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  function close() {
+    overlay.remove();
+    document.removeEventListener("keydown", onKey);
+  }
+  function onKey(e) {
+    if (e.key === "Escape") {
+      close();
+      onCancel && onCancel();
+    }
+  }
+  document.addEventListener("keydown", onKey);
+
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) {
+      close();
+      onCancel && onCancel();
+    }
+  });
+  overlay.querySelectorAll("button").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const action = btn.dataset.action;
+      if (action === "resume") {
+        close();
+        onResume && onResume();
+      } else if (action === "discard") {
+        // Direct discard without extra confirm (user requested removal of alert)
+        close();
+        onDiscard && onDiscard();
+      } else if (action === "cancel") {
+        close();
+        onCancel && onCancel();
+      }
+    });
+  });
+
+  // Focus first button for accessibility
+  const firstBtn = overlay.querySelector("button[data-action='resume']");
+  firstBtn && firstBtn.focus();
+}
+
+// Late-load persistence module and attempt auto-resume
+import("./persistence.js")
+  .then((mod) => {
+    persistence = mod;
+    mod.initPersistence({
+      getViewportState,
+      applyViewportState,
+      getSliderValue,
+      setSliderValue,
+      getCurrentImage,
+      setImage: (img) => (currentImage = img),
+      regenerate: generatePuzzle,
+      getState: () => state,
+      setPieces: (pieces) => {
+        state.pieces = pieces;
+        state.totalPieces = pieces.length;
+      },
+      redrawPiecesContainer: () => {
+        piecesViewport.innerHTML = "";
+        scatterInitialPieces(piecesViewport, state.pieces);
+        updateProgress();
+      },
+      renderPiecesFromState: () => {
+        piecesViewport.innerHTML = "";
+        renderPiecesAtPositions(piecesViewport, state.pieces);
+        updateProgress();
+      },
+      markDirtyHook: () => updateProgress(),
+      showResumePrompt: createResumeModal,
+      afterDiscard: () => {
+        // Reset visible UI state after discard if needed
+        updateProgress();
+      },
+    });
+    mod.tryOfferResume();
+  })
+  .catch((err) => console.warn("Persistence module load failed", err));
+
 // Export functions for use by other modules
 export {
   updateProgress,
@@ -704,4 +891,10 @@ export {
   screenToViewport,
   viewportToScreen,
   getCurrentZoom,
+  setZoom,
+  getViewportState,
+  applyViewportState,
+  getSliderValue,
+  setSliderValue,
+  getCurrentImage,
 };

@@ -7,6 +7,21 @@
 // Edge metadata (top/right/bottom/left) continues to use: +1 = bump (knob outward),
 // -1 = dent (cavity inward), 0 = flat (outer border).
 
+// ================================
+// Generation Constants (avoid magic numbers)
+// ================================
+const MIN_GRID_DIMENSION = 2;
+const MAX_DEPTH_FACTOR = 0.18; // Relative to min(pieceW,pieceH)
+const MIN_DEPTH_FACTOR = 0.1; // Relative to min(pieceW,pieceH)
+const WAYPOINT_OFFSET_RANGE = 0.25; // Waypoint offset range (both directions)
+const CAVITY_DEPTH_CAP_RELATIVE_TO_MIN = 0.25; // Clamp depth to this * min(w,h)
+const CAVITY_DEPTH_CAP_EDGE_FRACTION = 0.5; // Clamp depth to this fraction of edge length
+const PAD_EXTRA_FACTOR = 1.25; // Extra factor on maxDepth when computing pad
+const PAD_EXTRA_PIXELS = 6; // Extra pixels beyond scaled depth
+const DEBUG_OUTLINE_COLOR = "#ff00aa";
+const DEBUG_OUTLINE_WIDTH = 1.25;
+const RANDOM_ROTATIONS = [0, 90, 180, 270];
+
 /**
  * Generate interlocking jigsaw pieces for an image using waypoint lattice.
  * @param {HTMLImageElement} img
@@ -16,8 +31,11 @@
 export function generateJigsawPieces(img, targetCount) {
   // 1. Determine grid close to target count (preserve aspect ratio)
   const aspect = img.width / img.height;
-  let cols = Math.max(2, Math.round(Math.sqrt(targetCount * aspect)));
-  let rows = Math.max(2, Math.round(targetCount / cols));
+  let cols = Math.max(
+    MIN_GRID_DIMENSION,
+    Math.round(Math.sqrt(targetCount * aspect))
+  );
+  let rows = Math.max(MIN_GRID_DIMENSION, Math.round(targetCount / cols));
   while (rows * cols < targetCount) cols++;
   const actualCount = rows * cols;
 
@@ -59,16 +77,15 @@ export function generateJigsawPieces(img, targetCount) {
     return -1;
   }
 
-  const maxDepth = 0.18 * Math.min(pieceW, pieceH); // base amplitude cap
-  const minDepth = 0.1 * Math.min(pieceW, pieceH);
+  const maxDepth = MAX_DEPTH_FACTOR * Math.min(pieceW, pieceH); // base amplitude cap
+  const minDepth = MIN_DEPTH_FACTOR * Math.min(pieceW, pieceH);
 
   // Helper to clamp cavity so it does not cross diagonals inside a piece
   function clampDepthForCavity(localDepth, edgeLength) {
-    // Conservative clamp: ensure depth <= 0.25 * min(w,h) and <= 0.5 * edgeLength
     return Math.min(
       localDepth,
-      0.25 * Math.min(pieceW, pieceH),
-      0.5 * edgeLength
+      CAVITY_DEPTH_CAP_RELATIVE_TO_MIN * Math.min(pieceW, pieceH),
+      CAVITY_DEPTH_CAP_EDGE_FRACTION * edgeLength
     );
   }
 
@@ -78,7 +95,8 @@ export function generateJigsawPieces(img, targetCount) {
       const A = corners[r + 1][c]; // top-left of lower piece / bottom-left of upper piece
       const B = corners[r + 1][c + 1];
       const edgeLen = pieceW;
-      const tOffset = Math.random() * 0.5 - 0.25; // [-0.25,0.25]
+      const tOffset =
+        Math.random() * (WAYPOINT_OFFSET_RANGE * 2) - WAYPOINT_OFFSET_RANGE; // [-range, range]
       const t = 0.5 + tOffset;
       const baseX = A.x + (B.x - A.x) * t;
       const baseY = A.y; // horizontal line
@@ -107,7 +125,8 @@ export function generateJigsawPieces(img, targetCount) {
         ? corners[r + 1][c + 1]
         : { x: A.x, y: A.y + pieceH }; // safe guard
       const edgeLen = pieceH;
-      const tOffset = Math.random() * 0.5 - 0.25;
+      const tOffset =
+        Math.random() * (WAYPOINT_OFFSET_RANGE * 2) - WAYPOINT_OFFSET_RANGE;
       const t = 0.5 + tOffset;
       const baseY = A.y + (B.y - A.y) * t;
       const baseX = A.x; // vertical line
@@ -183,7 +202,7 @@ export function generateJigsawPieces(img, targetCount) {
     for (let c = 0; c < cols; c++) {
       const path = piecePath(r, c);
       // Padding: allow for outward bumps on any side; expand symmetric
-      const pad = Math.ceil(maxDepth * 1.25 + 6); // slightly larger than maxDepth
+      const pad = Math.ceil(maxDepth * PAD_EXTRA_FACTOR + PAD_EXTRA_PIXELS); // slightly larger than maxDepth
       const pw = Math.ceil(pieceW + pad * 2);
       const ph = Math.ceil(pieceH + pad * 2);
       const canvas = document.createElement("canvas");
@@ -211,8 +230,8 @@ export function generateJigsawPieces(img, targetCount) {
       // Debug outline (optional)
       ctx.save();
       ctx.translate(pad, pad);
-      ctx.strokeStyle = "#ff00aa";
-      ctx.lineWidth = 1.25;
+      ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
+      ctx.lineWidth = DEBUG_OUTLINE_WIDTH;
       ctx.stroke(path);
       ctx.restore();
 
@@ -251,7 +270,8 @@ export function generateJigsawPieces(img, targetCount) {
         h: pieceH,
         imgX: c * pieceW,
         imgY: r * pieceH,
-        rotation: [0, 90, 180, 270][Math.floor(Math.random() * 4)],
+        rotation:
+          RANDOM_ROTATIONS[Math.floor(Math.random() * RANDOM_ROTATIONS.length)],
         path,
         bitmap: canvas,
         pad,

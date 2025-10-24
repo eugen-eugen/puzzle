@@ -5,10 +5,21 @@
 import { state, connectPieces } from "./gameEngine.js";
 import { updateProgress, getCurrentZoom } from "./app.js";
 
+// ================================
+// Module Constants
+// ================================
+const DEFAULT_CONNECTION_DISTANCE_PX = 30; // Base pixel distance for matching
+const CONNECTION_TOLERANCE_SQ =
+  DEFAULT_CONNECTION_DISTANCE_PX * DEFAULT_CONNECTION_DISTANCE_PX; // 30^2 = 900
+const DEFAULT_ALIGNMENT_TOLERANCE_SQ = CONNECTION_TOLERANCE_SQ; // Same heuristic currently
+const FINE_PLACE_LARGE_DELTA_THRESHOLD = 1000; // Warn if alignment exceeds this many pixels
+const COARSE_RADIUS_MULTIPLIER = 1.5; // Radius multiplier relative to longest side
+const FALLBACK_PIECE_SCALE = 0.35; // Fallback scale for missing piece.scale (should match generators / renderer defaults)
+
 // Public configuration (can be overridden during init)
 const CONFIG = {
-  CONNECTION_TOLERANCE: 900, // squared px distance (e.g. 30px^2 default) - tune later
-  ALIGNMENT_TOLERANCE: 900,
+  CONNECTION_TOLERANCE: CONNECTION_TOLERANCE_SQ,
+  ALIGNMENT_TOLERANCE: DEFAULT_ALIGNMENT_TOLERANCE_SQ,
 };
 
 let spatialIndex = null;
@@ -61,7 +72,7 @@ function rotatePoint(px, py, cx, cy, rad) {
  */
 function computeWorldData(piece) {
   // Requires: piece.bitmap.width/height, piece.pad, piece.displayX/Y, piece.rotation, piece.scale
-  if (piece.scale == null) piece.scale = 0.35; // fallback if not set
+  if (piece.scale == null) piece.scale = FALLBACK_PIECE_SCALE; // fallback if not set
   const bmpW = piece.bitmap.width * piece.scale;
   const bmpH = piece.bitmap.height * piece.scale;
   const cx = piece.displayX + bmpW / 2;
@@ -185,43 +196,6 @@ function matchWaypoints(mWaypoints, sWaypoints, tolerance) {
   return null;
 }
 
-/**
- * Attempts to find the best matching side pair between a moving piece and a stationary piece
- * using geometric compatibility checks as defined in GAME_SPECIFICATION.md.
- *
- * Performs comprehensive validation including:
- * - Waypoint proximity verification (all waypoints within CONNECTION_TOLERANCE)
- * - Complementary polarity check (bump +1 matches dent -1 only)
- * - Tests both direct and reversed waypoint ordering to handle rotation
- *
- * @param {Object} movingPiece - The piece being dragged
- * @param {Object} movingPiece.edges - Polarity values {north, east, south, west} where +1=bump, -1=dent, 0=border
- * @param {Object} movingPiece.sPoints - Side shape points {north, east, south, west} in local coordinates
- * @param {Object} stationaryPiece - The candidate piece to match against
- * @param {Object} stationaryPiece.edges - Polarity values {north, east, south, west}
- * @param {Object} stationaryPiece.sPoints - Side shape points {north, east, south, west} in local coordinates
- * @param {Object} stationaryPiece.id - Unique identifier for the stationary piece
- * @param {Object} movingWD - World-space coordinates for moving piece (from computeWorldData)
- * @param {Object} movingWD.worldCorners - Corner positions {nw, ne, se, sw} in world space
- * @param {Object} movingWD.worldSPoints - Side points {north, east, south, west} in world space
- * @param {Object} stationaryWD - World-space coordinates for stationary piece (from computeWorldData)
- * @param {Object} stationaryWD.worldCorners - Corner positions {nw, ne, se, sw} in world space
- * @param {Object} stationaryWD.worldSPoints - Side points {north, east, south, west} in world space
- *
- * @returns {Object|null} Best matching side pair, or null if no valid match found.
- *   Returns object with:
- *   - {number} score: Aggregate squared distance (lower is better)
- *   - {string} stationaryPieceId: ID of the matching stationary piece
- *   - {string} movingSide: Side name on moving piece ("north"|"east"|"south"|"west")
- *   - {string} stationarySide: Side name on stationary piece ("north"|"east"|"south"|"west")
- *   - {Object} mapping: Corner correspondence mapping
- *   - {string} mapping.movingCornerA: First corner key on moving piece ("nw"|"ne"|"se"|"sw")
- *   - {string} mapping.movingCornerB: Second corner key on moving piece
- *   - {string} mapping.stationaryCornerA: Matching corner key on stationary piece
- *   - {string} mapping.stationaryCornerB: Matching corner key on stationary piece
- *   - {Object} stationaryCornerWorldA: World coordinates of first stationary corner
- *   - {Object} stationaryCornerWorldB: World coordinates of second stationary corner
- */
 function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
   // Adjust tolerance based on current zoom level
   const zoomLevel = getCurrentZoom();
@@ -315,7 +289,7 @@ function findCandidate(movingPiece) {
   const bmpW = movingPiece.bitmap.width * movingPiece.scale;
   const bmpH = movingPiece.bitmap.height * movingPiece.scale;
   const longestSide = Math.max(bmpW, bmpH);
-  const coarseR = longestSide * 1.5;
+  const coarseR = longestSide * COARSE_RADIUS_MULTIPLIER;
 
   const centerX = movingWD.worldCorners.nw.x; // rough anchor
   const centerY = movingWD.worldCorners.nw.y;
@@ -408,7 +382,10 @@ function finePlace(movingPiece, highlightData) {
   const dy = sWorldCorner.y - mWorldCorner.y;
 
   // Debug: Check for unusual delta values that might indicate a problem
-  if (Math.abs(dx) > 1000 || Math.abs(dy) > 1000) {
+  if (
+    Math.abs(dx) > FINE_PLACE_LARGE_DELTA_THRESHOLD ||
+    Math.abs(dy) > FINE_PLACE_LARGE_DELTA_THRESHOLD
+  ) {
     console.warn("[finePlace] Unusually large fine placement delta", {
       dx,
       dy,
