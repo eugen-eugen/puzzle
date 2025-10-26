@@ -13,6 +13,7 @@ import {
   screenToViewport,
   ensureRectInView,
   enforceInitialMargins,
+  fitAllPiecesInView,
 } from "./app.js";
 // windowManager no longer needed for cross-window transfer (single-window mode)
 
@@ -288,12 +289,18 @@ function attachPieceEvents(el, piece) {
 
     const container = el.parentElement;
     const cRect = container.getBoundingClientRect();
-    // Note: boundary checking might need adjustment for zoom, but keeping simple for now
-    if (newLeft + el.offsetWidth > cRect.width + OUTSIDE_THRESHOLD_PX) {
-      if (!el.dataset.outside)
-        console.debug("[pieceRenderer] outside threshold", piece.id);
+    // Border overflow detection (any side beyond threshold)
+    const overLeft = newLeft < -OUTSIDE_THRESHOLD_PX;
+    const overTop = newTop < -OUTSIDE_THRESHOLD_PX;
+    const overRight =
+      newLeft + el.offsetWidth > cRect.width + OUTSIDE_THRESHOLD_PX;
+    const overBottom =
+      newTop + el.offsetHeight > cRect.height + OUTSIDE_THRESHOLD_PX;
+    const isOutside = overLeft || overTop || overRight || overBottom;
+    if (isOutside && !el.dataset.outside) {
+      console.debug("[pieceRenderer] outside threshold (global)", piece.id);
       el.dataset.outside = "true";
-    } else if (el.dataset.outside) {
+    } else if (!isOutside && el.dataset.outside) {
       console.debug("[pieceRenderer] back inside", piece.id);
       delete el.dataset.outside;
     }
@@ -308,16 +315,21 @@ function attachPieceEvents(el, piece) {
       const wasDetached = currentDrag?.isDetached || false;
       currentDrag = null;
       handleDragEnd(piece, wasDetached);
-      const forceZoom = !!el.dataset.outside;
-      // Prevent left/top gap growth before visibility adjustment
+      const wentOutside = !!el.dataset.outside;
       enforceInitialMargins();
-      ensureRectInView(
-        piece.displayX,
-        piece.displayY,
-        el.offsetWidth,
-        el.offsetHeight,
-        { forceZoom }
-      );
+      if (wentOutside) {
+        // New logic: fit all pieces into view
+        fitAllPiecesInView();
+        delete el.dataset.outside; // reset flag
+      } else {
+        ensureRectInView(
+          piece.displayX,
+          piece.displayY,
+          el.offsetWidth,
+          el.offsetHeight,
+          { forceZoom: false }
+        );
+      }
     }
     try {
       el.releasePointerCapture(e.pointerId);
@@ -332,15 +344,20 @@ function attachPieceEvents(el, piece) {
       const wasDetached = currentDrag?.isDetached || false;
       currentDrag = null;
       handleDragEnd(piece, wasDetached);
-      const forceZoom = !!el.dataset.outside;
+      const wentOutside = !!el.dataset.outside;
       enforceInitialMargins();
-      ensureRectInView(
-        piece.displayX,
-        piece.displayY,
-        el.offsetWidth,
-        el.offsetHeight,
-        { forceZoom }
-      );
+      if (wentOutside) {
+        fitAllPiecesInView();
+        delete el.dataset.outside;
+      } else {
+        ensureRectInView(
+          piece.displayX,
+          piece.displayY,
+          el.offsetWidth,
+          el.offsetHeight,
+          { forceZoom: false }
+        );
+      }
     }
     try {
       el.releasePointerCapture(e.pointerId);

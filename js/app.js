@@ -159,53 +159,53 @@ function getCurrentZoom() {
 }
 
 /**
- * Ensure a rectangle is fully visible inside the puzzle container viewport.
+ * Ensure a rectangle (piece bounding box in logical / viewport coordinates) is fully
+ * visible in the container, optionally shrinking zoom when necessary.
  *
- * Coordinate Spaces:
- * - (x, y, w, h) are in *viewport (logical puzzle)* coordinates – i.e. the same
- *   coordinate system used for piece.displayX / piece.displayY before the zoom & pan
- *   transform is applied.
- * - Current transform: screenPosition = (viewport * zoomLevel) + pan.
+ * Coordinate spaces:
+ * - Inputs (x,y,w,h) are in logical viewport units (pre‑transform piece.displayX/Y).
+ * - Screen position = pan + logical * zoomLevel.
  *
- * Behavior:
- * 1. (Default) Attempts to satisfy visibility by adjusting pan only (no zoom change),
- *    clamping the rectangle so it lies completely within the container.
- * 2. If after panning the rectangle still overflows OR the caller explicitly sets
- *    forceZoom = true (e.g. piece previously marked outside a threshold), it computes
- *    the minimal zoom-out required so the rectangle fits (with a small margin when
- *    forced) and applies that new zoom level (never zooms in – only preserves or
- *    decreases zoom).
- * 3. After any zoom adjustment, pan is re‑clamped so the rectangle is fully on screen.
+ * Two execution paths:
+ * 1. Normal mode (forceZoom = false):
+ *    a. Attempt to fix visibility by panning only (clamp left/top/right/bottom).
+ *    b. If any side still overflows, compute the maximum zoom that would fit THIS
+ *       rectangle alone (piece‑centric): targetZoom = min(currentZoom, contW / w, contH / h),
+ *       apply if it is a reduction, then re‑clamp pan.
+ * 2. Force mode (forceZoom = true):
+ *    a. Skip the initial pan so we retain the raw overflow distances.
+ *    b. Measure horizontal & vertical overflow in screen pixels.
+ *       shrinkFactorH = contW / (contW + overflowXTotal) when overflow exists
+ *       shrinkFactorV = contH / (contH + overflowYTotal)
+ *       minFactor = min(shrinkFactorH, shrinkFactorV) (ignoring factors = 1).
+ *    c. If minFactor < ~0.999, zoomLevel *= minFactor (bounded by MIN_ZOOM); never increases zoom.
+ *    d. Finally clamp pan so the (possibly still same‑sized) rect is entirely on screen.
  *
- * forceZoom rationale:
- * - Drag logic may detect a piece has crossed an "outside threshold" before it is
- *   truly clipped (e.g. early warning). Passing { forceZoom: true } guarantees we
- *   evaluate a margin‑fit zoom instead of relying solely on overflow state.
+ * Differences vs earlier version:
+ * - No margin / padding is added in force mode anymore; zoom reduction is proportional
+ *   to actual overflow (cont / (cont + overflow)).
+ * - forceZoom path does NOT pan first; normal path always tries pan before zoom.
  *
- * Idempotency & Limits:
- * - Never increases zoomLevel.
- * - Respects MIN_ZOOM.
- * - Performs at most one zoom operation per invocation.
+ * Guarantees:
+ * - Zoom only decreases or stays the same.
+ * - At most one zoom adjustment per call.
+ * - O(1) operations (no DOM queries beyond pre‑captured container dimensions).
  *
- * Performance Notes:
- * - O(1); no DOM queries beyond existing cached container metrics.
- * - Called at drag/rotation end – not per frame – to keep interaction smooth.
+ * When to use forceZoom:
+ * - Caller detected a threshold condition (e.g., piece moved beyond a soft boundary) and wants
+ *   proportional zoom‑out even if a pan could have hidden the overflow.
  *
- * @param {number} x Logical left of the rectangle (viewport coordinates, before transform).
- * @param {number} y Logical top of the rectangle (viewport coordinates, before transform).
- * @param {number} w Logical width of the rectangle.
- * @param {number} h Logical height of the rectangle.
- * @param {Object} [options] Optional behavior overrides.
- * @param {boolean} [options.forceZoom=false] If true, always consider a margin fit zoom
- *   (even if current pan could suffice) – used when a piece was previously flagged as
- *   near/over a visibility threshold.
+ * @param {number} x  Logical left.
+ * @param {number} y  Logical top.
+ * @param {number} w  Logical width.
+ * @param {number} h  Logical height.
+ * @param {Object} [options]
+ * @param {boolean} [options.forceZoom=false] Use overflow‑proportional shrink (skip initial pan).
  *
- * @example
- * // After finishing a drag:
+ * @example // Basic usage after drag end
  * ensureRectInView(piece.displayX, piece.displayY, el.offsetWidth, el.offsetHeight);
  *
- * @example
- * // Force a slight zoom‑out if piece was flagged outside early warning bounds:
+ * @example // Enforce zoom out if piece flagged as outside threshold
  * ensureRectInView(px, py, pw, ph, { forceZoom: true });
  */
 function ensureRectInView(x, y, w, h, options = {}) {
@@ -1122,3 +1122,65 @@ export {
   captureInitialMargins,
   enforceInitialMargins,
 };
+
+/**
+ * Fit ALL current pieces into the visible viewport by:
+ * 1. Computing the bounding rectangle R of every piece's (displayX, displayY, width, height)
+ *    (rotation is ignored; we use the element's unrotated box which is usually adequate).
+ * 2. Determining the zoom that allows R to fully fit (preserving aspect ratio) inside the container.
+ *    This zoom may increase or decrease the current zoom but is clamped to [MIN_ZOOM, MAX_ZOOM].
+ * 3. Applying that zoom.
+ * 4. Positioning (pan) so that the top‑left of R aligns exactly with the top‑left of the viewport
+ *    (i.e. R.left = 0, R.top = 0 in screen coordinates).
+ * 5. Resetting the preserved initial margins so subsequent margin enforcement does not undo this alignment.
+ *
+ * Typical trigger: a moved piece exits the visible window bounds and the caller wants to refocus
+ * the entire puzzle instead of only the moved piece.
+ */
+function fitAllPiecesInView() {
+  if (!state.pieces || state.pieces.length === 0) return;
+  const contW = piecesContainer?.clientWidth || 0;
+  const contH = piecesContainer?.clientHeight || 0;
+  if (contW === 0 || contH === 0) return;
+
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  for (const p of state.pieces) {
+    if (typeof p.displayX !== "number" || typeof p.displayY !== "number")
+      continue;
+    const el = getPieceElement(p.id);
+    if (!el) continue;
+    const w = el.offsetWidth;
+    const h = el.offsetHeight;
+    if (p.displayX < minX) minX = p.displayX;
+    if (p.displayY < minY) minY = p.displayY;
+    if (p.displayX + w > maxX) maxX = p.displayX + w;
+    if (p.displayY + h > maxY) maxY = p.displayY + h;
+  }
+
+  if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY))
+    return;
+  const rectW = Math.max(1, maxX - minX);
+  const rectH = Math.max(1, maxY - minY);
+
+  // Compute zoom to fit entire rectangle.
+  const fitZoom = Math.min(contW / rectW, contH / rectH);
+  const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, fitZoom));
+  zoomLevel = newZoom;
+
+  // Align top-left of bounding rect with viewport origin.
+  panX = -minX * zoomLevel;
+  panY = -minY * zoomLevel;
+
+  updateViewportTransform();
+  updateZoomDisplay();
+
+  // Reset initial margins so margin enforcement logic does not shift us later.
+  initialMarginLeft = 0;
+  initialMarginTop = 0;
+}
+
+export { fitAllPiecesInView };
