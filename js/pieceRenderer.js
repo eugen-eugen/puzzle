@@ -42,6 +42,12 @@ let lastTapY = 0;
 // Track active touch pointers for multi-touch gestures (e.g., two-finger detach)
 const activeTouchIds = new Set();
 
+function updateTouchDebug() {
+  const el = document.getElementById("touchDebug");
+  if (!el) return;
+  el.textContent = "t:" + activeTouchIds.size;
+}
+
 function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
   const groupPieces = getGroupPieces(piece);
   if (groupPieces.length > 1) {
@@ -190,22 +196,23 @@ function attachPieceEvents(el, piece) {
     e.stopPropagation();
     if (e.pointerType === "touch") {
       activeTouchIds.add(e.pointerId);
+      updateTouchDebug();
     }
     selectPiece(piece.id);
 
     // Clear validation outlines when piece is picked up
     clearAllPieceOutlines();
 
-    // Check if Shift is pressed - this will detach the piece from its group
-    const isShiftPressed = e.shiftKey;
+    // Check if Control is pressed - this will detach the piece from its group
+    const isCtrlPressed = e.ctrlKey;
 
     // Multi-touch detach condition (two or more active touch points)
     const multiTouchDetach =
       e.pointerType === "touch" && activeTouchIds.size >= 2;
-    if ((isShiftPressed || multiTouchDetach) && piece.groupId) {
+    if ((isCtrlPressed || multiTouchDetach) && piece.groupId) {
       console.debug(
         "[pieceRenderer] detaching piece from group via",
-        isShiftPressed ? "shift" : "multi-touch",
+        isCtrlPressed ? "control" : "multi-touch",
         piece.id
       );
       detachPieceFromGroup(piece);
@@ -247,7 +254,7 @@ function attachPieceEvents(el, piece) {
       offsetY: viewportPos.y - piece.displayY,
       originLeft: parseFloat(el.style.left),
       originTop: parseFloat(el.style.top),
-      isDetached: (isShiftPressed || multiTouchDetach) && piece.groupId, // Track if this piece was detached
+      isDetached: (isCtrlPressed || multiTouchDetach) && piece.groupId, // Track if this piece was detached
     };
     try {
       el.setPointerCapture(e.pointerId);
@@ -255,7 +262,7 @@ function attachPieceEvents(el, piece) {
     console.debug(
       "[pieceRenderer] drag start",
       piece.id,
-      isShiftPressed || multiTouchDetach ? "(detached)" : ""
+      isCtrlPressed || multiTouchDetach ? "(detached)" : ""
     );
   });
 
@@ -296,6 +303,7 @@ function attachPieceEvents(el, piece) {
 
   el.addEventListener("pointerup", (e) => {
     if (e.pointerType === "touch") activeTouchIds.delete(e.pointerId);
+    if (e.pointerType === "touch") updateTouchDebug();
     if (currentDrag && currentDrag.id === piece.id) {
       const wasDetached = currentDrag?.isDetached || false;
       currentDrag = null;
@@ -319,6 +327,7 @@ function attachPieceEvents(el, piece) {
   // In case pointer leaves (e.g., finger lifted outside element), end drag
   el.addEventListener("pointercancel", (e) => {
     if (e.pointerType === "touch") activeTouchIds.delete(e.pointerId);
+    if (e.pointerType === "touch") updateTouchDebug();
     if (currentDrag && currentDrag.id === piece.id) {
       const wasDetached = currentDrag?.isDetached || false;
       currentDrag = null;
