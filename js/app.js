@@ -47,6 +47,7 @@ const zoomDisplay = document.getElementById("zoomDisplay");
 let currentImage = null;
 let isGenerating = false;
 let persistence = null; // module ref once loaded
+let deepLinkActive = false; // true when URL provides image & pieces params
 
 // Zoom and pan state
 let zoomLevel = 1.0;
@@ -110,6 +111,14 @@ function sliderToPieceCount(sliderValue) {
   const logValue = (sliderValue / 100) * LOG_SCALE_MAX_EXP;
   const pieces = Math.round(Math.pow(10, logValue));
   return Math.max(1, Math.min(MAX_PIECES, pieces));
+}
+
+// Inverse mapping: approximate slider value for a desired piece count.
+function pieceCountToSlider(pieces) {
+  const clamped = Math.max(1, Math.min(MAX_PIECES, pieces));
+  const logValue = Math.log10(clamped); // in range 0..LOG_SCALE_MAX_EXP roughly
+  const slider = (logValue / LOG_SCALE_MAX_EXP) * 100;
+  return Math.round(Math.max(0, Math.min(100, slider)));
 }
 
 // Update the piece count display
@@ -967,6 +976,38 @@ async function bootstrap() {
   applyTranslations();
   updatePieceDisplay();
   updateZoomDisplay();
+  // Deep link mode: ?image=<url>&pieces=<n>
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const imageParam = params.get("image");
+    const piecesParam = params.get("pieces");
+    if (imageParam && piecesParam) {
+      const desiredPieces = parseInt(piecesParam, 10);
+      if (!isNaN(desiredPieces) && desiredPieces > 0) {
+        deepLinkActive = true; // mark so persistence skip resume
+        // Load remote image
+        const img = new Image();
+        img.crossOrigin = "anonymous"; // allow canvas usage when CORS permits
+        img.decoding = "async";
+        img.onload = async () => {
+          currentImage = img;
+          // Map piece count to slider position
+          const sliderVal = pieceCountToSlider(desiredPieces);
+          pieceSlider.value = String(sliderVal);
+          updatePieceDisplay();
+          await generatePuzzle();
+        };
+        img.onerror = () => {
+          console.warn("[deep-link] Failed to load image URL", imageParam);
+        };
+        img.src = imageParam;
+      } else {
+        console.warn("[deep-link] Invalid pieces param", piecesParam);
+      }
+    }
+  } catch (err) {
+    console.warn("[deep-link] Error processing deep link params", err);
+  }
   initCommChannel(updateProgress);
 
   // Late-load persistence module and attempt auto-resume AFTER i18n so modal is translated
@@ -1004,7 +1045,19 @@ async function bootstrap() {
           updateProgress();
         },
       });
-      mod.tryOfferResume();
+      if (deepLinkActive) {
+        // User requested deep link session: discard any previous save silently
+        try {
+          mod.clearSavedGame();
+          console.info(
+            "[deep-link] Previous session discarded due to deep link mode"
+          );
+        } catch (e) {
+          console.warn("[deep-link] Failed to clear previous save", e);
+        }
+      } else {
+        mod.tryOfferResume();
+      }
     })
     .catch((err) => console.warn("Persistence module load failed", err));
 }
@@ -1121,6 +1174,7 @@ export {
   ensureRectInView,
   captureInitialMargins,
   enforceInitialMargins,
+  pieceCountToSlider,
 };
 
 /**
