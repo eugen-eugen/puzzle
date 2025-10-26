@@ -6,6 +6,9 @@
   cursor:grab;
   background-image:radial-gradient(circle at 1px 1px, rgba(255,255,255,0.15) 1px, transparent 0);
   background-size:20px 20px;
+  /* Prevent browser default panning/scroll on touch so pieces can drag smoothly */
+  touch-action:none;
+  -ms-touch-action:none;
 }
 .pieces-container:active {cursor:grabbing;}
 .pieces-viewport {
@@ -15,7 +18,7 @@
   transition:transform 0.1s ease-out;
   position:relative;
 }
-.piece {position:absolute;cursor:grab;user-select:none;}
+.piece {position:absolute;cursor:grab;user-select:none;touch-action:none;}
 .piece:active {cursor:grabbing;}
 .piece img {display:block;}
 .ready-connect {box-shadow:0 0 0 2px var(--accent-green),0 0 12px 4px rgba(46,168,98,.5);}

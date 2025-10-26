@@ -156,8 +156,10 @@ export function renderPiecesAtPositions(container, pieces) {
 
 function attachPieceEvents(el, piece) {
   el.addEventListener("pointerdown", (e) => {
-    if (e.button !== 0) return; // left only
+    // Only primary button / finger
+    if (e.button !== 0 && e.pointerType !== "touch") return;
     e.preventDefault();
+    e.stopPropagation();
     selectPiece(piece.id);
 
     // Clear validation outlines when piece is picked up
@@ -185,7 +187,9 @@ function attachPieceEvents(el, piece) {
       originTop: parseFloat(el.style.top),
       isDetached: isShiftPressed && piece.groupId, // Track if this piece was detached
     };
-    el.setPointerCapture(e.pointerId);
+    try {
+      el.setPointerCapture(e.pointerId);
+    } catch (_) {}
     console.debug(
       "[pieceRenderer] drag start",
       piece.id,
@@ -195,6 +199,7 @@ function attachPieceEvents(el, piece) {
 
   el.addEventListener("pointermove", (e) => {
     if (!currentDrag || currentDrag.id !== piece.id) return;
+    e.preventDefault();
 
     // Convert screen coordinates to viewport coordinates
     const viewportPos = screenToViewport(e.clientX, e.clientY);
@@ -227,11 +232,27 @@ function attachPieceEvents(el, piece) {
     handleDragMove(piece);
   });
 
-  el.addEventListener("pointerup", () => {
-    // End drag in single-window mode
-    const wasDetached = currentDrag?.isDetached || false;
-    currentDrag = null;
-    handleDragEnd(piece, wasDetached);
+  el.addEventListener("pointerup", (e) => {
+    if (currentDrag && currentDrag.id === piece.id) {
+      const wasDetached = currentDrag?.isDetached || false;
+      currentDrag = null;
+      handleDragEnd(piece, wasDetached);
+    }
+    try {
+      el.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+  });
+
+  // In case pointer leaves (e.g., finger lifted outside element), end drag
+  el.addEventListener("pointercancel", (e) => {
+    if (currentDrag && currentDrag.id === piece.id) {
+      const wasDetached = currentDrag?.isDetached || false;
+      currentDrag = null;
+      handleDragEnd(piece, wasDetached);
+    }
+    try {
+      el.releasePointerCapture(e.pointerId);
+    } catch (_) {}
   });
 
   el.addEventListener("dblclick", () => {
@@ -444,6 +465,16 @@ function installGlobalListeners(container) {
       }
     }
   });
+  // Prevent touch-based scrolling inside puzzle area
+  container.addEventListener(
+    "touchmove",
+    (e) => {
+      if (currentDrag) {
+        e.preventDefault();
+      }
+    },
+    { passive: false }
+  );
   window.addEventListener("keydown", (e) => {
     if (!selectedPieceId) return;
     const pieceEl = pieceElements.get(selectedPieceId);
