@@ -11,6 +11,8 @@ import {
   updateProgress,
   clearAllPieceOutlines,
   screenToViewport,
+  ensureRectInView,
+  enforceInitialMargins,
 } from "./app.js";
 // windowManager no longer needed for cross-window transfer (single-window mode)
 
@@ -26,10 +28,34 @@ const MIN_RENDERED_DIMENSION = 24; // Minimum drawn width/height to keep piece i
 const OUTSIDE_THRESHOLD_PX = 40; // Distance from right boundary to mark piece as 'outside'
 const DETACH_FLASH_DURATION_MS = 1000; // Duration of detached visual indicator
 const CONNECTION_TOLERANCE_SQ = 30 * 30; // Squared distance tolerance passed to connection manager (~30px)
+const DOUBLE_TAP_MAX_DELAY_MS = 320; // Max delay between taps to count as double-tap
+const DOUBLE_TAP_MAX_DIST_SQ = 26 * 26; // Spatial tolerance between taps
 
 // Keep old constant name for backward compatibility inside this module (if referenced elsewhere)
 const SCALE = DEFAULT_RENDER_SCALE;
 let spatialIndex = null;
+// State for detecting double taps on touch devices
+let lastTapTime = 0;
+let lastTapPieceId = null;
+let lastTapX = 0;
+let lastTapY = 0;
+
+function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
+  const groupPieces = getGroupPieces(piece);
+  if (groupPieces.length > 1) {
+    rotateGroup(piece, rotationDegrees);
+  } else {
+    piece.rotation = (piece.rotation + rotationDegrees) % 360;
+    el.style.transform = `rotate(${piece.rotation}deg)`;
+  }
+  ensureRectInView(
+    piece.displayX,
+    piece.displayY,
+    el.offsetWidth,
+    el.offsetHeight,
+    { forceZoom: false }
+  );
+}
 
 export function scatterInitialPieces(container, pieces) {
   // Use viewport dimensions rather than container bounds since pieces are positioned in viewport space
@@ -175,7 +201,33 @@ function attachPieceEvents(el, piece) {
       detachPieceFromGroup(piece);
     }
 
-    // Convert screen coordinates to viewport coordinates
+    // Double-tap detection (touch): detect before initiating drag
+    if (e.pointerType === "touch") {
+      const now = performance.now();
+      const dt = now - lastTapTime;
+      const dx = e.clientX - lastTapX;
+      const dy = e.clientY - lastTapY;
+      const distSq = dx * dx + dy * dy;
+      if (
+        piece.id === lastTapPieceId &&
+        dt <= DOUBLE_TAP_MAX_DELAY_MS &&
+        distSq <= DOUBLE_TAP_MAX_DIST_SQ
+      ) {
+        // Treat as double-tap -> rotate 90° clockwise
+        rotatePieceOrGroup(piece, el, 90);
+        // Reset tap state to avoid chaining triple taps
+        lastTapTime = 0;
+        lastTapPieceId = null;
+        return; // Skip drag init
+      }
+      // Record as first tap
+      lastTapTime = now;
+      lastTapPieceId = piece.id;
+      lastTapX = e.clientX;
+      lastTapY = e.clientY;
+    }
+
+    // Convert screen coordinates to viewport coordinates (after double-tap check)
     const viewportPos = screenToViewport(e.clientX, e.clientY);
     const rect = el.getBoundingClientRect();
 
@@ -237,6 +289,16 @@ function attachPieceEvents(el, piece) {
       const wasDetached = currentDrag?.isDetached || false;
       currentDrag = null;
       handleDragEnd(piece, wasDetached);
+      const forceZoom = !!el.dataset.outside;
+      // Prevent left/top gap growth before visibility adjustment
+      enforceInitialMargins();
+      ensureRectInView(
+        piece.displayX,
+        piece.displayY,
+        el.offsetWidth,
+        el.offsetHeight,
+        { forceZoom }
+      );
     }
     try {
       el.releasePointerCapture(e.pointerId);
@@ -249,6 +311,15 @@ function attachPieceEvents(el, piece) {
       const wasDetached = currentDrag?.isDetached || false;
       currentDrag = null;
       handleDragEnd(piece, wasDetached);
+      const forceZoom = !!el.dataset.outside;
+      enforceInitialMargins();
+      ensureRectInView(
+        piece.displayX,
+        piece.displayY,
+        el.offsetWidth,
+        el.offsetHeight,
+        { forceZoom }
+      );
     }
     try {
       el.releasePointerCapture(e.pointerId);
@@ -256,16 +327,7 @@ function attachPieceEvents(el, piece) {
   });
 
   el.addEventListener("dblclick", () => {
-    // Rotate 90° on double-click
-    // If piece is in a group with other pieces, rotate the entire group around this piece's center
-    const groupPieces = getGroupPieces(piece);
-    if (groupPieces.length > 1) {
-      rotateGroup(piece, 90);
-    } else {
-      // Single piece rotation
-      piece.rotation = (piece.rotation + 90) % 360;
-      el.style.transform = `rotate(${piece.rotation}deg)`;
-    }
+    rotatePieceOrGroup(piece, el, 90);
   });
 }
 
@@ -493,6 +555,13 @@ function installGlobalListeners(container) {
         piece.rotation = (piece.rotation + rotationAmount) % 360;
         pieceEl.style.transform = `rotate(${piece.rotation}deg)`;
       }
+      ensureRectInView(
+        piece.displayX,
+        piece.displayY,
+        pieceEl.offsetWidth,
+        pieceEl.offsetHeight,
+        { forceZoom: false }
+      );
     }
   });
 }

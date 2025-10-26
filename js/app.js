@@ -56,6 +56,54 @@ let isPanning = false;
 let lastPanX = 0;
 let lastPanY = 0;
 
+// Preserve initial left/top screen-space margins of the piece cluster so they don't grow.
+let initialMarginLeft = null;
+let initialMarginTop = null;
+
+function captureInitialMargins() {
+  if (!state.pieces || state.pieces.length === 0) return;
+  // Compute bounding box (logical coordinates)
+  let minX = Infinity;
+  let minY = Infinity;
+  for (const p of state.pieces) {
+    if (typeof p.displayX === "number" && p.displayX < minX) minX = p.displayX;
+    if (typeof p.displayY === "number" && p.displayY < minY) minY = p.displayY;
+  }
+  if (!isFinite(minX) || !isFinite(minY)) return;
+  const screenLeft = panX + minX * zoomLevel;
+  const screenTop = panY + minY * zoomLevel;
+  initialMarginLeft = screenLeft;
+  initialMarginTop = screenTop;
+  // console.debug('[viewport] captured initial margins', initialMarginLeft, initialMarginTop);
+}
+
+function enforceInitialMargins() {
+  if (initialMarginLeft == null || initialMarginTop == null) return;
+  if (!state.pieces || state.pieces.length === 0) return;
+  let minX = Infinity;
+  let minY = Infinity;
+  for (const p of state.pieces) {
+    if (typeof p.displayX === "number" && p.displayX < minX) minX = p.displayX;
+    if (typeof p.displayY === "number" && p.displayY < minY) minY = p.displayY;
+  }
+  if (!isFinite(minX) || !isFinite(minY)) return;
+  const screenLeft = panX + minX * zoomLevel;
+  const screenTop = panY + minY * zoomLevel;
+  let adjusted = false;
+  if (screenLeft > initialMarginLeft + 0.5) {
+    // allow tiny tolerance
+    panX -= screenLeft - initialMarginLeft;
+    adjusted = true;
+  }
+  if (screenTop > initialMarginTop + 0.5) {
+    panY -= screenTop - initialMarginTop;
+    adjusted = true;
+  }
+  if (adjusted) {
+    updateViewportTransform();
+  }
+}
+
 // Convert slider position (0-100) to piece count using logarithmic scale
 function sliderToPieceCount(sliderValue) {
   if (sliderValue === 0) return 0;
@@ -108,6 +156,155 @@ function resetZoomAndPan() {
 
 function getCurrentZoom() {
   return zoomLevel;
+}
+
+/**
+ * Ensure a rectangle is fully visible inside the puzzle container viewport.
+ *
+ * Coordinate Spaces:
+ * - (x, y, w, h) are in *viewport (logical puzzle)* coordinates – i.e. the same
+ *   coordinate system used for piece.displayX / piece.displayY before the zoom & pan
+ *   transform is applied.
+ * - Current transform: screenPosition = (viewport * zoomLevel) + pan.
+ *
+ * Behavior:
+ * 1. (Default) Attempts to satisfy visibility by adjusting pan only (no zoom change),
+ *    clamping the rectangle so it lies completely within the container.
+ * 2. If after panning the rectangle still overflows OR the caller explicitly sets
+ *    forceZoom = true (e.g. piece previously marked outside a threshold), it computes
+ *    the minimal zoom-out required so the rectangle fits (with a small margin when
+ *    forced) and applies that new zoom level (never zooms in – only preserves or
+ *    decreases zoom).
+ * 3. After any zoom adjustment, pan is re‑clamped so the rectangle is fully on screen.
+ *
+ * forceZoom rationale:
+ * - Drag logic may detect a piece has crossed an "outside threshold" before it is
+ *   truly clipped (e.g. early warning). Passing { forceZoom: true } guarantees we
+ *   evaluate a margin‑fit zoom instead of relying solely on overflow state.
+ *
+ * Idempotency & Limits:
+ * - Never increases zoomLevel.
+ * - Respects MIN_ZOOM.
+ * - Performs at most one zoom operation per invocation.
+ *
+ * Performance Notes:
+ * - O(1); no DOM queries beyond existing cached container metrics.
+ * - Called at drag/rotation end – not per frame – to keep interaction smooth.
+ *
+ * @param {number} x Logical left of the rectangle (viewport coordinates, before transform).
+ * @param {number} y Logical top of the rectangle (viewport coordinates, before transform).
+ * @param {number} w Logical width of the rectangle.
+ * @param {number} h Logical height of the rectangle.
+ * @param {Object} [options] Optional behavior overrides.
+ * @param {boolean} [options.forceZoom=false] If true, always consider a margin fit zoom
+ *   (even if current pan could suffice) – used when a piece was previously flagged as
+ *   near/over a visibility threshold.
+ *
+ * @example
+ * // After finishing a drag:
+ * ensureRectInView(piece.displayX, piece.displayY, el.offsetWidth, el.offsetHeight);
+ *
+ * @example
+ * // Force a slight zoom‑out if piece was flagged outside early warning bounds:
+ * ensureRectInView(px, py, pw, ph, { forceZoom: true });
+ */
+function ensureRectInView(x, y, w, h, options = {}) {
+  const { forceZoom = false } = options;
+  if (!piecesContainer) return;
+  const contW = piecesContainer.clientWidth;
+  const contH = piecesContainer.clientHeight;
+
+  // Helper to compute screen coords under current transform
+  function rectOnScreen() {
+    const left = panX + x * zoomLevel;
+    const top = panY + y * zoomLevel;
+    const width = w * zoomLevel;
+    const height = h * zoomLevel;
+    return { left, top, right: left + width, bottom: top + height };
+  }
+
+  // Special overflow-based zoom logic when forceZoom is requested:
+  // We intentionally skip the initial pan so the raw overflow drives a proportional zoom-out.
+  let r = rectOnScreen();
+  if (forceZoom) {
+    const overflowLeft = Math.max(0, -r.left);
+    const overflowRight = Math.max(0, r.right - contW);
+    const overflowTop = Math.max(0, -r.top);
+    const overflowBottom = Math.max(0, r.bottom - contH);
+    const horizOverflow = overflowLeft + overflowRight;
+    const vertOverflow = overflowTop + overflowBottom;
+    const anyOverflow = horizOverflow > 0 || vertOverflow > 0;
+
+    if (anyOverflow) {
+      // Compute shrink factors based on total span = visible + overflow
+      const factorH = horizOverflow > 0 ? contW / (contW + horizOverflow) : 1;
+      const factorV = vertOverflow > 0 ? contH / (contH + vertOverflow) : 1;
+      const minFactor = Math.min(factorH, factorV);
+      if (minFactor < 0.999) {
+        // avoid micro adjustments
+        const targetZoom = Math.max(MIN_ZOOM, zoomLevel * minFactor);
+        if (targetZoom < zoomLevel - 0.0001) {
+          zoomLevel = targetZoom;
+          updateViewportTransform();
+          updateZoomDisplay();
+          r = rectOnScreen();
+        }
+      }
+    }
+    // After potential zoom, clamp pan to fit the rectangle fully.
+    if (r.left < 0) panX += -r.left;
+    if (r.top < 0) panY += -r.top;
+    if (r.right > contW) panX -= r.right - contW;
+    if (r.bottom > contH) panY -= r.bottom - contH;
+    updateViewportTransform();
+    return; // Done for forceZoom path
+  }
+
+  // Normal path (not forceZoom): try panning first, then fallback to simple zoom-fit only if still overflowing.
+  let panAdjusted = false;
+  if (r.left < 0) {
+    panX += -r.left;
+    panAdjusted = true;
+  }
+  if (r.top < 0) {
+    panY += -r.top;
+    panAdjusted = true;
+  }
+  if (r.right > contW) {
+    panX -= r.right - contW;
+    panAdjusted = true;
+  }
+  if (r.bottom > contH) {
+    panY -= r.bottom - contH;
+    panAdjusted = true;
+  }
+  if (panAdjusted) {
+    updateViewportTransform();
+    r = rectOnScreen();
+  }
+  const overflow =
+    r.left < 0 || r.top < 0 || r.right > contW || r.bottom > contH;
+  if (overflow) {
+    // Fit logic (piece-centric) — only shrink if needed; no margin here.
+    const fitZoomW = contW / w;
+    const fitZoomH = contH / h;
+    const targetZoom = Math.min(zoomLevel, fitZoomW, fitZoomH);
+    if (targetZoom < zoomLevel - 0.0005) {
+      zoomLevel = Math.max(MIN_ZOOM, targetZoom);
+      updateViewportTransform();
+      r = rectOnScreen();
+      if (r.left < 0) panX += -r.left;
+      if (r.top < 0) panY += -r.top;
+      if (r.right > contW) panX -= r.right - contW;
+      if (r.bottom > contH) panY -= r.bottom - contH;
+      updateViewportTransform();
+      updateZoomDisplay();
+    } else if (panAdjusted) {
+      updateViewportTransform();
+    }
+  } else if (panAdjusted) {
+    updateViewportTransform();
+  }
 }
 
 function getViewportState() {
@@ -234,6 +431,7 @@ async function generatePuzzle() {
     state.pieces = pieces;
     state.totalPieces = pieces.length;
     scatterInitialPieces(piecesViewport, pieces);
+    captureInitialMargins();
     clearAllPieceOutlines(); // Clear any previous validation feedback
     updateProgress();
     if (persistence && persistence.markDirty) persistence.markDirty();
@@ -791,11 +989,13 @@ async function bootstrap() {
         redrawPiecesContainer: () => {
           piecesViewport.innerHTML = "";
           scatterInitialPieces(piecesViewport, state.pieces);
+          captureInitialMargins();
           updateProgress();
         },
         renderPiecesFromState: () => {
           piecesViewport.innerHTML = "";
           renderPiecesAtPositions(piecesViewport, state.pieces);
+          captureInitialMargins();
           updateProgress();
         },
         markDirtyHook: () => updateProgress(),
@@ -918,4 +1118,7 @@ export {
   getSliderValue,
   setSliderValue,
   getCurrentImage,
+  ensureRectInView,
+  captureInitialMargins,
+  enforceInitialMargins,
 };
