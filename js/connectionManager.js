@@ -4,6 +4,13 @@
 
 import { state, connectPieces } from "./gameEngine.js";
 import { updateProgress, getCurrentZoom } from "./app.js";
+import { applyPiecePosition } from "./display.js";
+// Geometry utilities (new Point-based refactor)
+import {
+  Point,
+  dist2 as pointDist2,
+  rotatePointDeg as pointRotatePointDeg,
+} from "./geometry/Point.js";
 
 // ================================
 // Module Constants
@@ -28,105 +35,6 @@ let onHighlightChange = () => {};
 let pieceElementsAccessor = null; // function(id) -> HTMLElement
 
 let currentHighlight = null; // { pieceId, sideName, mapping }
-
-function dist2(p1, p2) {
-  const dx = p1.x - p2.x;
-  const dy = p1.y - p2.y;
-  return dx * dx + dy * dy;
-}
-
-function rotatePoint(px, py, cx, cy, rad) {
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  const dx = px - cx;
-  const dy = py - cy;
-  return { x: cx + dx * cos - dy * sin, y: cy + dx * sin + dy * cos };
-}
-
-/**
- * Computes the world-space coordinates for the corners and side points of a puzzle piece,
- * taking into account its position, scale, rotation, and padding.
- *
- * @param {Object} piece - The puzzle piece object.
- * @param {Object} piece.bitmap - The bitmap image of the piece.
- * @param {number} piece.bitmap.width - The width of the bitmap.
- * @param {number} piece.bitmap.height - The height of the bitmap.
- * @param {number} piece.pad - The padding applied to the piece.
- * @param {number} piece.displayX - The X coordinate of the piece's display position.
- * @param {number} piece.displayY - The Y coordinate of the piece's display position.
- * @param {number} piece.rotation - The rotation of the piece in degrees.
- * @param {number} [piece.scale=0.35] - The scale factor applied to the piece.
- * @param {Object} piece.corners - The local coordinates of the piece's corners.
- * @param {Object} piece.corners.nw - The northwest corner point {x, y}.
- * @param {Object} piece.corners.ne - The northeast corner point {x, y}.
- * @param {Object} piece.corners.se - The southeast corner point {x, y}.
- * @param {Object} piece.corners.sw - The southwest corner point {x, y}.
- * @param {Object} piece.sPoints - The local coordinates of the piece's side points.
- * @param {Object} [piece.sPoints.north] - The north side point {x, y}.
- * @param {Object} [piece.sPoints.east] - The east side point {x, y}.
- * @param {Object} [piece.sPoints.south] - The south side point {x, y}.
- * @param {Object} [piece.sPoints.west] - The west side point {x, y}.
- * @returns {Object} An object containing:
- *   - {Object} worldCorners: The world-space coordinates of the corners (nw, ne, se, sw).
- *   - {Object} worldSPoints: The world-space coordinates of the side points (north, east, south, west).
- */
-function computeWorldData(piece) {
-  // Requires: piece.bitmap.width/height, piece.pad, piece.displayX/Y, piece.rotation, piece.scale
-  if (piece.scale == null) piece.scale = FALLBACK_PIECE_SCALE; // fallback if not set
-  const bmpW = piece.bitmap.width * piece.scale;
-  const bmpH = piece.bitmap.height * piece.scale;
-  const cx = piece.displayX + bmpW / 2;
-  const cy = piece.displayY + bmpH / 2;
-  const rad = (piece.rotation * Math.PI) / 180;
-
-  function toCanvasLocal(pt) {
-    // pt is in original (un-padded) local; need to offset by pad then scale
-    return {
-      x: (pt.x + piece.pad) * piece.scale,
-      y: (pt.y + piece.pad) * piece.scale,
-    };
-  }
-
-  // Corners
-  const c = piece.corners;
-  const cornersLocal = {
-    nw: toCanvasLocal(c.nw),
-    ne: toCanvasLocal(c.ne),
-    se: toCanvasLocal(c.se),
-    sw: toCanvasLocal(c.sw),
-  };
-  const worldCorners = {};
-  Object.entries(cornersLocal).forEach(([k, v]) => {
-    worldCorners[k] = rotatePoint(
-      v.x + piece.displayX,
-      v.y + piece.displayY,
-      cx,
-      cy,
-      rad
-    );
-  });
-
-  // sPoints
-  const sp = piece.sPoints;
-  const worldSPoints = {};
-  ["north", "east", "south", "west"].forEach((side) => {
-    const p = sp[side];
-    if (!p) {
-      worldSPoints[side] = null;
-      return;
-    }
-    const local = toCanvasLocal(p);
-    worldSPoints[side] = rotatePoint(
-      local.x + piece.displayX,
-      local.y + piece.displayY,
-      cx,
-      cy,
-      rad
-    );
-  });
-
-  return { worldCorners, worldSPoints };
-}
 
 function sideCornerKeys(side) {
   switch (side) {
@@ -164,7 +72,7 @@ function matchWaypoints(mWaypoints, sWaypoints, tolerance) {
   let distances = [];
   let allMatch = true;
   for (let i = 0; i < mWaypoints.length; i++) {
-    const d2 = dist2(mWaypoints[i], sWaypoints[i]);
+    const d2 = pointDist2(mWaypoints[i], sWaypoints[i]);
     distances.push(d2);
     if (d2 > tolerance) {
       allMatch = false;
@@ -181,7 +89,7 @@ function matchWaypoints(mWaypoints, sWaypoints, tolerance) {
   allMatch = true;
   const reversedS = [...sWaypoints].reverse();
   for (let i = 0; i < mWaypoints.length; i++) {
-    const d2 = dist2(mWaypoints[i], reversedS[i]);
+    const d2 = pointDist2(mWaypoints[i], reversedS[i]);
     distances.push(d2);
     if (d2 > tolerance) {
       allMatch = false;
@@ -278,7 +186,7 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
 
 function findCandidate(movingPiece) {
   if (!spatialIndex) return null;
-  const movingWD = computeWorldData(movingPiece);
+  const movingWD = movingPiece.worldData;
 
   // Adjust tolerance based on current zoom level to maintain consistent feel
   const zoomLevel = getCurrentZoom();
@@ -293,7 +201,10 @@ function findCandidate(movingPiece) {
 
   const centerX = movingWD.worldCorners.nw.x; // rough anchor
   const centerY = movingWD.worldCorners.nw.y;
-  const neighborIds = spatialIndex.queryRadius(centerX, centerY, coarseR);
+  const neighborIds = spatialIndex.queryRadius(
+    { x: centerX, y: centerY },
+    coarseR
+  );
 
   let best = null;
   neighborIds.forEach((id) => {
@@ -312,7 +223,7 @@ function findCandidate(movingPiece) {
       });
     }
 
-    const candidateWD = computeWorldData(candidate);
+    const candidateWD = candidate.worldData;
     const match = matchSides(movingPiece, candidate, movingWD, candidateWD);
 
     // Debug: Log match results for NW corner
@@ -352,10 +263,10 @@ function finePlace(movingPiece, highlightData) {
   // Align first moving corner to stationary corner A
   const movingCornerKey = highlightData.mapping.movingCornerA;
   const stationaryCornerKey = highlightData.mapping.stationaryCornerA;
-  const movingWD = computeWorldData(movingPiece);
+  const movingWD = movingPiece.worldData;
   const stationaryPiece = getPieceById(highlightData.stationaryPieceId);
   if (!stationaryPiece) return;
-  const stationaryWD = computeWorldData(stationaryPiece);
+  const stationaryWD = stationaryPiece.worldData;
   const mWorldCorner = movingWD.worldCorners[movingCornerKey];
   const sWorldCorner = stationaryWD.worldCorners[stationaryCornerKey];
 
@@ -364,8 +275,8 @@ function finePlace(movingPiece, highlightData) {
     console.log("[finePlace] NW corner as stationary piece:", {
       stationaryId: stationaryPiece.id,
       stationaryDisplay: {
-        x: stationaryPiece.displayX,
-        y: stationaryPiece.displayY,
+        x: stationaryPiece.position.x,
+        y: stationaryPiece.position.y,
       },
       stationaryCornerKey,
       stationaryCornerLocal: stationaryPiece.corners[stationaryCornerKey],
@@ -400,37 +311,26 @@ function finePlace(movingPiece, highlightData) {
   // Get all pieces in the moving group (including the moving piece itself)
   const movingGroupPieces = getMovingGroupPieces(movingPiece); // Apply translation to all pieces in the moving group
   movingGroupPieces.forEach((piece) => {
-    piece.displayX += dx;
-    piece.displayY += dy;
-    // Update DOM position
+    // Ensure piece has position Point and update it directly
+    if (!piece.position || !(piece.position instanceof Point)) {
+      piece.position = new Point(0, 0);
+    }
+    piece.position.mutAdd(dx, dy);
     if (pieceElementsAccessor) {
       const el = pieceElementsAccessor(piece.id);
-      if (el) {
-        el.style.left = piece.displayX + "px";
-        el.style.top = piece.displayY + "px";
-      }
+      if (el) applyPiecePosition(el, piece);
     }
   });
 }
 
 function getMovingGroupPieces(movingPiece) {
-  // All pieces always have a groupId now
-  // Find all pieces with the same groupId as the moving piece
-  return state.pieces.filter((p) => p.groupId === movingPiece.groupId);
+  // Use Piece class method
+  return movingPiece.getGroupPieces();
 }
 
 function mergeGroups(pieceA, pieceB) {
-  // Simplified grouping: all pieces always have groupIds
-  if (pieceA.groupId !== pieceB.groupId) {
-    // Merge: reassign all pieces from pieceB.groupId to pieceA.groupId
-    const from = pieceB.groupId;
-    const to = pieceA.groupId;
-    state.pieces.forEach((p) => {
-      if (p.groupId === from) p.groupId = to;
-    });
-
-    console.debug(`[mergeGroups] Merged group ${from} into ${to}`);
-  }
+  // Use Piece class method
+  pieceB.mergeWithGroup(pieceA);
 
   // Update progress after group merge
   updateProgress();

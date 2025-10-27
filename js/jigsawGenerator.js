@@ -7,6 +7,8 @@
 // Edge metadata (top/right/bottom/left) continues to use: +1 = bump (knob outward),
 // -1 = dent (cavity inward), 0 = flat (outer border).
 
+import { Piece } from "./model/Piece.js";
+
 // ================================
 // Generation Constants (avoid magic numbers)
 // ================================
@@ -262,7 +264,7 @@ export function generateJigsawPieces(img, targetCount) {
       }
 
       const pieceId = id++;
-      pieces.push({
+      const pieceData = {
         id: pieceId,
         gridX: c,
         gridY: r,
@@ -314,7 +316,10 @@ export function generateJigsawPieces(img, targetCount) {
                 }
               : null,
         },
-      });
+      };
+
+      // Create piece instance with all properties and methods
+      pieces.push(new Piece(pieceData));
     }
   }
 

@@ -6,11 +6,24 @@ import {
   scatterInitialPieces,
   getPieceElement,
   renderPiecesAtPositions,
+  getSelectedPiece,
+  fixSelectedPieceOrientation,
+  setSelectionChangeCallback,
 } from "./pieceRenderer.js";
 // Persistence (lazy-loaded after definitions to avoid circular issues)
 // We'll dynamically import persistence so this file can export helpers first.
 import { state } from "./gameEngine.js";
 import { initI18n, t, applyTranslations } from "./i18n.js";
+import { Point } from "./geometry/Point.js";
+import {
+  updateViewportTransform,
+  initViewport,
+  getViewport,
+  screenToViewport,
+  viewportToScreen,
+  clearPieceOutline,
+  drawPieceOutline,
+} from "./display.js";
 
 // ================================
 // Module Constants (replacing magic numbers)
@@ -34,8 +47,8 @@ const pieceSlider = document.getElementById("pieceSlider");
 const pieceDisplay = document.getElementById("pieceDisplay");
 const progressDisplay = document.getElementById("progressDisplay");
 const piecesContainer = document.getElementById("piecesContainer");
-const piecesViewport = document.getElementById("piecesViewport");
 const checkButton = document.getElementById("checkButton");
+const orientationTipButton = document.getElementById("orientationTipButton");
 const helpButton = document.getElementById("helpButton");
 const helpModal = document.getElementById("helpModal");
 const closeHelp = document.getElementById("closeHelp");
@@ -51,57 +64,48 @@ let deepLinkActive = false; // true when URL provides image & pieces params
 
 // Zoom and pan state
 let zoomLevel = 1.0;
-let panX = 0;
-let panY = 0;
+let panOffset = new Point(0, 0);
 let isPanning = false;
-let lastPanX = 0;
-let lastPanY = 0;
+let lastPanPosition = new Point(0, 0);
 
 // Preserve initial left/top screen-space margins of the piece cluster so they don't grow.
-let initialMarginLeft = null;
-let initialMarginTop = null;
+let initialMargins = null;
 
 function captureInitialMargins() {
   if (!state.pieces || state.pieces.length === 0) return;
   // Compute bounding box (logical coordinates)
-  let minX = Infinity;
-  let minY = Infinity;
-  for (const p of state.pieces) {
-    if (typeof p.displayX === "number" && p.displayX < minX) minX = p.displayX;
-    if (typeof p.displayY === "number" && p.displayY < minY) minY = p.displayY;
-  }
-  if (!isFinite(minX) || !isFinite(minY)) return;
-  const screenLeft = panX + minX * zoomLevel;
-  const screenTop = panY + minY * zoomLevel;
-  initialMarginLeft = screenLeft;
-  initialMarginTop = screenTop;
-  // console.debug('[viewport] captured initial margins', initialMarginLeft, initialMarginTop);
+  const bounds = Point.computeBounds(state.pieces);
+  if (!bounds) return;
+  const minPoint = bounds.min;
+  const screenMargins = panOffset.add(minPoint.scaled(zoomLevel));
+  initialMargins = screenMargins;
+  // console.debug('[viewport] captured initial margins', initialMargins.toString());
 }
 
 function enforceInitialMargins() {
-  if (initialMarginLeft == null || initialMarginTop == null) return;
+  if (!initialMargins) return;
   if (!state.pieces || state.pieces.length === 0) return;
-  let minX = Infinity;
-  let minY = Infinity;
-  for (const p of state.pieces) {
-    if (typeof p.displayX === "number" && p.displayX < minX) minX = p.displayX;
-    if (typeof p.displayY === "number" && p.displayY < minY) minY = p.displayY;
-  }
-  if (!isFinite(minX) || !isFinite(minY)) return;
-  const screenLeft = panX + minX * zoomLevel;
-  const screenTop = panY + minY * zoomLevel;
+  const bounds = Point.computeBounds(state.pieces);
+  if (!bounds) return;
+  const minPoint = bounds.min;
+  const currentScreenMargins = panOffset.add(minPoint.scaled(zoomLevel));
+
+  // Check if current margins exceed initial margins (with tolerance)
+  const tolerance = 0.5;
+  const excess = currentScreenMargins.subtract(initialMargins);
   let adjusted = false;
-  if (screenLeft > initialMarginLeft + 0.5) {
-    // allow tiny tolerance
-    panX -= screenLeft - initialMarginLeft;
+
+  if (excess.x > tolerance) {
+    panOffset = panOffset.subtract(excess.x, 0);
     adjusted = true;
   }
-  if (screenTop > initialMarginTop + 0.5) {
-    panY -= screenTop - initialMarginTop;
+  if (excess.y > tolerance) {
+    panOffset = panOffset.subtract(0, excess.y);
     adjusted = true;
   }
+
   if (adjusted) {
-    updateViewportTransform();
+    updateViewportTransform(panOffset, zoomLevel);
   }
 }
 
@@ -128,38 +132,34 @@ function updatePieceDisplay() {
 }
 
 // Zoom and Pan functions
-function updateViewportTransform() {
-  piecesViewport.style.transform = `translate(${panX}px, ${panY}px) scale(${zoomLevel})`;
-}
-
 function updateZoomDisplay() {
   zoomDisplay.textContent = Math.round(zoomLevel * 100) + "%";
 }
 
-function setZoom(newZoomLevel, centerX = null, centerY = null) {
+function setZoom(newZoomLevel, center = null) {
   const oldZoom = zoomLevel;
   zoomLevel = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoomLevel));
 
   // If zoom center is provided, adjust pan to zoom to that point
-  if (centerX !== null && centerY !== null) {
+  if (center) {
     const containerRect = piecesContainer.getBoundingClientRect();
-    const viewportCenterX = centerX - containerRect.left;
-    const viewportCenterY = centerY - containerRect.top;
+    const containerOffset = new Point(containerRect.left, containerRect.top);
+    const viewportCenter = center.subtract(containerOffset);
 
     // Adjust pan to keep the zoom center point in the same position
-    panX = viewportCenterX - (viewportCenterX - panX) * (zoomLevel / oldZoom);
-    panY = viewportCenterY - (viewportCenterY - panY) * (zoomLevel / oldZoom);
+    const zoomRatio = zoomLevel / oldZoom;
+    const panDelta = viewportCenter.subtract(panOffset).scaled(zoomRatio);
+    panOffset = viewportCenter.subtract(panDelta);
   }
 
-  updateViewportTransform();
+  updateViewportTransform(panOffset, zoomLevel);
   updateZoomDisplay();
 }
 
 function resetZoomAndPan() {
   zoomLevel = 1.0;
-  panX = 0;
-  panY = 0;
-  updateViewportTransform();
+  panOffset = new Point(0, 0);
+  updateViewportTransform(panOffset, zoomLevel);
   updateZoomDisplay();
 }
 
@@ -172,7 +172,7 @@ function getCurrentZoom() {
  * visible in the container, optionally shrinking zoom when necessary.
  *
  * Coordinate spaces:
- * - Inputs (x,y,w,h) are in logical viewport units (pre‑transform piece.displayX/Y).
+ * - Inputs are in logical viewport units (pre‑transform piece position).
  * - Screen position = pan + logical * zoomLevel.
  *
  * Two execution paths:
@@ -204,20 +204,18 @@ function getCurrentZoom() {
  * - Caller detected a threshold condition (e.g., piece moved beyond a soft boundary) and wants
  *   proportional zoom‑out even if a pan could have hidden the overflow.
  *
- * @param {number} x  Logical left.
- * @param {number} y  Logical top.
- * @param {number} w  Logical width.
- * @param {number} h  Logical height.
+ * @param {Point} position Top-left logical position as a Point.
+ * @param {Point} size Logical size (width -> x, height -> y) as a Point.
  * @param {Object} [options]
  * @param {boolean} [options.forceZoom=false] Use overflow‑proportional shrink (skip initial pan).
  *
  * @example // Basic usage after drag end
- * ensureRectInView(piece.displayX, piece.displayY, el.offsetWidth, el.offsetHeight);
+ * ensureRectInView(piece.position, new Point(el.offsetWidth, el.offsetHeight));
  *
  * @example // Enforce zoom out if piece flagged as outside threshold
- * ensureRectInView(px, py, pw, ph, { forceZoom: true });
+ * ensureRectInView(new Point(px, py), new Point(pw, ph), { forceZoom: true });
  */
-function ensureRectInView(x, y, w, h, options = {}) {
+function ensureRectInView(position, size, options = {}) {
   const { forceZoom = false } = options;
   if (!piecesContainer) return;
   const contW = piecesContainer.clientWidth;
@@ -225,21 +223,23 @@ function ensureRectInView(x, y, w, h, options = {}) {
 
   // Helper to compute screen coords under current transform
   function rectOnScreen() {
-    const left = panX + x * zoomLevel;
-    const top = panY + y * zoomLevel;
-    const width = w * zoomLevel;
-    const height = h * zoomLevel;
-    return { left, top, right: left + width, bottom: top + height };
+    const scaledPosition = position.scaled(zoomLevel);
+    const screenPosition = panOffset.add(scaledPosition);
+    const scaledSize = size.scaled(zoomLevel);
+
+    const topLeft = screenPosition;
+    const bottomRight = screenPosition.add(scaledSize);
+    return { topLeft, bottomRight };
   }
 
   // Special overflow-based zoom logic when forceZoom is requested:
   // We intentionally skip the initial pan so the raw overflow drives a proportional zoom-out.
   let r = rectOnScreen();
   if (forceZoom) {
-    const overflowLeft = Math.max(0, -r.left);
-    const overflowRight = Math.max(0, r.right - contW);
-    const overflowTop = Math.max(0, -r.top);
-    const overflowBottom = Math.max(0, r.bottom - contH);
+    const overflowLeft = Math.max(0, -r.topLeft.x);
+    const overflowRight = Math.max(0, r.bottomRight.x - contW);
+    const overflowTop = Math.max(0, -r.topLeft.y);
+    const overflowBottom = Math.max(0, r.bottomRight.y - contH);
     const horizOverflow = overflowLeft + overflowRight;
     const vertOverflow = overflowTop + overflowBottom;
     const anyOverflow = horizOverflow > 0 || vertOverflow > 0;
@@ -254,78 +254,83 @@ function ensureRectInView(x, y, w, h, options = {}) {
         const targetZoom = Math.max(MIN_ZOOM, zoomLevel * minFactor);
         if (targetZoom < zoomLevel - 0.0001) {
           zoomLevel = targetZoom;
-          updateViewportTransform();
+          updateViewportTransform(panOffset, zoomLevel);
           updateZoomDisplay();
           r = rectOnScreen();
         }
       }
     }
     // After potential zoom, clamp pan to fit the rectangle fully.
-    if (r.left < 0) panX += -r.left;
-    if (r.top < 0) panY += -r.top;
-    if (r.right > contW) panX -= r.right - contW;
-    if (r.bottom > contH) panY -= r.bottom - contH;
-    updateViewportTransform();
+    if (r.topLeft.x < 0) panOffset = panOffset.add(-r.topLeft.x, 0);
+    if (r.topLeft.y < 0) panOffset = panOffset.add(0, -r.topLeft.y);
+    if (r.bottomRight.x > contW)
+      panOffset = panOffset.subtract(r.bottomRight.x - contW, 0);
+    if (r.bottomRight.y > contH)
+      panOffset = panOffset.subtract(0, r.bottomRight.y - contH);
+    updateViewportTransform(panOffset, zoomLevel);
     return; // Done for forceZoom path
   }
 
   // Normal path (not forceZoom): try panning first, then fallback to simple zoom-fit only if still overflowing.
   let panAdjusted = false;
-  if (r.left < 0) {
-    panX += -r.left;
+  if (r.topLeft.x < 0) {
+    panOffset = panOffset.add(-r.topLeft.x, 0);
     panAdjusted = true;
   }
-  if (r.top < 0) {
-    panY += -r.top;
+  if (r.topLeft.y < 0) {
+    panOffset = panOffset.add(0, -r.topLeft.y);
     panAdjusted = true;
   }
-  if (r.right > contW) {
-    panX -= r.right - contW;
+  if (r.bottomRight.x > contW) {
+    panOffset = panOffset.subtract(r.bottomRight.x - contW, 0);
     panAdjusted = true;
   }
-  if (r.bottom > contH) {
-    panY -= r.bottom - contH;
+  if (r.bottomRight.y > contH) {
+    panOffset = panOffset.subtract(0, r.bottomRight.y - contH);
     panAdjusted = true;
   }
   if (panAdjusted) {
-    updateViewportTransform();
+    updateViewportTransform(panOffset, zoomLevel);
     r = rectOnScreen();
   }
   const overflow =
-    r.left < 0 || r.top < 0 || r.right > contW || r.bottom > contH;
+    r.topLeft.x < 0 ||
+    r.topLeft.y < 0 ||
+    r.bottomRight.x > contW ||
+    r.bottomRight.y > contH;
   if (overflow) {
     // Fit logic (piece-centric) — only shrink if needed; no margin here.
-    const fitZoomW = contW / w;
-    const fitZoomH = contH / h;
+    const fitZoomW = contW / size.x;
+    const fitZoomH = contH / size.y;
     const targetZoom = Math.min(zoomLevel, fitZoomW, fitZoomH);
     if (targetZoom < zoomLevel - 0.0005) {
       zoomLevel = Math.max(MIN_ZOOM, targetZoom);
-      updateViewportTransform();
+      updateViewportTransform(panOffset, zoomLevel);
       r = rectOnScreen();
-      if (r.left < 0) panX += -r.left;
-      if (r.top < 0) panY += -r.top;
-      if (r.right > contW) panX -= r.right - contW;
-      if (r.bottom > contH) panY -= r.bottom - contH;
-      updateViewportTransform();
+      if (r.topLeft.x < 0) panOffset = panOffset.add(-r.topLeft.x, 0);
+      if (r.topLeft.y < 0) panOffset = panOffset.add(0, -r.topLeft.y);
+      if (r.bottomRight.x > contW)
+        panOffset = panOffset.subtract(r.bottomRight.x - contW, 0);
+      if (r.bottomRight.y > contH)
+        panOffset = panOffset.subtract(0, r.bottomRight.y - contH);
+      updateViewportTransform(panOffset, zoomLevel);
       updateZoomDisplay();
     } else if (panAdjusted) {
-      updateViewportTransform();
+      updateViewportTransform(panOffset, zoomLevel);
     }
   } else if (panAdjusted) {
-    updateViewportTransform();
+    updateViewportTransform(panOffset, zoomLevel);
   }
 }
 
 function getViewportState() {
-  return { zoomLevel, panX, panY };
+  return { zoomLevel, panX: panOffset.x, panY: panOffset.y };
 }
 
 function applyViewportState(v) {
-  if (!v) return;
-  if (typeof v.zoomLevel === "number") zoomLevel = v.zoomLevel;
-  if (typeof v.panX === "number") panX = v.panX;
-  if (typeof v.panY === "number") panY = v.panY;
-  updateViewportTransform();
+  zoomLevel = v.zoomLevel;
+  panOffset = new Point(v.panX, v.panY);
+  updateViewportTransform(panOffset, zoomLevel);
   updateZoomDisplay();
 }
 
@@ -340,32 +345,6 @@ function setSliderValue(val) {
 
 function getCurrentImage() {
   return currentImage;
-}
-
-// Coordinate transformation functions
-function screenToViewport(screenX, screenY) {
-  const containerRect = piecesContainer.getBoundingClientRect();
-  const relativeX = screenX - containerRect.left;
-  const relativeY = screenY - containerRect.top;
-
-  // Apply inverse zoom and pan transformation
-  const viewportX = (relativeX - panX) / zoomLevel;
-  const viewportY = (relativeY - panY) / zoomLevel;
-
-  return { x: viewportX, y: viewportY };
-}
-
-function viewportToScreen(viewportX, viewportY) {
-  const containerRect = piecesContainer.getBoundingClientRect();
-
-  // Apply zoom and pan transformation
-  const relativeX = viewportX * zoomLevel + panX;
-  const relativeY = viewportY * zoomLevel + panY;
-
-  const screenX = relativeX + containerRect.left;
-  const screenY = relativeY + containerRect.top;
-
-  return { x: screenX, y: screenY };
 }
 
 function updateProgress() {
@@ -407,6 +386,15 @@ function updateProgress() {
   }
 }
 
+// Update orientation tip button visibility based on selected piece
+function updateOrientationTipButton(selectedPiece) {
+  if (selectedPiece && selectedPiece.rotation !== 0) {
+    orientationTipButton.style.display = "block";
+  } else {
+    orientationTipButton.style.display = "none";
+  }
+}
+
 // Generate puzzle with current slider value
 async function generatePuzzle() {
   if (!currentImage || isGenerating) return;
@@ -415,13 +403,16 @@ async function generatePuzzle() {
 
   if (pieceCount === 0) {
     // Show original image when slider is at 0
-    piecesViewport.innerHTML = `
-      <div class="original-image-container">
-        <img src="${currentImage.src}" alt="${t(
-      "alt.originalImage"
-    )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
-      </div>
-    `;
+    const viewport = getViewport();
+    if (viewport) {
+      viewport.innerHTML = `
+        <div class="original-image-container">
+          <img src="${currentImage.src}" alt="${t(
+        "alt.originalImage"
+      )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
+        </div>
+      `;
+    }
     state.pieces = [];
     state.totalPieces = 0;
     updateProgress();
@@ -429,7 +420,10 @@ async function generatePuzzle() {
   }
 
   isGenerating = true;
-  piecesViewport.innerHTML = "";
+  const viewport = getViewport();
+  if (viewport) {
+    viewport.innerHTML = "";
+  }
   progressDisplay.textContent = t("status.generating");
 
   try {
@@ -439,7 +433,10 @@ async function generatePuzzle() {
     );
     state.pieces = pieces;
     state.totalPieces = pieces.length;
-    scatterInitialPieces(piecesViewport, pieces);
+    const viewport = getViewport();
+    if (viewport) {
+      scatterInitialPieces(viewport, pieces);
+    }
     captureInitialMargins();
     clearAllPieceOutlines(); // Clear any previous validation feedback
     updateProgress();
@@ -467,13 +464,16 @@ imageInput.addEventListener("change", async (e) => {
     updatePieceDisplay();
 
     // Show original image
-    piecesViewport.innerHTML = `
-      <div class="original-image-container">
-        <img src="${currentImage.src}" alt="${t(
-      "alt.originalImage"
-    )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
-      </div>
-    `;
+    const viewport = getViewport();
+    if (viewport) {
+      viewport.innerHTML = `
+        <div class="original-image-container">
+          <img src="${currentImage.src}" alt="${t(
+        "alt.originalImage"
+      )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
+        </div>
+      `;
+    }
 
     state.pieces = [];
     state.totalPieces = 0;
@@ -485,96 +485,6 @@ imageInput.addEventListener("change", async (e) => {
     progressDisplay.textContent = t("status.error");
   }
 });
-
-// Function to draw piece outline with specified color
-function drawPieceOutline(piece, color, lineWidth = 3) {
-  console.log(
-    `[drawPieceOutline] Drawing piece ${piece.id} with color ${color}`
-  );
-
-  const element = getPieceElement(piece.id);
-  if (!element) {
-    console.warn(`[drawPieceOutline] No element found for piece ${piece.id}`);
-    return;
-  }
-
-  const canvas = element.querySelector("canvas");
-  if (!canvas) {
-    console.warn(`[drawPieceOutline] No canvas found for piece ${piece.id}`);
-    return;
-  }
-
-  if (!piece.path) {
-    console.warn(`[drawPieceOutline] No path found for piece ${piece.id}`);
-    return;
-  }
-
-  const ctx = canvas.getContext("2d");
-  const scale = piece.scale || 0.35;
-  const pad = piece.pad || 0;
-
-  console.log(
-    `[drawPieceOutline] Drawing with scale=${scale}, pad=${pad}, lineWidth=${lineWidth}`
-  );
-
-  // Save current context state
-  ctx.save();
-
-  // Clear any previous outline by redrawing the piece
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Redraw the piece bitmap
-  ctx.scale(scale, scale);
-  ctx.drawImage(piece.bitmap, 0, 0);
-
-  // Draw the outline
-  ctx.translate(pad, pad);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = lineWidth / scale; // Adjust line width for scale
-  ctx.stroke(piece.path);
-
-  console.log(
-    `[drawPieceOutline] Successfully drew outline for piece ${piece.id}`
-  );
-
-  // Restore context state
-  ctx.restore();
-}
-
-// Function to clear piece outline (redraw without stroke)
-function clearPieceOutline(piece) {
-  console.log(`[clearPieceOutline] Clearing outline for piece ${piece.id}`);
-
-  const element = getPieceElement(piece.id);
-  if (!element) {
-    console.warn(`[clearPieceOutline] No element found for piece ${piece.id}`);
-    return;
-  }
-
-  const canvas = element.querySelector("canvas");
-  if (!canvas) {
-    console.warn(`[clearPieceOutline] No canvas found for piece ${piece.id}`);
-    return;
-  }
-
-  const ctx = canvas.getContext("2d");
-  const scale = piece.scale || 0.35;
-
-  // Save current context state
-  ctx.save();
-
-  // Clear and redraw the piece without outline
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.scale(scale, scale);
-  ctx.drawImage(piece.bitmap, 0, 0);
-
-  console.log(
-    `[clearPieceOutline] Successfully cleared outline for piece ${piece.id}`
-  );
-
-  // Restore context state
-  ctx.restore();
-}
 
 // Function to clear all piece outlines
 function clearAllPieceOutlines() {
@@ -654,10 +564,10 @@ function checkPuzzleCorrectness() {
             );
           } else {
             // Additionally check relative positioning
-            const pieceX = piece.displayX || 0;
-            const pieceY = piece.displayY || 0;
-            const neighborX = expectedNeighbor.displayX || 0;
-            const neighborY = expectedNeighbor.displayY || 0;
+            const pieceX = piece.position.x;
+            const pieceY = piece.position.y;
+            const neighborX = expectedNeighbor.position.x;
+            const neighborY = expectedNeighbor.position.y;
 
             const deltaX = neighborX - pieceX;
             const deltaY = neighborY - pieceY;
@@ -771,10 +681,10 @@ function checkPuzzleCorrectness() {
               isCorrect = false;
             } else {
               // Check relative positioning
-              const pieceX = piece.displayX || 0;
-              const pieceY = piece.displayY || 0;
-              const neighborX = expectedNeighbor.displayX || 0;
-              const neighborY = expectedNeighbor.displayY || 0;
+              const pieceX = piece.position.x;
+              const pieceY = piece.position.y;
+              const neighborX = expectedNeighbor.position.x;
+              const neighborY = expectedNeighbor.position.y;
 
               const deltaX = neighborX - pieceX;
               const deltaY = neighborY - pieceY;
@@ -860,6 +770,18 @@ checkButton.addEventListener("click", () => {
   checkPuzzleCorrectness();
 });
 
+// Handle Orientation Tip button click
+orientationTipButton.addEventListener("click", () => {
+  const selectedPiece = getSelectedPiece();
+  if (selectedPiece) {
+    fixSelectedPieceOrientation();
+    // Trigger persistence save after orientation change
+    if (persistence && persistence.requestAutoSave) {
+      persistence.requestAutoSave();
+    }
+  }
+});
+
 // Handle Help button click
 helpButton.addEventListener("click", () => {
   helpModal.style.display = "flex";
@@ -908,7 +830,7 @@ piecesContainer.addEventListener("wheel", (e) => {
   e.preventDefault();
   const zoomFactor =
     e.deltaY > 0 ? WHEEL_ZOOM_OUT_FACTOR : WHEEL_ZOOM_IN_FACTOR;
-  setZoom(zoomLevel * zoomFactor, e.clientX, e.clientY);
+  setZoom(zoomLevel * zoomFactor, new Point(e.clientX, e.clientY));
 });
 
 // Pan functionality
@@ -920,8 +842,7 @@ piecesContainer.addEventListener("mousedown", (e) => {
   ) {
     e.preventDefault();
     isPanning = true;
-    lastPanX = e.clientX;
-    lastPanY = e.clientY;
+    lastPanPosition = new Point(e.clientX, e.clientY);
     piecesContainer.style.cursor = "grabbing";
   }
 });
@@ -929,13 +850,11 @@ piecesContainer.addEventListener("mousedown", (e) => {
 document.addEventListener("mousemove", (e) => {
   if (isPanning) {
     e.preventDefault();
-    const deltaX = e.clientX - lastPanX;
-    const deltaY = e.clientY - lastPanY;
-    panX += deltaX;
-    panY += deltaY;
-    lastPanX = e.clientX;
-    lastPanY = e.clientY;
-    updateViewportTransform();
+    const currentPosition = new Point(e.clientX, e.clientY);
+    const delta = currentPosition.subtract(lastPanPosition);
+    panOffset = panOffset.add(delta);
+    lastPanPosition = currentPosition;
+    updateViewportTransform(panOffset, zoomLevel);
   }
 });
 
@@ -974,6 +893,10 @@ document.addEventListener("keydown", (e) => {
 async function bootstrap() {
   await initI18n();
   applyTranslations();
+
+  // Initialize display viewport
+  initViewport();
+
   updatePieceDisplay();
   updateZoomDisplay();
   // Deep link mode: ?image=<url>&pieces=<n>
@@ -1010,6 +933,9 @@ async function bootstrap() {
   }
   initCommChannel(updateProgress);
 
+  // Set up piece selection callback for orientation tip button
+  setSelectionChangeCallback(updateOrientationTipButton);
+
   // Late-load persistence module and attempt auto-resume AFTER i18n so modal is translated
   import("./persistence.js")
     .then((mod) => {
@@ -1028,14 +954,20 @@ async function bootstrap() {
           state.totalPieces = pieces.length;
         },
         redrawPiecesContainer: () => {
-          piecesViewport.innerHTML = "";
-          scatterInitialPieces(piecesViewport, state.pieces);
+          const viewport = getViewport();
+          if (viewport) {
+            viewport.innerHTML = "";
+            scatterInitialPieces(viewport, state.pieces);
+          }
           captureInitialMargins();
           updateProgress();
         },
         renderPiecesFromState: () => {
-          piecesViewport.innerHTML = "";
-          renderPiecesAtPositions(piecesViewport, state.pieces);
+          const viewport = getViewport();
+          if (viewport) {
+            viewport.innerHTML = "";
+            renderPiecesAtPositions(viewport, state.pieces);
+          }
           captureInitialMargins();
           updateProgress();
         },
@@ -1043,6 +975,8 @@ async function bootstrap() {
         showResumePrompt: createResumeModal,
         afterDiscard: () => {
           updateProgress();
+          // Immediately show file selection dialog when user selects "new session"
+          imageInput.click();
         },
       });
       if (deepLinkActive) {
@@ -1162,8 +1096,6 @@ function createResumeModal({ onResume, onDiscard, onCancel }) {
 export {
   updateProgress,
   clearAllPieceOutlines,
-  screenToViewport,
-  viewportToScreen,
   getCurrentZoom,
   setZoom,
   getViewportState,
@@ -1179,7 +1111,7 @@ export {
 
 /**
  * Fit ALL current pieces into the visible viewport by:
- * 1. Computing the bounding rectangle R of every piece's (displayX, displayY, width, height)
+ * 1. Computing the bounding rectangle R of every piece's (position.x, position.y, width, height)
  *    (rotation is ignored; we use the element's unrotated box which is usually adequate).
  * 2. Determining the zoom that allows R to fully fit (preserving aspect ratio) inside the container.
  *    This zoom may increase or decrease the current zoom but is clamped to [MIN_ZOOM, MAX_ZOOM].
@@ -1197,23 +1129,20 @@ function fitAllPiecesInView() {
   const contH = piecesContainer?.clientHeight || 0;
   if (contW === 0 || contH === 0) return;
 
-  let minX = Infinity;
-  let minY = Infinity;
-  let maxX = -Infinity;
-  let maxY = -Infinity;
+  const bounds = Point.computeBounds(
+    state.pieces,
+    (p) => p.position,
+    (p) => {
+      const el = getPieceElement(p.id);
+      return el ? new Point(el.offsetWidth, el.offsetHeight) : null;
+    }
+  );
 
-  for (const p of state.pieces) {
-    if (typeof p.displayX !== "number" || typeof p.displayY !== "number")
-      continue;
-    const el = getPieceElement(p.id);
-    if (!el) continue;
-    const w = el.offsetWidth;
-    const h = el.offsetHeight;
-    if (p.displayX < minX) minX = p.displayX;
-    if (p.displayY < minY) minY = p.displayY;
-    if (p.displayX + w > maxX) maxX = p.displayX + w;
-    if (p.displayY + h > maxY) maxY = p.displayY + h;
-  }
+  if (!bounds) return;
+  const minX = bounds.min.x;
+  const minY = bounds.min.y;
+  const maxX = bounds.max.x;
+  const maxY = bounds.max.y;
 
   if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY))
     return;
@@ -1226,15 +1155,13 @@ function fitAllPiecesInView() {
   zoomLevel = newZoom;
 
   // Align top-left of bounding rect with viewport origin.
-  panX = -minX * zoomLevel;
-  panY = -minY * zoomLevel;
+  panOffset = new Point(-minX * zoomLevel, -minY * zoomLevel);
 
-  updateViewportTransform();
+  updateViewportTransform(panOffset, zoomLevel);
   updateZoomDisplay();
 
   // Reset initial margins so margin enforcement logic does not shift us later.
-  initialMarginLeft = 0;
-  initialMarginTop = 0;
+  initialMargins = new Point(0, 0);
 }
 
 export { fitAllPiecesInView };

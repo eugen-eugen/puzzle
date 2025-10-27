@@ -75,9 +75,19 @@ export function applyTranslations() {
 
 export async function initI18n() {
   const saved = localStorage.getItem("lang");
-  const guess = navigator.language?.toLowerCase().startsWith("de")
-    ? "de"
-    : "en";
+
+  // Detect browser language
+  const browserLang = navigator.language?.toLowerCase() || "en";
+  let guess = "en";
+
+  if (browserLang.startsWith("de")) {
+    guess = "de";
+  } else if (browserLang.startsWith("ru")) {
+    guess = "ru";
+  } else if (browserLang.startsWith("ua")) {
+    guess = "ua";
+  }
+
   await loadLanguage(saved || guess || "en");
   const select = document.getElementById("langSelect");
   if (select) {

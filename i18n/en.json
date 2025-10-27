@@ -5,6 +5,8 @@
   "button.zoomOut": "Zoom Out",
   "button.zoomReset": "Reset Zoom",
   "button.check": "Check! ✓",
+  "button.orientationTip": "🧭",
+  "button.orientationTipTooltip": "Fix piece orientation to 0°",
   "button.help": "?",
   "aria.pieceBox": "Piece Box",
   "status.emptyProgress": "0 / 0 (0%)",

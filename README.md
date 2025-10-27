@@ -3,16 +3,19 @@
 > A lightweight, offline‑capable, single–page jigsaw puzzle app that turns any uploaded image into an interactive puzzle with drag, rotate, group merge, detach, zoom & persistent resume.
 
 ---
-## ✨ Key Features (MVP)
+## ✨ Key Features (Current)
 - Local image upload (JPEG / PNG) with automatic downscale (max side 3000px)
 - Procedural waypoint‑based jigsaw piece generation (traditional interlocks)
 - Up to 1000 pieces (logarithmic slider selection)
 - Random scatter + random orientation (0°, 90°, 180°, 270°)
 - Grouping through geometric connection detection (corner + side waypoint matching)
-- Shift + Drag single‑piece detachment from a group
-- Zoom & pan (wheel zoom at cursor, button controls) with transform‑aware logic
+- Single‑piece detachment: Ctrl + Drag (desktop) or two‑finger drag (touch)
+- Rotation: Double‑click (desktop), R / Shift+R (CW / CCW), Double‑tap (touch)
+- Intelligent zoom & pan (cursor wheel, buttons) + automatic global fit when a piece leaves the viewport
 - Spatial indexing for fast neighbor queries
-- Auto‑save & resume (debounced light-weight persistence)
+- Auto‑save & resume (debounced lightweight persistence)
+- Deep link start via URL parameters (`?image=<url>&pieces=<n>`) that bypasses resume and starts immediately
+- Internationalization (English / Deutsch) with dynamic JSON loading
 - Clean resume modal (Resume / Start New / Cancel)
 - Progress scoring based on connected group consolidation
 
@@ -76,7 +79,7 @@ percent = score / totalPieces
 - Light mode by default (piece bitmaps regenerated from original image to avoid quota issues)
 - Debounced (1200ms) auto‑save on piece movement & progress changes
 - Fallback: attempts full (with bitmaps) → retries light if quota exceeded or soft size threshold surpassed (~2.5MB)
-- Resume flow uses a custom modal, not intrusive `confirm()` dialogs
+- Resume flow uses a custom modal, not intrusive `confirm()` dialogs (suppressed when valid deep link parameters are present)
 - Includes: geometry, groups, displayX/Y, rotation, viewport (zoom/pan), slider setting
 
 ### Regeneration Path
@@ -111,12 +114,38 @@ Then open: http://localhost:3000 (or the port shown in terminal).
 
 ### Basic Use
 1. Open the page
-2. Upload an image
+2. Upload an image (or use deep link parameters – see below)
 3. Adjust piece count slider (log scale) → pieces generate automatically
-4. Drag & rotate pieces (double‑click rotates 90°; R / Shift+R also rotate)
+4. Drag & rotate pieces (Double‑click, R / Shift+R, or Double‑tap on touch)
 5. Pieces auto‑connect when geometry matches
-6. Shift+Drag to detach a single piece from a group
-7. Reload page → choose Resume to continue
+6. Detach a single piece with Ctrl+Drag (desktop) or two‑finger drag (touch)
+7. Move a piece outside the visible bounds → all pieces auto‑fit & re-center
+8. Reload page → choose Resume to continue (unless deep link mode was used)
+
+### Deep Link Start
+Launch directly into a puzzle without manual upload:
+```
+https://your-host.example/puzzle/?image=https://example.com/photo.jpg&pieces=250
+```
+Behavior:
+* Loads the remote image (CORS permitting) and generates an approximate piece count.
+* Skips the resume prompt and discards any previous saved session.
+* Falls back silently if parameters are invalid or the image fails to load.
+
+### Controls & Gestures
+| Action | Desktop | Touch / Mobile |
+|--------|---------|----------------|
+| Pan workspace | Middle mouse drag or Ctrl+Left drag on empty space | Two‑finger drag / standard scroll (browser) |
+| Zoom | Mouse wheel (cursor‑centric), buttons, + / - / 0 (reset) | Pinch (browser), buttons |
+| Rotate piece / group | Double‑click, R (90° CW), Shift+R (90° CCW) | Double‑tap (90° CW) |
+| Detach single piece | Ctrl + Drag piece | Start drag with two fingers on the piece |
+| Select piece | Click | Tap |
+| Global auto‑fit | Drag a piece beyond viewport bounds | Same |
+| Resume previous game | Accept modal prompt | Accept modal prompt |
+
+Notes:
+* Global auto‑fit scales and repositions all pieces so their bounding box top‑left aligns with the viewport origin.
+* Detach applies a transient visual flash to confirm action.
 
 ---
 ## 📥 Install as an App (PWA)

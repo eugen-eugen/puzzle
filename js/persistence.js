@@ -2,6 +2,9 @@
 // Avoids quota issues by default (does NOT store per-piece bitmap data URLs unless enabled).
 // Regenerates piece bitmaps from the original image + geometry on load.
 
+import { Piece } from "./model/Piece.js";
+import { Point } from "./geometry/Point.js";
+
 const LS_KEY = "puzzle.save.v1";
 const AUTO_SAVE_DELAY = 1200; // ms debounce (SAVE_DEBOUNCE_MS)
 const STORE_BITMAPS = false; // Enable only for debugging tiny puzzles
@@ -66,32 +69,38 @@ function serializeState(includeBitmaps = STORE_BITMAPS) {
   const s = api.getState();
   if (!s.pieces || !s.pieces.length) return null;
   const pieces = s.pieces.map((p) => {
-    let bitmapData = null;
-    if (includeBitmaps) {
-      try {
-        bitmapData = p.bitmap?.toDataURL?.();
-      } catch (_) {
-        bitmapData = null;
+    // Use Piece class serialize method if available, otherwise fall back to manual serialization
+    if (typeof p.serialize === "function") {
+      return p.serialize(includeBitmaps);
+    } else {
+      // Legacy fallback for plain objects
+      let bitmapData = null;
+      if (includeBitmaps) {
+        try {
+          bitmapData = p.bitmap?.toDataURL?.();
+        } catch (_) {
+          bitmapData = null;
+        }
       }
+      return {
+        id: p.id,
+        gridX: p.gridX,
+        gridY: p.gridY,
+        rotation: p.rotation,
+        displayX: p.position.x,
+        displayY: p.position.y,
+        groupId: p.groupId,
+        edges: p.edges,
+        sPoints: p.sPoints,
+        pad: p.pad,
+        w: p.w,
+        h: p.h,
+        scale: p.scale,
+        imgX: p.imgX,
+        imgY: p.imgY,
+        bitmapData,
+      };
     }
-    return {
-      id: p.id,
-      gridX: p.gridX,
-      gridY: p.gridY,
-      rotation: p.rotation,
-      displayX: p.displayX,
-      displayY: p.displayY,
-      groupId: p.groupId,
-      edges: p.edges,
-      sPoints: p.sPoints,
-      pad: p.pad,
-      w: p.w,
-      h: p.h,
-      scale: p.scale,
-      imgX: p.imgX,
-      imgY: p.imgY,
-      bitmapData,
-    };
   });
   const { rows, cols } = computeRowsColsFromPieces(s.pieces);
   return {
@@ -281,13 +290,13 @@ function reconstructPieces(data, masterImage) {
       ctx.fillStyle = "#222";
       ctx.fillRect(0, 0, cw, ch);
     }
-    return {
+    // Create Piece instance from deserialized data
+    return new Piece({
       id: sp.id,
       gridX: sp.gridX,
       gridY: sp.gridY,
       rotation: sp.rotation,
-      displayX: sp.displayX,
-      displayY: sp.displayY,
+      position: new Point(sp.displayX || 0, sp.displayY || 0),
       groupId: sp.groupId,
       edges: sp.edges,
       sPoints: sp.sPoints,
@@ -305,7 +314,7 @@ function reconstructPieces(data, masterImage) {
         se: { x: sp.w, y: sp.h },
         sw: { x: 0, y: sp.h },
       },
-    };
+    });
   });
   api.setPieces(pieces);
   if (api.renderPiecesFromState) {
@@ -313,7 +322,14 @@ function reconstructPieces(data, masterImage) {
   } else {
     api.redrawPiecesContainer();
   }
-  api.applyViewportState(data.ui || {});
+  if (
+    data.ui &&
+    typeof data.ui.zoomLevel === "number" &&
+    typeof data.ui.panX === "number" &&
+    typeof data.ui.panY === "number"
+  ) {
+    api.applyViewportState(data.ui);
+  }
   if (data.ui?.sliderValue != null) api.setSliderValue(data.ui.sliderValue);
   console.info("[persistence] Loaded game", {
     pieces: pieces.length,

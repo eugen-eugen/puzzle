@@ -10,16 +10,19 @@ import {
 import {
   updateProgress,
   clearAllPieceOutlines,
-  screenToViewport,
   ensureRectInView,
   enforceInitialMargins,
   fitAllPiecesInView,
+  getViewportState,
 } from "./app.js";
+import { Point, rotatePointDeg } from "./geometry/Point.js";
+import { applyPiecePosition, screenToViewport } from "./display.js";
 // windowManager no longer needed for cross-window transfer (single-window mode)
 
 const pieceElements = new Map(); // id -> DOM element
 let currentDrag = null;
 let selectedPieceId = null;
+let onSelectionChangeCallback = null;
 
 // ================================
 // Module Constants (magic numbers -> named)
@@ -38,10 +41,31 @@ let spatialIndex = null;
 // State for detecting double taps on touch devices
 let lastTapTime = 0;
 let lastTapPieceId = null;
-let lastTapX = 0;
-let lastTapY = 0;
+// Store last tap position as a Point instead of separate scalars
+let lastTapPos = new Point(0, 0);
 // Track active touch pointers for multi-touch gestures (e.g., two-finger detach)
 const activeTouchIds = new Set();
+
+// Ensure piece has proper position setup (now handled by Piece class)
+// This function is now mainly for backward compatibility
+function ensurePiecePosition(piece) {
+  // Piece class instances already have position and accessors set up
+  if (piece.position instanceof Point) return piece;
+
+  // Handle missing position (should be rare with new Piece class)
+  if (!piece.position || !(piece.position instanceof Point)) {
+    const initX = piece.position?.x || 0;
+    const initY = piece.position?.y || 0;
+    piece.position = new Point(initX, initY);
+  }
+
+  return piece;
+}
+
+// Treat element dimensions as a Point (width -> x, height -> y) for geometric ops.
+function elementSizePoint(el) {
+  return new Point(el.offsetWidth, el.offsetHeight);
+}
 
 function updateTouchDebug() {
   const el = document.getElementById("touchDebug");
@@ -50,20 +74,16 @@ function updateTouchDebug() {
 }
 
 function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
-  const groupPieces = getGroupPieces(piece);
+  const groupPieces = piece.getGroupPieces();
   if (groupPieces.length > 1) {
     rotateGroup(piece, rotationDegrees);
   } else {
-    piece.rotation = (piece.rotation + rotationDegrees) % 360;
+    piece.rotate(rotationDegrees);
     el.style.transform = `rotate(${piece.rotation}deg)`;
   }
-  ensureRectInView(
-    piece.displayX,
-    piece.displayY,
-    el.offsetWidth,
-    el.offsetHeight,
-    { forceZoom: false }
-  );
+  ensureRectInView(piece.position, new Point(el.offsetWidth, el.offsetHeight), {
+    forceZoom: false,
+  });
 }
 
 export function scatterInitialPieces(container, pieces) {
@@ -96,22 +116,19 @@ export function scatterInitialPieces(container, pieces) {
     wrapper.style.height = scaledH + "px";
     const left = Math.random() * (areaW - scaledW);
     const top = Math.random() * (areaH - scaledH);
-    wrapper.style.left = left + "px";
-    wrapper.style.top = top + "px";
+    // Initialize Point position then apply via helper
+    p.position = new Point(left, top);
+    ensurePiecePosition(p); // installs accessors early
+    applyPiecePosition(wrapper, p);
     wrapper.style.transform = `rotate(${p.rotation}deg)`;
     wrapper.appendChild(canvas);
     attachPieceEvents(wrapper, p);
     container.appendChild(wrapper);
     pieceElements.set(p.id, wrapper);
-    // Track display position (for now separate from original grid coordinates)
-    p.displayX = left;
-    p.displayY = top;
+    // Position already set & applied above
     p.scale = SCALE;
-    spatialIndex.insert({
-      id: p.id,
-      x: left + scaledW / 2,
-      y: top + scaledH / 2,
-    });
+    const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
+    spatialIndex.insert({ id: p.id, position: centerPoint });
   });
   // Initialize connection manager once pieces & spatial index are ready
   initConnectionManager({
@@ -124,7 +141,7 @@ export function scatterInitialPieces(container, pieces) {
   installGlobalListeners(container);
 }
 
-// Render pieces using their saved displayX/displayY and rotation instead of scattering.
+// Render pieces using their saved position and rotation instead of scattering.
 // Creates a fresh spatial index reflecting current positions.
 export function renderPiecesAtPositions(container, pieces) {
   const areaW = container.clientWidth || 800;
@@ -155,29 +172,26 @@ export function renderPiecesAtPositions(container, pieces) {
     wrapper.style.height = scaledH + "px";
     // Use saved position; if missing, fallback to random placement
     const left =
-      typeof p.displayX === "number"
-        ? p.displayX
+      p.position instanceof Point
+        ? p.position.x
         : Math.random() * (areaW - scaledW);
     const top =
-      typeof p.displayY === "number"
-        ? p.displayY
+      p.position instanceof Point
+        ? p.position.y
         : Math.random() * (areaH - scaledH);
-    wrapper.style.left = left + "px";
-    wrapper.style.top = top + "px";
+    // Initialize Point position then apply via helper
+    p.position = new Point(left, top);
+    ensurePiecePosition(p);
+    applyPiecePosition(wrapper, p);
     wrapper.style.transform = `rotate(${p.rotation}deg)`;
     wrapper.appendChild(canvas);
-    // Normalize state fields in case they were absent
-    p.displayX = left;
-    p.displayY = top;
+    // Position already set & applied above
     p.scale = scale;
     pieceElements.set(p.id, wrapper);
     attachPieceEvents(wrapper, p);
     container.appendChild(wrapper);
-    spatialIndex.insert({
-      id: p.id,
-      x: left + scaledW / 2,
-      y: top + scaledH / 2,
-    });
+    const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
+    spatialIndex.insert({ id: p.id, position: centerPoint });
   });
   initConnectionManager({
     spatialIndex,
@@ -223,9 +237,10 @@ function attachPieceEvents(el, piece) {
     if (e.pointerType === "touch" && e.isPrimary && activeTouchIds.size === 1) {
       const now = performance.now();
       const dt = now - lastTapTime;
-      const dx = e.clientX - lastTapX;
-      const dy = e.clientY - lastTapY;
-      const distSq = dx * dx + dy * dy;
+      const tapPos = new Point(e.clientX, e.clientY);
+      // Use Point delta instead of separate dx/dy scalars
+      const delta = Point.from(tapPos).mutSubPoint(lastTapPos);
+      const distSq = delta.x * delta.x + delta.y * delta.y;
       if (
         piece.id === lastTapPieceId &&
         dt <= DOUBLE_TAP_MAX_DELAY_MS &&
@@ -241,18 +256,22 @@ function attachPieceEvents(el, piece) {
       // Record as first tap
       lastTapTime = now;
       lastTapPieceId = piece.id;
-      lastTapX = e.clientX;
-      lastTapY = e.clientY;
+      lastTapPos.mutSet(tapPos.x, tapPos.y);
     }
 
     // Convert screen coordinates to viewport coordinates (after double-tap check)
-    const viewportPos = screenToViewport(e.clientX, e.clientY);
+    const viewportState = getViewportState();
+    const viewportPos = screenToViewport(
+      new Point(e.clientX, e.clientY),
+      new Point(viewportState.panX, viewportState.panY),
+      viewportState.zoomLevel
+    );
     const rect = el.getBoundingClientRect();
 
     currentDrag = {
       id: piece.id,
-      offsetX: viewportPos.x - piece.displayX,
-      offsetY: viewportPos.y - piece.displayY,
+      offsetX: viewportPos.x - piece.position.x,
+      offsetY: viewportPos.y - piece.position.y,
       originLeft: parseFloat(el.style.left),
       originTop: parseFloat(el.style.top),
       isDetached: (isCtrlPressed || multiTouchDetach) && piece.groupId, // Track if this piece was detached
@@ -272,17 +291,23 @@ function attachPieceEvents(el, piece) {
     e.preventDefault();
 
     // Convert screen coordinates to viewport coordinates
-    const viewportPos = screenToViewport(e.clientX, e.clientY);
+    const viewportState = getViewportState();
+    const viewportPos = screenToViewport(
+      new Point(e.clientX, e.clientY),
+      new Point(viewportState.panX, viewportState.panY),
+      viewportState.zoomLevel
+    );
     let newLeft = viewportPos.x - currentDrag.offsetX;
     let newTop = viewportPos.y - currentDrag.offsetY;
 
     // Calculate movement delta
-    const deltaX = newLeft - piece.displayX;
-    const deltaY = newTop - piece.displayY;
+    const deltaX = newLeft - piece.position.x;
+    const deltaY = newTop - piece.position.y;
 
     // Move pieces - if detached, only move this piece; otherwise move the whole group
     if (currentDrag.isDetached) {
-      moveSinglePiece(piece, deltaX, deltaY);
+      const delta = new Point(deltaX, deltaY);
+      moveSinglePiece(piece, delta);
     } else {
       moveGroup(piece, deltaX, deltaY);
     }
@@ -323,10 +348,8 @@ function attachPieceEvents(el, piece) {
         delete el.dataset.outside; // reset flag
       } else {
         ensureRectInView(
-          piece.displayX,
-          piece.displayY,
-          el.offsetWidth,
-          el.offsetHeight,
+          piece.position,
+          new Point(el.offsetWidth, el.offsetHeight),
           { forceZoom: false }
         );
       }
@@ -351,10 +374,8 @@ function attachPieceEvents(el, piece) {
         delete el.dataset.outside;
       } else {
         ensureRectInView(
-          piece.displayX,
-          piece.displayY,
-          el.offsetWidth,
-          el.offsetHeight,
+          piece.position,
+          new Point(el.offsetWidth, el.offsetHeight),
           { forceZoom: false }
         );
       }
@@ -371,37 +392,32 @@ function attachPieceEvents(el, piece) {
 
 function moveGroup(draggedPiece, deltaX, deltaY) {
   // Get all pieces in the same group as the dragged piece
-  const groupPieces = getGroupPieces(draggedPiece);
+  const groupPieces = draggedPiece.getGroupPieces();
 
   groupPieces.forEach((p) => {
     // Update piece position
-    p.displayX += deltaX;
-    p.displayY += deltaY;
+    ensurePiecePosition(p);
+    p.position.mutAdd(deltaX, deltaY);
 
     // Update DOM element position
     const el = pieceElements.get(p.id);
     if (el) {
-      el.style.left = p.displayX + "px";
-      el.style.top = p.displayY + "px";
+      applyPiecePosition(el, p);
     }
 
     // Update spatial index
     if (spatialIndex) {
       const scaledW = el ? el.offsetWidth : p.bitmap.width * SCALE;
       const scaledH = el ? el.offsetHeight : p.bitmap.height * SCALE;
-      spatialIndex.update({
-        id: p.id,
-        x: p.displayX + scaledW / 2,
-        y: p.displayY + scaledH / 2,
-      });
+      const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
+      spatialIndex.update({ id: p.id, position: centerPoint });
     }
   });
 }
 
 function getGroupPieces(piece) {
-  // All pieces always have a groupId now
-  // Find all pieces with the same groupId
-  return state.pieces.filter((p) => p.groupId === piece.groupId);
+  // Use Piece class method
+  return piece.getGroupPieces();
 }
 
 function detachPieceFromGroup(piece) {
@@ -414,9 +430,8 @@ function detachPieceFromGroup(piece) {
     oldGroupId
   );
 
-  // Create a new unique group for this piece
-  const newGroupId = "g" + piece.id + "_" + Date.now();
-  piece.groupId = newGroupId;
+  // Create a new unique group for this piece using Piece method
+  const newGroupId = piece.detachFromGroup();
 
   // Add visual indication that this piece is detached
   const el = pieceElements.get(piece.id);
@@ -443,84 +458,58 @@ function detachPieceFromGroup(piece) {
   // breaks the group into multiple disconnected components
 }
 
-function moveSinglePiece(piece, deltaX, deltaY) {
-  // Update piece position
-  piece.displayX += deltaX;
-  piece.displayY += deltaY;
+function moveSinglePiece(piece, delta) {
+  const d =
+    delta instanceof Point ? delta : new Point(delta.x || 0, delta.y || 0);
+  piece.move(d);
 
   // Update DOM element position
   const el = pieceElements.get(piece.id);
   if (el) {
-    el.style.left = piece.displayX + "px";
-    el.style.top = piece.displayY + "px";
+    applyPiecePosition(el, piece);
   }
 
   // Update spatial index
   if (spatialIndex) {
-    const scaledW = el ? el.offsetWidth : piece.bitmap.width * SCALE;
-    const scaledH = el ? el.offsetHeight : piece.bitmap.height * SCALE;
-    spatialIndex.update({
-      id: piece.id,
-      x: piece.displayX + scaledW / 2,
-      y: piece.displayY + scaledH / 2,
-    });
+    piece.updateSpatialIndex(spatialIndex, el);
   }
 }
 
 function rotateGroup(selectedPiece, rotationDegrees) {
-  // Get all pieces in the same group as the selected piece
-  const groupPieces = getGroupPieces(selectedPiece);
-
-  // Calculate the rotation center (center of the selected piece)
+  // All pieces sharing groupId rotate around the selected piece's visual center.
+  const groupPieces = selectedPiece.getGroupPieces();
   const selectedEl = pieceElements.get(selectedPiece.id);
   if (!selectedEl) return;
-
-  const scaledW = selectedEl.offsetWidth;
-  const scaledH = selectedEl.offsetHeight;
-  const centerX = selectedPiece.displayX + scaledW / 2;
-  const centerY = selectedPiece.displayY + scaledH / 2;
-
-  // Convert rotation to radians
-  const rad = (rotationDegrees * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
+  const selectedSize = elementSizePoint(selectedEl);
+  const pivot = selectedPiece.getCenter(selectedEl);
 
   groupPieces.forEach((piece) => {
-    // Update piece rotation
-    piece.rotation = (piece.rotation + rotationDegrees) % 360;
-    if (piece.rotation < 0) piece.rotation += 360;
-
-    // Calculate piece center before rotation
     const pieceEl = pieceElements.get(piece.id);
     if (!pieceEl) return;
 
-    const pieceScaledW = pieceEl.offsetWidth;
-    const pieceScaledH = pieceEl.offsetHeight;
-    const pieceCenterX = piece.displayX + pieceScaledW / 2;
-    const pieceCenterY = piece.displayY + pieceScaledH / 2;
+    // Update cumulative rotation using Piece method
+    piece.rotate(rotationDegrees);
 
-    // Rotate piece center around selected piece center
-    const dx = pieceCenterX - centerX;
-    const dy = pieceCenterY - centerY;
-    const newCenterX = centerX + (dx * cos - dy * sin);
-    const newCenterY = centerY + (dx * sin + dy * cos);
+    const size = elementSizePoint(pieceEl);
+    const halfSize = size.scaled(0.5);
+    const preCenter = piece.getCenter(pieceEl);
+    const rotatedCenter = Point.from(
+      rotatePointDeg(
+        preCenter.x,
+        preCenter.y,
+        pivot.x,
+        pivot.y,
+        rotationDegrees
+      )
+    );
+    const topLeft = rotatedCenter.clone().mutSubPoint(halfSize);
+    piece.setPosition(topLeft);
 
-    // Update piece position (convert back from center to top-left)
-    piece.displayX = newCenterX - pieceScaledW / 2;
-    piece.displayY = newCenterY - pieceScaledH / 2;
+    // Apply DOM updates
+    piece.applyToElement(pieceEl);
 
-    // Update DOM element
-    pieceEl.style.left = piece.displayX + "px";
-    pieceEl.style.top = piece.displayY + "px";
-    pieceEl.style.transform = `rotate(${piece.rotation}deg)`;
-
-    // Update spatial index
     if (spatialIndex) {
-      spatialIndex.update({
-        id: piece.id,
-        x: piece.displayX + pieceScaledW / 2,
-        y: piece.displayY + pieceScaledH / 2,
-      });
+      piece.updateSpatialIndex(spatialIndex, pieceEl);
     }
   });
 }
@@ -537,6 +526,44 @@ export function getPieceElement(id) {
   return pieceElements.get(id);
 }
 
+export function getSelectedPiece() {
+  if (!selectedPieceId) return null;
+  return findPiece(selectedPieceId);
+}
+
+export function fixSelectedPieceOrientation() {
+  if (!selectedPieceId) return false;
+
+  const piece = findPiece(selectedPieceId);
+  const pieceEl = pieceElements.get(selectedPieceId);
+  if (!piece || !pieceEl) return false;
+
+  // Calculate how much to rotate to get back to 0 degrees
+  const currentRotation = piece.rotation;
+  if (currentRotation === 0) return true; // Already correctly oriented
+
+  // Calculate the shortest rotation to get to 0
+  let targetRotation = -currentRotation;
+  if (targetRotation <= -180) targetRotation += 360;
+  if (targetRotation > 180) targetRotation -= 360;
+
+  // Apply the rotation
+  if (piece.getGroupPieces().length > 1) {
+    // If piece is in a group, rotate the whole group
+    rotateGroup(piece, targetRotation);
+  } else {
+    // Single piece rotation
+    piece.rotation = 0; // Set directly to 0 for precision
+    pieceEl.style.transform = `rotate(0deg)`;
+  }
+
+  return true;
+}
+
+export function setSelectionChangeCallback(callback) {
+  onSelectionChangeCallback = callback;
+}
+
 function selectPiece(id) {
   if (selectedPieceId === id) return;
   if (selectedPieceId != null) {
@@ -550,6 +577,12 @@ function selectPiece(id) {
     el.style.zIndex = Date.now().toString();
   }
   selectedPieceId = id;
+
+  // Notify callback about selection change
+  if (onSelectionChangeCallback) {
+    const piece = findPiece(id);
+    onSelectionChangeCallback(piece);
+  }
 }
 
 function installGlobalListeners(container) {
@@ -562,6 +595,11 @@ function installGlobalListeners(container) {
         const prev = pieceElements.get(selectedPieceId);
         if (prev) prev.classList.remove("selected");
         selectedPieceId = null;
+
+        // Notify callback about deselection
+        if (onSelectionChangeCallback) {
+          onSelectionChangeCallback(null);
+        }
       }
     }
   });
@@ -594,10 +632,8 @@ function installGlobalListeners(container) {
         pieceEl.style.transform = `rotate(${piece.rotation}deg)`;
       }
       ensureRectInView(
-        piece.displayX,
-        piece.displayY,
-        pieceEl.offsetWidth,
-        pieceEl.offsetHeight,
+        piece.position,
+        new Point(pieceEl.offsetWidth, pieceEl.offsetHeight),
         { forceZoom: false }
       );
     }

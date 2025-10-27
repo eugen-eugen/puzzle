@@ -127,6 +127,24 @@ input[type=range]::-moz-range-thumb:hover {
   transform:scale(1.05);
 }
 
+/* Orientation tip button styling */
+.orientation-tip-btn {
+  background:var(--accent-blue);
+  color:#fff;
+  border:none;
+  font-weight:600;
+  font-size:.9rem;
+  padding:.6rem 1rem;
+  border-radius:var(--radius);
+  cursor:pointer;
+  transition:var(--transition);
+  text-shadow:0 1px 2px rgba(0,0,0,0.3);
+}
+.orientation-tip-btn:hover {
+  background:#1f6bd8;
+  transform:scale(1.05);
+}
+
 /* Help button styling */
 .help-btn {
   background:var(--accent-blue);

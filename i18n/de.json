@@ -5,6 +5,8 @@
   "button.zoomOut": "Verkleinern",
   "button.zoomReset": "Zurücksetzen",
   "button.check": "Prüfen! ✓",
+  "button.orientationTip": "🧭",
+  "button.orientationTipTooltip": "Teil auf 0° drehen",
   "button.help": "?",
   "aria.pieceBox": "Teilebereich",
   "status.emptyProgress": "0 / 0 (0%)",

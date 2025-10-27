@@ -1,5 +1,9 @@
 // spatialIndex.js - uniform grid spatial index for pieces
 // Provides efficient neighbor queries for proximity checks & potential connection detection.
+// Refactored to interoperate with Point objects while retaining backward
+// compatibility with plain {x, y} inputs.
+
+import { Point } from "./geometry/Point.js";
 
 // ================================
 // Module Constants
@@ -26,6 +30,11 @@ export class SpatialIndex {
   }
 
   _cellFor(x, y) {
+    // Accept either numbers or a Point / object as first param
+    if (typeof x === "object" && x !== null) {
+      y = x.y;
+      x = x.x;
+    }
     const col = Math.min(
       this.cols - 1,
       Math.max(0, Math.floor(x / this.cellSize))
@@ -37,34 +46,57 @@ export class SpatialIndex {
     return { col, row };
   }
 
-  insert(piece) {
-    const { col, row } = this._cellFor(piece.x, piece.y);
-    this.grid[this._index(col, row)].add(piece.id);
-    this.itemMap.set(piece.id, { col, row });
+  insert(item) {
+    // item may be {id, x, y} OR {id, position: Point} OR {id, x, y, pos:Point}
+    const point =
+      item.position instanceof Point
+        ? item.position
+        : item.pos instanceof Point
+        ? item.pos
+        : new Point(item.x, item.y);
+    // Mirror numeric x,y for legacy consumers (not strictly stored but convenient)
+    item.x = point.x; // eslint-disable-line no-param-reassign
+    item.y = point.y; // eslint-disable-line no-param-reassign
+    const { col, row } = this._cellFor(point);
+    this.grid[this._index(col, row)].add(item.id);
+    this.itemMap.set(item.id, { col, row, point });
   }
 
-  update(piece, oldX, oldY) {
-    const oldCell = this.itemMap.get(piece.id);
-    const { col: newCol, row: newRow } = this._cellFor(piece.x, piece.y);
+  update(item) {
+    const point =
+      item.position instanceof Point
+        ? item.position
+        : item.pos instanceof Point
+        ? item.pos
+        : new Point(item.x, item.y);
+    item.x = point.x; // keep numeric mirror
+    item.y = point.y;
+    const oldCell = this.itemMap.get(item.id);
+    const { col: newCol, row: newRow } = this._cellFor(point);
     if (!oldCell || oldCell.col !== newCol || oldCell.row !== newRow) {
       if (oldCell) {
-        this.grid[this._index(oldCell.col, oldCell.row)].delete(piece.id);
+        this.grid[this._index(oldCell.col, oldCell.row)].delete(item.id);
       }
-      this.grid[this._index(newCol, newRow)].add(piece.id);
-      console.log("new index: " + newCol + ":" + newRow);
-      this.itemMap.set(piece.id, { col: newCol, row: newRow });
+      this.grid[this._index(newCol, newRow)].add(item.id);
+      this.itemMap.set(item.id, { col: newCol, row: newRow, point });
     }
   }
 
-  remove(piece) {
-    const cell = this.itemMap.get(piece.id);
+  remove(item) {
+    const cell = this.itemMap.get(item.id);
     if (cell) {
-      this.grid[this._index(cell.col, cell.row)].delete(piece.id);
-      this.itemMap.delete(piece.id);
+      this.grid[this._index(cell.col, cell.row)].delete(item.id);
+      this.itemMap.delete(item.id);
     }
   }
 
   queryRadius(x, y, radius) {
+    if (typeof x === "object" && x !== null) {
+      radius = y; // shift params if called as (point, radius)
+      const pt = x instanceof Point ? x : Point.from(x);
+      x = pt.x;
+      y = pt.y;
+    }
     const results = new Set();
     const minCol = Math.max(0, Math.floor((x - radius) / this.cellSize));
     const maxCol = Math.min(
