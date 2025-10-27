@@ -67,12 +67,6 @@ function elementSizePoint(el) {
   return new Point(el.offsetWidth, el.offsetHeight);
 }
 
-function updateTouchDebug() {
-  const el = document.getElementById("touchDebug");
-  if (!el) return;
-  el.textContent = "t:" + activeTouchIds.size;
-}
-
 function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
   const groupPieces = piece.getGroupPieces();
   if (groupPieces.length > 1) {
@@ -211,7 +205,6 @@ function attachPieceEvents(el, piece) {
     e.stopPropagation();
     if (e.pointerType === "touch") {
       activeTouchIds.add(e.pointerId);
-      updateTouchDebug();
     }
     selectPiece(piece.id);
 
@@ -225,39 +218,35 @@ function attachPieceEvents(el, piece) {
     const multiTouchDetach =
       e.pointerType === "touch" && activeTouchIds.size >= 2;
     if ((isCtrlPressed || multiTouchDetach) && piece.groupId) {
-      console.debug(
-        "[pieceRenderer] detaching piece from group via",
-        isCtrlPressed ? "control" : "multi-touch",
-        piece.id
-      );
       detachPieceFromGroup(piece);
     }
 
     // Double-tap detection (touch): detect before initiating drag
-    if (e.pointerType === "touch" && e.isPrimary && activeTouchIds.size === 1) {
-      const now = performance.now();
-      const dt = now - lastTapTime;
-      const tapPos = new Point(e.clientX, e.clientY);
-      // Use Point delta instead of separate dx/dy scalars
-      const delta = Point.from(tapPos).mutSubPoint(lastTapPos);
-      const distSq = delta.x * delta.x + delta.y * delta.y;
-      if (
-        piece.id === lastTapPieceId &&
-        dt <= DOUBLE_TAP_MAX_DELAY_MS &&
-        distSq <= DOUBLE_TAP_MAX_DIST_SQ
-      ) {
-        // Treat as double-tap -> rotate 90° clockwise
-        rotatePieceOrGroup(piece, el, 90);
-        // Reset tap state to avoid chaining triple taps
-        lastTapTime = 0;
-        lastTapPieceId = null;
-        return; // Skip drag init
-      }
-      // Record as first tap
-      lastTapTime = now;
-      lastTapPieceId = piece.id;
-      lastTapPos.mutSet(tapPos.x, tapPos.y);
+
+    const now = performance.now();
+    const dt = now - lastTapTime;
+    const tapPos = new Point(e.clientX, e.clientY);
+
+    // Use Point delta instead of separate dx/dy scalars
+    const delta = Point.from(tapPos).sub(lastTapPos);
+    const distSq = delta.x * delta.x + delta.y * delta.y;
+
+    if (
+      piece.id === lastTapPieceId &&
+      dt <= DOUBLE_TAP_MAX_DELAY_MS &&
+      distSq <= DOUBLE_TAP_MAX_DIST_SQ
+    ) {
+      // Treat as double-tap -> rotate 90° clockwise
+      rotatePieceOrGroup(piece, el, 90);
+      // Reset tap state to avoid chaining triple taps
+      lastTapTime = 0;
+      lastTapPieceId = null;
+      return; // Skip drag init
     }
+    // Record as first tap
+    lastTapTime = now;
+    lastTapPieceId = piece.id;
+    lastTapPos = tapPos;
 
     // Convert screen coordinates to viewport coordinates (after double-tap check)
     const viewportState = getViewportState();
@@ -279,11 +268,6 @@ function attachPieceEvents(el, piece) {
     try {
       el.setPointerCapture(e.pointerId);
     } catch (_) {}
-    console.debug(
-      "[pieceRenderer] drag start",
-      piece.id,
-      isCtrlPressed || multiTouchDetach ? "(detached)" : ""
-    );
   });
 
   el.addEventListener("pointermove", (e) => {
@@ -335,7 +319,6 @@ function attachPieceEvents(el, piece) {
 
   el.addEventListener("pointerup", (e) => {
     if (e.pointerType === "touch") activeTouchIds.delete(e.pointerId);
-    if (e.pointerType === "touch") updateTouchDebug();
     if (currentDrag && currentDrag.id === piece.id) {
       const wasDetached = currentDrag?.isDetached || false;
       currentDrag = null;
@@ -362,7 +345,6 @@ function attachPieceEvents(el, piece) {
   // In case pointer leaves (e.g., finger lifted outside element), end drag
   el.addEventListener("pointercancel", (e) => {
     if (e.pointerType === "touch") activeTouchIds.delete(e.pointerId);
-    if (e.pointerType === "touch") updateTouchDebug();
     if (currentDrag && currentDrag.id === piece.id) {
       const wasDetached = currentDrag?.isDetached || false;
       currentDrag = null;
@@ -383,10 +365,6 @@ function attachPieceEvents(el, piece) {
     try {
       el.releasePointerCapture(e.pointerId);
     } catch (_) {}
-  });
-
-  el.addEventListener("dblclick", () => {
-    rotatePieceOrGroup(piece, el, 90);
   });
 }
 
