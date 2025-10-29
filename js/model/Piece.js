@@ -270,6 +270,48 @@ export class Piece {
     if (this.rotation < 0) this.rotation += 360;
   }
 
+  /**
+   * Rotate this piece's entire group around this piece as the pivot
+   * @param {number} rotationDegrees - Degrees to rotate (positive = clockwise)
+   * @param {Function} getPieceElement - Function to get DOM element by piece ID
+   * @param {Object} spatialIndex - Spatial index for updating piece positions
+   */
+  rotateGroup(rotationDegrees, getPieceElement, spatialIndex) {
+    const groupPieces = this.getGroupPieces();
+    const selectedEl = getPieceElement(this.id);
+    if (!selectedEl) return;
+
+    const pivot = this.getCenter(selectedEl);
+
+    groupPieces.forEach((piece) => {
+      const pieceEl = getPieceElement(piece.id);
+      if (!pieceEl) return;
+
+      piece.rotate(rotationDegrees);
+
+      const size = new Point(pieceEl.offsetWidth, pieceEl.offsetHeight);
+      const halfSize = size.scaled(0.5);
+      const preCenter = piece.getCenter(pieceEl);
+      const rotatedCenter = Point.from(
+        rotatePointDeg(
+          preCenter.x,
+          preCenter.y,
+          pivot.x,
+          pivot.y,
+          rotationDegrees
+        )
+      );
+      const topLeft = rotatedCenter.clone().mutSubPoint(halfSize);
+      piece.setPosition(topLeft);
+
+      piece.applyToElement(pieceEl);
+
+      if (spatialIndex) {
+        piece.updateSpatialIndex(spatialIndex, pieceEl);
+      }
+    });
+  }
+
   // ===== Group Management =====
 
   /**

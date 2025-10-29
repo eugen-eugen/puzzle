@@ -143,11 +143,6 @@ function saveNow() {
         try {
           localStorage.setItem(LS_KEY, json);
           dirty = false;
-          console.info("[persistence] Saved", {
-            bytes: json.length,
-            pieces: payload.pieces.length,
-            light: payload.light,
-          });
           break;
         } catch (err) {
           if (
@@ -237,6 +232,10 @@ function loadGame() {
     img.onload = () => {
       api.setImage(img);
       reconstructPieces(data, img);
+    };
+    img.onerror = () => {
+      console.warn("[persistence] Failed to load embedded image");
+      reconstructPieces(data, null);
     };
     img.src = data.image.src;
   } else {

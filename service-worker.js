@@ -56,7 +56,22 @@ self.addEventListener("fetch", (event) => {
   // Only handle GET
   if (request.method !== "GET") return;
 
-  // Strategy: Cache-first for same-origin static assets; network-first for images user loads.
+  // Special handling for index.html: always try network first, cache as fallback
+  if (url.pathname === "/" || url.pathname === "/index.html") {
+    event.respondWith(
+      fetch(request)
+        .then((resp) => {
+          // Update cache with fresh version
+          const copy = resp.clone();
+          caches.open(STATIC_CACHE).then((cache) => cache.put(request, copy));
+          return resp;
+        })
+        .catch(() => caches.match(request)) // Fallback to cache if network fails
+    );
+    return;
+  }
+
+  // Strategy: Cache-first for other same-origin static assets; network-first for images user loads.
   const isStatic = CORE_ASSETS.includes(url.pathname);
   if (isStatic) {
     event.respondWith(

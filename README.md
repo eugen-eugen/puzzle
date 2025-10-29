@@ -9,7 +9,7 @@
 - Up to 1000 pieces (logarithmic slider selection)
 - Random scatter + random orientation (0°, 90°, 180°, 270°)
 - Grouping through geometric connection detection (corner + side waypoint matching)
-- Single‑piece detachment: Ctrl + Drag (desktop) or two‑finger drag (touch)
+- Single‑piece detachment: Shift + Drag (desktop) or two‑finger drag (touch)
 - Rotation: Double‑click (desktop), R / Shift+R (CW / CCW), Double‑tap (touch)
 - Intelligent zoom & pan (cursor wheel, buttons) + automatic global fit when a piece leaves the viewport
 - Spatial indexing for fast neighbor queries
@@ -118,7 +118,7 @@ Then open: http://localhost:3000 (or the port shown in terminal).
 3. Adjust piece count slider (log scale) → pieces generate automatically
 4. Drag & rotate pieces (Double‑click, R / Shift+R, or Double‑tap on touch)
 5. Pieces auto‑connect when geometry matches
-6. Detach a single piece with Ctrl+Drag (desktop) or two‑finger drag (touch)
+6. Detach a single piece with Shift+Drag (desktop) or two‑finger drag (touch)
 7. Move a piece outside the visible bounds → all pieces auto‑fit & re-center
 8. Reload page → choose Resume to continue (unless deep link mode was used)
 
@@ -138,7 +138,7 @@ Behavior:
 | Pan workspace | Middle mouse drag or Ctrl+Left drag on empty space | Two‑finger drag / standard scroll (browser) |
 | Zoom | Mouse wheel (cursor‑centric), buttons, + / - / 0 (reset) | Pinch (browser), buttons |
 | Rotate piece / group | Double‑click, R (90° CW), Shift+R (90° CCW) | Double‑tap (90° CW) |
-| Detach single piece | Ctrl + Drag piece | Start drag with two fingers on the piece |
+| Detach single piece | Shift + Drag piece | Start drag with two fingers on the piece |
 | Select piece | Click | Tap |
 | Global auto‑fit | Drag a piece beyond viewport bounds | Same |
 | Resume previous game | Accept modal prompt | Accept modal prompt |

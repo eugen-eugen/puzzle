@@ -8,7 +8,7 @@
 // - Returns the element for chaining.
 
 import { Point } from "./geometry/Point.js";
-import { getPieceElement } from "./pieceRenderer.js";
+import { getPieceElement } from "./interactionManager.js";
 
 let piecesViewport = null;
 let piecesContainer = null;
@@ -184,6 +184,18 @@ export function clearPieceOutline(piece) {
 
   // Restore context state
   ctx.restore();
+}
+
+// Update orientation tip button visibility based on selected piece
+export function updateOrientationTipButton(selectedPiece) {
+  const orientationTipButton = document.getElementById("orientationTipButton");
+  if (!orientationTipButton) return;
+
+  if (selectedPiece) {
+    orientationTipButton.style.display = "block";
+  } else {
+    orientationTipButton.style.display = "none";
+  }
 }
 
 // Optional future ideas:

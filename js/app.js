@@ -4,12 +4,14 @@ import { processImage } from "./imageProcessor.js";
 import { generateJigsawPieces } from "./jigsawGenerator.js";
 import {
   scatterInitialPieces,
-  getPieceElement,
   renderPiecesAtPositions,
+} from "./pieceRenderer.js";
+import {
+  getPieceElement,
   getSelectedPiece,
   fixSelectedPieceOrientation,
   setSelectionChangeCallback,
-} from "./pieceRenderer.js";
+} from "./interactionManager.js";
 // Persistence (lazy-loaded after definitions to avoid circular issues)
 // We'll dynamically import persistence so this file can export helpers first.
 import { state } from "./gameEngine.js";
@@ -23,6 +25,7 @@ import {
   viewportToScreen,
   clearPieceOutline,
   drawPieceOutline,
+  updateOrientationTipButton,
 } from "./display.js";
 
 // ================================
@@ -383,15 +386,6 @@ function updateProgress() {
   // Trigger debounced auto-save if persistence is active
   if (persistence && persistence.requestAutoSave) {
     persistence.requestAutoSave();
-  }
-}
-
-// Update orientation tip button visibility based on selected piece
-function updateOrientationTipButton(selectedPiece) {
-  if (selectedPiece && selectedPiece.rotation !== 0) {
-    orientationTipButton.style.display = "block";
-  } else {
-    orientationTipButton.style.display = "none";
   }
 }
 
@@ -908,20 +902,54 @@ async function bootstrap() {
       const desiredPieces = parseInt(piecesParam, 10);
       if (!isNaN(desiredPieces) && desiredPieces > 0) {
         deepLinkActive = true; // mark so persistence skip resume
-        // Load remote image
+        console.info(
+          "[deep-link] Loading image:",
+          imageParam,
+          "with",
+          desiredPieces,
+          "pieces"
+        );
+
+        // Load remote image with timeout
         const img = new Image();
         img.crossOrigin = "anonymous"; // allow canvas usage when CORS permits
         img.decoding = "async";
+
+        // Set up timeout fallback
+        const timeoutId = setTimeout(() => {
+          console.warn("[deep-link] Image load timeout for:", imageParam);
+          deepLinkActive = false;
+          if (persistence) {
+            persistence.tryOfferResume();
+          }
+        }, 10000); // 10 second timeout
+
         img.onload = async () => {
+          clearTimeout(timeoutId);
+          console.info(
+            "[deep-link] Image loaded successfully, generating puzzle"
+          );
           currentImage = img;
           // Map piece count to slider position
           const sliderVal = pieceCountToSlider(desiredPieces);
           pieceSlider.value = String(sliderVal);
           updatePieceDisplay();
           await generatePuzzle();
+          // Reset deep link flag so persistence can start saving changes
+          deepLinkActive = false;
+          console.info(
+            "[deep-link] Deep link initialization complete, persistence enabled"
+          );
         };
         img.onerror = () => {
+          clearTimeout(timeoutId);
           console.warn("[deep-link] Failed to load image URL", imageParam);
+          // Reset deep link flag and try normal resume flow
+          deepLinkActive = false;
+          // If persistence is already loaded, try resume
+          if (persistence) {
+            persistence.tryOfferResume();
+          }
         };
         img.src = imageParam;
       } else {

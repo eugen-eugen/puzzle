@@ -1,28 +1,22 @@
-// pieceRenderer.js - render real jigsaw piece bitmaps with drag & rotation
+// pieceRenderer.js - render real jigsaw piece bitmaps with interact.js
 
 import { SpatialIndex, chooseCellSize } from "./spatialIndex.js";
 import { state } from "./gameEngine.js";
+import { initConnectionManager } from "./connectionManager.js";
+import { updateProgress } from "./app.js";
+import { Point } from "./geometry/Point.js";
+import { applyPiecePosition } from "./display.js";
 import {
-  initConnectionManager,
-  handleDragMove,
-  handleDragEnd,
-} from "./connectionManager.js";
-import {
-  updateProgress,
-  clearAllPieceOutlines,
-  ensureRectInView,
-  enforceInitialMargins,
-  fitAllPiecesInView,
-  getViewportState,
-} from "./app.js";
-import { Point, rotatePointDeg } from "./geometry/Point.js";
-import { applyPiecePosition, screenToViewport } from "./display.js";
+  initializeInteractions,
+  getSelectedPiece,
+  fixSelectedPieceOrientation,
+  setSelectionChangeCallback,
+  getPieceElement,
+  applyHighlight,
+} from "./interactionManager.js";
 // windowManager no longer needed for cross-window transfer (single-window mode)
 
 const pieceElements = new Map(); // id -> DOM element
-let currentDrag = null;
-let selectedPieceId = null;
-let onSelectionChangeCallback = null;
 
 // ================================
 // Module Constants (magic numbers -> named)
@@ -38,13 +32,6 @@ const DOUBLE_TAP_MAX_DIST_SQ = 26 * 26; // Spatial tolerance between taps
 // Keep old constant name for backward compatibility inside this module (if referenced elsewhere)
 const SCALE = DEFAULT_RENDER_SCALE;
 let spatialIndex = null;
-// State for detecting double taps on touch devices
-let lastTapTime = 0;
-let lastTapPieceId = null;
-// Store last tap position as a Point instead of separate scalars
-let lastTapPos = new Point(0, 0);
-// Track active touch pointers for multi-touch gestures (e.g., two-finger detach)
-const activeTouchIds = new Set();
 
 // Ensure piece has proper position setup (now handled by Piece class)
 // This function is now mainly for backward compatibility
@@ -116,7 +103,6 @@ export function scatterInitialPieces(container, pieces) {
     applyPiecePosition(wrapper, p);
     wrapper.style.transform = `rotate(${p.rotation}deg)`;
     wrapper.appendChild(canvas);
-    attachPieceEvents(wrapper, p);
     container.appendChild(wrapper);
     pieceElements.set(p.id, wrapper);
     // Position already set & applied above
@@ -124,6 +110,7 @@ export function scatterInitialPieces(container, pieces) {
     const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
     spatialIndex.insert({ id: p.id, position: centerPoint });
   });
+
   // Initialize connection manager once pieces & spatial index are ready
   initConnectionManager({
     spatialIndex,
@@ -132,7 +119,9 @@ export function scatterInitialPieces(container, pieces) {
     onHighlightChange: (pieceId, data) => applyHighlight(pieceId, data),
     getPieceElement: (id) => pieceElements.get(id),
   });
-  installGlobalListeners(container);
+
+  // Initialize interact.js for all pieces
+  initializeInteractions(pieceElements, spatialIndex);
 }
 
 // Render pieces using their saved position and rotation instead of scattering.
@@ -182,11 +171,11 @@ export function renderPiecesAtPositions(container, pieces) {
     // Position already set & applied above
     p.scale = scale;
     pieceElements.set(p.id, wrapper);
-    attachPieceEvents(wrapper, p);
     container.appendChild(wrapper);
     const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
     spatialIndex.insert({ id: p.id, position: centerPoint });
   });
+
   initConnectionManager({
     spatialIndex,
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
@@ -194,179 +183,12 @@ export function renderPiecesAtPositions(container, pieces) {
     onHighlightChange: (pieceId, data) => applyHighlight(pieceId, data),
     getPieceElement: (id) => pieceElements.get(id),
   });
-  installGlobalListeners(container);
+
+  // Initialize interact.js for all pieces
+  initializeInteractions(pieceElements, spatialIndex);
 }
 
-function attachPieceEvents(el, piece) {
-  el.addEventListener("pointerdown", (e) => {
-    // Only primary button / finger
-    if (e.button !== 0 && e.pointerType !== "touch") return;
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.pointerType === "touch") {
-      activeTouchIds.add(e.pointerId);
-    }
-    selectPiece(piece.id);
-
-    // Clear validation outlines when piece is picked up
-    clearAllPieceOutlines();
-
-    // Check if Control is pressed - this will detach the piece from its group
-    const isCtrlPressed = e.ctrlKey;
-
-    // Multi-touch detach condition (two or more active touch points)
-    const multiTouchDetach =
-      e.pointerType === "touch" && activeTouchIds.size >= 2;
-    if ((isCtrlPressed || multiTouchDetach) && piece.groupId) {
-      detachPieceFromGroup(piece);
-    }
-
-    // Double-tap detection (touch): detect before initiating drag
-
-    const now = performance.now();
-    const dt = now - lastTapTime;
-    const tapPos = new Point(e.clientX, e.clientY);
-
-    // Use Point delta instead of separate dx/dy scalars
-    const delta = Point.from(tapPos).sub(lastTapPos);
-    const distSq = delta.x * delta.x + delta.y * delta.y;
-
-    if (
-      piece.id === lastTapPieceId &&
-      dt <= DOUBLE_TAP_MAX_DELAY_MS &&
-      distSq <= DOUBLE_TAP_MAX_DIST_SQ
-    ) {
-      // Treat as double-tap -> rotate 90° clockwise
-      rotatePieceOrGroup(piece, el, 90);
-      // Reset tap state to avoid chaining triple taps
-      lastTapTime = 0;
-      lastTapPieceId = null;
-      return; // Skip drag init
-    }
-    // Record as first tap
-    lastTapTime = now;
-    lastTapPieceId = piece.id;
-    lastTapPos = tapPos;
-
-    // Convert screen coordinates to viewport coordinates (after double-tap check)
-    const viewportState = getViewportState();
-    const viewportPos = screenToViewport(
-      new Point(e.clientX, e.clientY),
-      new Point(viewportState.panX, viewportState.panY),
-      viewportState.zoomLevel
-    );
-    const rect = el.getBoundingClientRect();
-
-    currentDrag = {
-      id: piece.id,
-      offsetX: viewportPos.x - piece.position.x,
-      offsetY: viewportPos.y - piece.position.y,
-      originLeft: parseFloat(el.style.left),
-      originTop: parseFloat(el.style.top),
-      isDetached: (isCtrlPressed || multiTouchDetach) && piece.groupId, // Track if this piece was detached
-    };
-    try {
-      el.setPointerCapture(e.pointerId);
-    } catch (_) {}
-  });
-
-  el.addEventListener("pointermove", (e) => {
-    if (!currentDrag || currentDrag.id !== piece.id) return;
-    e.preventDefault();
-
-    // Convert screen coordinates to viewport coordinates
-    const viewportState = getViewportState();
-    const viewportPos = screenToViewport(
-      new Point(e.clientX, e.clientY),
-      new Point(viewportState.panX, viewportState.panY),
-      viewportState.zoomLevel
-    );
-    let newLeft = viewportPos.x - currentDrag.offsetX;
-    let newTop = viewportPos.y - currentDrag.offsetY;
-
-    // Calculate movement delta
-    const deltaX = newLeft - piece.position.x;
-    const deltaY = newTop - piece.position.y;
-
-    // Move pieces - if detached, only move this piece; otherwise move the whole group
-    if (currentDrag.isDetached) {
-      const delta = new Point(deltaX, deltaY);
-      moveSinglePiece(piece, delta);
-    } else {
-      moveGroup(piece, deltaX, deltaY);
-    }
-
-    const container = el.parentElement;
-    const cRect = container.getBoundingClientRect();
-    // Border overflow detection (any side beyond threshold)
-    const overLeft = newLeft < -OUTSIDE_THRESHOLD_PX;
-    const overTop = newTop < -OUTSIDE_THRESHOLD_PX;
-    const overRight =
-      newLeft + el.offsetWidth > cRect.width + OUTSIDE_THRESHOLD_PX;
-    const overBottom =
-      newTop + el.offsetHeight > cRect.height + OUTSIDE_THRESHOLD_PX;
-    const isOutside = overLeft || overTop || overRight || overBottom;
-    if (isOutside && !el.dataset.outside) {
-      console.debug("[pieceRenderer] outside threshold (global)", piece.id);
-      el.dataset.outside = "true";
-    } else if (!isOutside && el.dataset.outside) {
-      console.debug("[pieceRenderer] back inside", piece.id);
-      delete el.dataset.outside;
-    }
-    // Connection candidate evaluation during drag
-    handleDragMove(piece);
-  });
-
-  el.addEventListener("pointerup", (e) => {
-    if (e.pointerType === "touch") activeTouchIds.delete(e.pointerId);
-    if (currentDrag && currentDrag.id === piece.id) {
-      const wasDetached = currentDrag?.isDetached || false;
-      currentDrag = null;
-      handleDragEnd(piece, wasDetached);
-      const wentOutside = !!el.dataset.outside;
-      enforceInitialMargins();
-      if (wentOutside) {
-        // New logic: fit all pieces into view
-        fitAllPiecesInView();
-        delete el.dataset.outside; // reset flag
-      } else {
-        ensureRectInView(
-          piece.position,
-          new Point(el.offsetWidth, el.offsetHeight),
-          { forceZoom: false }
-        );
-      }
-    }
-    try {
-      el.releasePointerCapture(e.pointerId);
-    } catch (_) {}
-  });
-
-  // In case pointer leaves (e.g., finger lifted outside element), end drag
-  el.addEventListener("pointercancel", (e) => {
-    if (e.pointerType === "touch") activeTouchIds.delete(e.pointerId);
-    if (currentDrag && currentDrag.id === piece.id) {
-      const wasDetached = currentDrag?.isDetached || false;
-      currentDrag = null;
-      handleDragEnd(piece, wasDetached);
-      const wentOutside = !!el.dataset.outside;
-      enforceInitialMargins();
-      if (wentOutside) {
-        fitAllPiecesInView();
-        delete el.dataset.outside;
-      } else {
-        ensureRectInView(
-          piece.position,
-          new Point(el.offsetWidth, el.offsetHeight),
-          { forceZoom: false }
-        );
-      }
-    }
-    try {
-      el.releasePointerCapture(e.pointerId);
-    } catch (_) {}
-  });
-}
+// Event handling now managed by interact.js in interactionManager.js
 
 function moveGroup(draggedPiece, deltaX, deltaY) {
   // Get all pieces in the same group as the dragged piece
@@ -492,131 +314,11 @@ function rotateGroup(selectedPiece, rotationDegrees) {
   });
 }
 
-function applyHighlight(pieceId, candidateData) {
-  // Remove previous highlight classes
-  pieceElements.forEach((el) => el.classList.remove("candidate-highlight"));
-  if (pieceId == null) return;
-  const el = pieceElements.get(pieceId);
-  if (el) el.classList.add("candidate-highlight");
-}
+// applyHighlight function moved to interactionManager.js
 
-export function getPieceElement(id) {
-  return pieceElements.get(id);
-}
+// Selection and interaction functions moved to interactionManager.js
 
-export function getSelectedPiece() {
-  if (!selectedPieceId) return null;
-  return findPiece(selectedPieceId);
-}
-
-export function fixSelectedPieceOrientation() {
-  if (!selectedPieceId) return false;
-
-  const piece = findPiece(selectedPieceId);
-  const pieceEl = pieceElements.get(selectedPieceId);
-  if (!piece || !pieceEl) return false;
-
-  // Calculate how much to rotate to get back to 0 degrees
-  const currentRotation = piece.rotation;
-  if (currentRotation === 0) return true; // Already correctly oriented
-
-  // Calculate the shortest rotation to get to 0
-  let targetRotation = -currentRotation;
-  if (targetRotation <= -180) targetRotation += 360;
-  if (targetRotation > 180) targetRotation -= 360;
-
-  // Apply the rotation
-  if (piece.getGroupPieces().length > 1) {
-    // If piece is in a group, rotate the whole group
-    rotateGroup(piece, targetRotation);
-  } else {
-    // Single piece rotation
-    piece.rotation = 0; // Set directly to 0 for precision
-    pieceEl.style.transform = `rotate(0deg)`;
-  }
-
-  return true;
-}
-
-export function setSelectionChangeCallback(callback) {
-  onSelectionChangeCallback = callback;
-}
-
-function selectPiece(id) {
-  if (selectedPieceId === id) return;
-  if (selectedPieceId != null) {
-    const prev = pieceElements.get(selectedPieceId);
-    if (prev) prev.classList.remove("selected");
-  }
-  const el = pieceElements.get(id);
-  if (el) {
-    el.classList.add("selected");
-    // bring to front
-    el.style.zIndex = Date.now().toString();
-  }
-  selectedPieceId = id;
-
-  // Notify callback about selection change
-  if (onSelectionChangeCallback) {
-    const piece = findPiece(id);
-    onSelectionChangeCallback(piece);
-  }
-}
-
-function installGlobalListeners(container) {
-  if (installGlobalListeners._installed) return;
-  installGlobalListeners._installed = true;
-  container.addEventListener("click", (e) => {
-    if (e.target === container) {
-      // deselect
-      if (selectedPieceId != null) {
-        const prev = pieceElements.get(selectedPieceId);
-        if (prev) prev.classList.remove("selected");
-        selectedPieceId = null;
-
-        // Notify callback about deselection
-        if (onSelectionChangeCallback) {
-          onSelectionChangeCallback(null);
-        }
-      }
-    }
-  });
-  // Prevent touch-based scrolling inside puzzle area
-  container.addEventListener(
-    "touchmove",
-    (e) => {
-      if (currentDrag) {
-        e.preventDefault();
-      }
-    },
-    { passive: false }
-  );
-  window.addEventListener("keydown", (e) => {
-    if (!selectedPieceId) return;
-    const pieceEl = pieceElements.get(selectedPieceId);
-    if (!pieceEl) return;
-    const piece = findPiece(selectedPieceId);
-    if (!piece) return;
-    if (e.key === "r" || e.key === "R") {
-      const rotationAmount = e.shiftKey ? 270 : 90; // Shift+R = counter-clockwise
-
-      // If piece is in a group with other pieces, rotate the entire group around this piece's center
-      const groupPieces = getGroupPieces(piece);
-      if (groupPieces.length > 1) {
-        rotateGroup(piece, rotationAmount);
-      } else {
-        // Single piece rotation
-        piece.rotation = (piece.rotation + rotationAmount) % 360;
-        pieceEl.style.transform = `rotate(${piece.rotation}deg)`;
-      }
-      ensureRectInView(
-        piece.position,
-        new Point(pieceEl.offsetWidth, pieceEl.offsetHeight),
-        { forceZoom: false }
-      );
-    }
-  });
-}
+// Global event handling now managed by interact.js in interactionManager.js
 
 // Lookup piece by ID from state
 function findPiece(id) {
