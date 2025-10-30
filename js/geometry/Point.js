@@ -9,6 +9,8 @@
 // - Methods returning new Point instances are named without the `mut` prefix.
 // - Mutating methods are prefixed with `mut` and return `this` for chaining.
 // - Static helpers accept either plain objects `{x,y}` or Point instances.
+
+import { Util } from "../utils/Util.js";
 // - Legacy helper `rotatePointDeg` available for plain object rotation.
 // - All rotation methods use degrees for consistency and ease of use.
 //
@@ -254,7 +256,7 @@ export class Point {
     return new Point(Math.max(a.x, b.x), Math.max(a.y, b.y));
   }
   static average(points) {
-    if (!points || !points.length) return Point.zero();
+    if (Util.isArrayEmpty(points)) return Point.zero();
     let sx = 0,
       sy = 0;
     for (const p of points) {
@@ -264,10 +266,10 @@ export class Point {
     return new Point(sx / points.length, sy / points.length);
   }
   static boundingBox(points) {
-    if (!points || !points.length) return null;
+    if (Util.isArrayEmpty(points)) return null;
     // Filter out invalid points
     const validPoints = points.filter((p) => Point.isValid(p));
-    if (!validPoints.length) return null;
+    if (Util.isArrayEmpty(validPoints)) return null;
 
     let minX = Infinity,
       minY = Infinity,

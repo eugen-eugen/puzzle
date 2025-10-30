@@ -17,6 +17,7 @@ import {
 import { state } from "./gameEngine.js";
 import { initI18n, t, applyTranslations } from "./i18n.js";
 import { Point } from "./geometry/Point.js";
+import { Util } from "./utils/Util.js";
 import {
   updateViewportTransform,
   initViewport,
@@ -61,6 +62,7 @@ const zoomResetButton = document.getElementById("zoomResetButton");
 const zoomDisplay = document.getElementById("zoomDisplay");
 
 let currentImage = null;
+let currentImageSource = null; // Store filename or URL for persistence
 let isGenerating = false;
 let persistence = null; // module ref once loaded
 let deepLinkActive = false; // true when URL provides image & pieces params
@@ -75,7 +77,7 @@ let lastPanPosition = new Point(0, 0);
 let initialMargins = null;
 
 function captureInitialMargins() {
-  if (!state.pieces || state.pieces.length === 0) return;
+  if (Util.isArrayEmpty(state.pieces)) return;
   // Compute bounding box (logical coordinates)
   const bounds = Point.computeBounds(state.pieces);
   if (!bounds) return;
@@ -87,7 +89,7 @@ function captureInitialMargins() {
 
 function enforceInitialMargins() {
   if (!initialMargins) return;
-  if (!state.pieces || state.pieces.length === 0) return;
+  if (Util.isArrayEmpty(state.pieces)) return;
   const bounds = Point.computeBounds(state.pieces);
   if (!bounds) return;
   const minPoint = bounds.min;
@@ -170,57 +172,9 @@ function getCurrentZoom() {
   return zoomLevel;
 }
 
-/**
- * Ensure a rectangle (piece bounding box in logical / viewport coordinates) is fully
- * visible in the container, optionally shrinking zoom when necessary.
- *
- * Coordinate spaces:
- * - Inputs are in logical viewport units (pre‑transform piece position).
- * - Screen position = pan + logical * zoomLevel.
- *
- * Two execution paths:
- * 1. Normal mode (forceZoom = false):
- *    a. Attempt to fix visibility by panning only (clamp left/top/right/bottom).
- *    b. If any side still overflows, compute the maximum zoom that would fit THIS
- *       rectangle alone (piece‑centric): targetZoom = min(currentZoom, contW / w, contH / h),
- *       apply if it is a reduction, then re‑clamp pan.
- * 2. Force mode (forceZoom = true):
- *    a. Skip the initial pan so we retain the raw overflow distances.
- *    b. Measure horizontal & vertical overflow in screen pixels.
- *       shrinkFactorH = contW / (contW + overflowXTotal) when overflow exists
- *       shrinkFactorV = contH / (contH + overflowYTotal)
- *       minFactor = min(shrinkFactorH, shrinkFactorV) (ignoring factors = 1).
- *    c. If minFactor < ~0.999, zoomLevel *= minFactor (bounded by MIN_ZOOM); never increases zoom.
- *    d. Finally clamp pan so the (possibly still same‑sized) rect is entirely on screen.
- *
- * Differences vs earlier version:
- * - No margin / padding is added in force mode anymore; zoom reduction is proportional
- *   to actual overflow (cont / (cont + overflow)).
- * - forceZoom path does NOT pan first; normal path always tries pan before zoom.
- *
- * Guarantees:
- * - Zoom only decreases or stays the same.
- * - At most one zoom adjustment per call.
- * - O(1) operations (no DOM queries beyond pre‑captured container dimensions).
- *
- * When to use forceZoom:
- * - Caller detected a threshold condition (e.g., piece moved beyond a soft boundary) and wants
- *   proportional zoom‑out even if a pan could have hidden the overflow.
- *
- * @param {Point} position Top-left logical position as a Point.
- * @param {Point} size Logical size (width -> x, height -> y) as a Point.
- * @param {Object} [options]
- * @param {boolean} [options.forceZoom=false] Use overflow‑proportional shrink (skip initial pan).
- *
- * @example // Basic usage after drag end
- * ensureRectInView(piece.position, new Point(el.offsetWidth, el.offsetHeight));
- *
- * @example // Enforce zoom out if piece flagged as outside threshold
- * ensureRectInView(new Point(px, py), new Point(pw, ph), { forceZoom: true });
- */
 function ensureRectInView(position, size, options = {}) {
   const { forceZoom = false } = options;
-  if (!piecesContainer) return;
+  if (!Util.isElementValid(piecesContainer)) return;
   const contW = piecesContainer.clientWidth;
   const contH = piecesContainer.clientHeight;
 
@@ -350,8 +304,12 @@ function getCurrentImage() {
   return currentImage;
 }
 
+function getCurrentImageSource() {
+  return currentImageSource;
+}
+
 function updateProgress() {
-  if (state.totalPieces === 0) {
+  if (Util.isTotalPiecesEmpty(state)) {
     progressDisplay.textContent = t("status.emptyProgress");
     return;
   }
@@ -452,6 +410,7 @@ imageInput.addEventListener("change", async (e) => {
   try {
     progressDisplay.textContent = t("status.loadingImage");
     currentImage = await processImage(file);
+    currentImageSource = file.name; // Store filename for persistence
 
     // Reset slider to 0 and show original image
     pieceSlider.value = 0;
@@ -482,7 +441,7 @@ imageInput.addEventListener("change", async (e) => {
 
 // Function to clear all piece outlines
 function clearAllPieceOutlines() {
-  if (!state.pieces) return;
+  if (Util.isArrayEmpty(state.pieces)) return;
 
   state.pieces.forEach((piece) => {
     clearPieceOutline(piece);
@@ -493,11 +452,11 @@ function clearAllPieceOutlines() {
 function checkPuzzleCorrectness() {
   console.log(
     "[checkPuzzleCorrectness] Starting check with",
-    state.pieces?.length,
+    Util.getPieceCount(state),
     "pieces"
   );
 
-  if (!state.pieces || state.pieces.length === 0) {
+  if (Util.isArrayEmpty(state.pieces)) {
     console.log("[checkPuzzleCorrectness] No pieces to check");
     return;
   }
@@ -900,7 +859,7 @@ async function bootstrap() {
     const piecesParam = params.get("pieces");
     if (imageParam && piecesParam) {
       const desiredPieces = parseInt(piecesParam, 10);
-      if (!isNaN(desiredPieces) && desiredPieces > 0) {
+      if (Util.isPositiveNumber(desiredPieces)) {
         deepLinkActive = true; // mark so persistence skip resume
         console.info(
           "[deep-link] Loading image:",
@@ -930,6 +889,7 @@ async function bootstrap() {
             "[deep-link] Image loaded successfully, generating puzzle"
           );
           currentImage = img;
+          currentImageSource = imageParam; // Store URL for persistence
           // Map piece count to slider position
           const sliderVal = pieceCountToSlider(desiredPieces);
           pieceSlider.value = String(sliderVal);
@@ -974,7 +934,9 @@ async function bootstrap() {
         getSliderValue,
         setSliderValue,
         getCurrentImage,
+        getCurrentImageSource,
         setImage: (img) => (currentImage = img),
+        setImageSource: (source) => (currentImageSource = source),
         regenerate: generatePuzzle,
         getState: () => state,
         setPieces: (pieces) => {
@@ -1152,7 +1114,7 @@ export {
  * the entire puzzle instead of only the moved piece.
  */
 function fitAllPiecesInView() {
-  if (!state.pieces || state.pieces.length === 0) return;
+  if (Util.isArrayEmpty(state.pieces)) return;
   const contW = piecesContainer?.clientWidth || 0;
   const contH = piecesContainer?.clientHeight || 0;
   if (contW === 0 || contH === 0) return;

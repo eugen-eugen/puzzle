@@ -4,8 +4,9 @@
 
 import { Piece } from "./model/Piece.js";
 import { Point } from "./geometry/Point.js";
+import { Util } from "./utils/Util.js";
 
-const LS_KEY = "puzzle.save.v1";
+const LS_KEY = "puzzle.save.v2";
 const AUTO_SAVE_DELAY = 1200; // ms debounce (SAVE_DEBOUNCE_MS)
 const STORE_BITMAPS = false; // Enable only for debugging tiny puzzles
 const MAX_RETRY_LIGHTEN = 1; // Attempts to retry without bitmaps on quota error
@@ -54,20 +55,10 @@ function computeRowsColsFromPieces(pieces) {
   return { rows: maxRow + 1, cols: maxCol + 1 };
 }
 
-async function ensureImageDataURL(img) {
-  if (!img) return null;
-  if (img.src.startsWith("data:")) return img.src;
-  const c = document.createElement("canvas");
-  c.width = img.naturalWidth || img.width;
-  c.height = img.naturalHeight || img.height;
-  c.getContext("2d").drawImage(img, 0, 0);
-  return c.toDataURL("image/png");
-}
-
 function serializeState(includeBitmaps = STORE_BITMAPS) {
   if (!api) return null;
   const s = api.getState();
-  if (!s.pieces || !s.pieces.length) return null;
+  if (Util.isArrayEmpty(s.pieces)) return null;
   const pieces = s.pieces.map((p) => {
     // Use Piece class serialize method if available, otherwise fall back to manual serialization
     if (typeof p.serialize === "function") {
@@ -104,7 +95,7 @@ function serializeState(includeBitmaps = STORE_BITMAPS) {
   });
   const { rows, cols } = computeRowsColsFromPieces(s.pieces);
   return {
-    version: "puzzleStateV1",
+    version: "puzzleStateV2",
     savedAt: Date.now(),
     layout: { rows, cols },
     ui: { ...api.getViewportState(), sliderValue: api.getSliderValue() },
@@ -118,49 +109,52 @@ function saveNow() {
   if (!api) return;
   try {
     const img = api.getCurrentImage();
-    return ensureImageDataURL(img).then((imgSrc) => {
-      let attemptIncludeBitmaps = STORE_BITMAPS;
-      let retries = 0;
-      while (retries <= MAX_RETRY_LIGHTEN) {
-        const payload = serializeState(attemptIncludeBitmaps);
-        if (!payload) return;
-        if (imgSrc) {
-          payload.image = {
-            src: imgSrc,
-            width: (img?.naturalWidth || img?.width) ?? null,
-            height: (img?.naturalHeight || img?.height) ?? null,
-          };
-        }
-        const json = JSON.stringify(payload);
-        if (json.length > FALLBACK_SIZE_SOFT_LIMIT && attemptIncludeBitmaps) {
+    const imgSource = api.getCurrentImageSource();
+
+    let attemptIncludeBitmaps = STORE_BITMAPS;
+    let retries = 0;
+    while (retries <= MAX_RETRY_LIGHTEN) {
+      const payload = serializeState(attemptIncludeBitmaps);
+      if (!payload) return;
+
+      // Save image source information instead of image data
+      if (imgSource) {
+        payload.imageSource = {
+          source: imgSource, // filename or URL
+          width: (img?.naturalWidth || img?.width) ?? null,
+          height: (img?.naturalHeight || img?.height) ?? null,
+        };
+      }
+
+      const json = JSON.stringify(payload);
+      if (json.length > FALLBACK_SIZE_SOFT_LIMIT && attemptIncludeBitmaps) {
+        console.warn(
+          `[persistence] Payload ~${json.length}B above soft limit; retry without bitmaps.`
+        );
+        attemptIncludeBitmaps = false;
+        retries++;
+        continue;
+      }
+      try {
+        localStorage.setItem(LS_KEY, json);
+        dirty = false;
+        break;
+      } catch (err) {
+        if (
+          attemptIncludeBitmaps &&
+          (err.name === "QuotaExceededError" || err.code === 22)
+        ) {
           console.warn(
-            `[persistence] Payload ~${json.length}B above soft limit; retry without bitmaps.`
+            "[persistence] Quota exceeded with bitmaps; retrying without them."
           );
           attemptIncludeBitmaps = false;
           retries++;
           continue;
         }
-        try {
-          localStorage.setItem(LS_KEY, json);
-          dirty = false;
-          break;
-        } catch (err) {
-          if (
-            attemptIncludeBitmaps &&
-            (err.name === "QuotaExceededError" || err.code === 22)
-          ) {
-            console.warn(
-              "[persistence] Quota exceeded with bitmaps; retrying without them."
-            );
-            attemptIncludeBitmaps = false;
-            retries++;
-            continue;
-          }
-          console.warn("[persistence] Save failed", err);
-          break;
-        }
+        console.warn("[persistence] Save failed", err);
+        break;
       }
-    });
+    }
   } catch (e) {
     console.warn("[persistence] Save failed (outer)", e);
   }
@@ -222,12 +216,50 @@ function loadGame() {
     clearSavedGame();
     return;
   }
-  if (data.version !== "puzzleStateV1") {
-    console.warn("[persistence] Version mismatch");
+  if (data.version !== "puzzleStateV2" && data.version !== "puzzleStateV1") {
+    console.warn("[persistence] Version mismatch:", data.version);
     return;
   }
 
-  if (data.image?.src) {
+  // Handle new image source format
+  if (data.imageSource?.source) {
+    const imgSource = data.imageSource.source;
+    api.setImageSource(imgSource);
+
+    // Try to load the image from the source
+    const img = new Image();
+    img.onload = () => {
+      api.setImage(img);
+      reconstructPieces(data, img);
+    };
+    img.onerror = () => {
+      console.warn(
+        "[persistence] Failed to load image from source:",
+        imgSource
+      );
+      console.warn(
+        "[persistence] This may be due to file being moved or URL no longer accessible"
+      );
+      // Proceed without the image - pieces will be rendered as gray rectangles
+      reconstructPieces(data, null);
+    };
+
+    // Determine if source is a URL or filename and handle accordingly
+    if (imgSource.startsWith("http://") || imgSource.startsWith("https://")) {
+      // It's a URL, try to load it directly
+      img.crossOrigin = "anonymous";
+      img.src = imgSource;
+    } else {
+      // It's a filename - we can't reload it, but we should inform the user
+      console.warn("[persistence] Cannot reload local file:", imgSource);
+      console.warn(
+        "[persistence] Please select the file again if you want to see the image"
+      );
+      reconstructPieces(data, null);
+    }
+  }
+  // Fallback for old save format with embedded image data
+  else if (data.image?.src) {
     const img = new Image();
     img.onload = () => {
       api.setImage(img);

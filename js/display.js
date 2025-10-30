@@ -9,6 +9,7 @@
 
 import { Point } from "./geometry/Point.js";
 import { getPieceElement } from "./interactionManager.js";
+import { Util } from "./utils/Util.js";
 
 let piecesViewport = null;
 let piecesContainer = null;
@@ -20,12 +21,12 @@ export function initViewport(
 ) {
   piecesViewport = document.getElementById(viewportElementId);
   piecesContainer = document.getElementById(containerId);
-  if (!piecesViewport) {
+  if (!Util.isElementValid(piecesViewport)) {
     console.warn(
       `[display] Viewport element with ID '${viewportElementId}' not found`
     );
   }
-  if (!piecesContainer) {
+  if (!Util.isElementValid(piecesContainer)) {
     console.warn(
       `[display] Container element with ID '${containerId}' not found`
     );
@@ -47,14 +48,14 @@ export function applyPiecePosition(el, piece) {
 
 // Apply viewport transform (pan and zoom) to the managed viewport element
 export function updateViewportTransform(panOffset, zoomLevel) {
-  if (!piecesViewport || !panOffset) return;
+  if (!Util.isElementValid(piecesViewport) || !panOffset) return;
   piecesViewport.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`;
 }
 
 // Coordinate transformation function - converts screen coordinates to viewport coordinates
 export function screenToViewport(screenPoint, panOffset, zoomLevel) {
   if (
-    !piecesContainer ||
+    !Util.isElementValid(piecesContainer) ||
     !screenPoint ||
     !panOffset ||
     typeof zoomLevel !== "number"
