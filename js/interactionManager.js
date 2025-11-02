@@ -54,29 +54,31 @@ export function initializeInteractions(pieceElementsMap, spatialIndexInstance) {
   }
 
   try {
-    // Configure interact.js for all pieces
-    const interactable = window.interact(".piece");
+    // Configure interact.js for each piece individually
+    pieceElementsMap.forEach((element, pieceId) => {
+      const interactable = window.interact(element);
 
-    interactable
-      .draggable({
-        listeners: {
-          start: onDragStart,
-          move: onDragMove,
-          end: onDragEnd,
-        },
-        // No modifiers - allow dragging beyond parent bounds to trigger auto-fit
-      })
-      .on("tap", onTap)
-      .on("doubletap", onDoubleTap);
+      interactable
+        .draggable({
+          listeners: {
+            start: onDragStart,
+            move: onDragMove,
+            end: onDragEnd,
+          },
+          // No modifiers - allow dragging beyond parent bounds to trigger auto-fit
+        })
+        .on("tap", onTap)
+        .on("doubletap", onDoubleTap);
 
-    // Configure double-tap detection settings
-    if (interactable.options && interactable.options.actions) {
-      // Set more generous double-tap detection
-      interactable.options.actions.doubletap = {
-        interval: 500, // Max time between taps (ms)
-        distance: 30, // Max distance between taps (px)
-      };
-    }
+      // Configure double-tap detection settings
+      if (interactable.options && interactable.options.actions) {
+        // Set more generous double-tap detection
+        interactable.options.actions.doubletap = {
+          interval: 500, // Max time between taps (ms)
+          distance: 30, // Max distance between taps (px)
+        };
+      }
+    });
 
     // Configure global container interactions
     window.interact("#piecesContainer").on("tap", onContainerTap);
@@ -95,8 +97,34 @@ export function initializeInteractions(pieceElementsMap, spatialIndexInstance) {
  * Add event listeners to a new piece (called when pieces are dynamically added)
  */
 export function addPieceInteraction(element) {
-  // interact.js automatically handles new elements with the same selector
-  // No additional setup needed
+  if (!window.interact) {
+    console.error("[interactionManager] interact.js is not loaded!");
+    return;
+  }
+
+  const interactable = window.interact(element);
+
+  interactable
+    .draggable({
+      origin: "self",
+      listeners: {
+        start: onDragStart,
+        move: onDragMove,
+        end: onDragEnd,
+      },
+      // No modifiers - allow dragging beyond parent bounds to trigger auto-fit
+    })
+    .on("tap", onTap)
+    .on("doubletap", onDoubleTap);
+
+  // Configure double-tap detection settings
+  if (interactable.options && interactable.options.actions) {
+    // Set more generous double-tap detection
+    interactable.options.actions.doubletap = {
+      interval: 500, // Max time between taps (ms)
+      distance: 30, // Max distance between taps (px)
+    };
+  }
 }
 
 /**

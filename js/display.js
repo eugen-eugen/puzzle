@@ -99,21 +99,9 @@ export function viewportToScreen(viewportPoint, panOffset, zoomLevel) {
 
 // Function to draw piece outline with specified color
 export function drawPieceOutline(piece, color, lineWidth = 3) {
-  console.log(
-    `[drawPieceOutline] Drawing piece ${piece.id} with color ${color}`
-  );
-
   const element = getPieceElement(piece.id);
-  if (!element) {
-    console.warn(`[drawPieceOutline] No element found for piece ${piece.id}`);
-    return;
-  }
 
   const canvas = element.querySelector("canvas");
-  if (!canvas) {
-    console.warn(`[drawPieceOutline] No canvas found for piece ${piece.id}`);
-    return;
-  }
 
   if (!piece.path) {
     console.warn(`[drawPieceOutline] No path found for piece ${piece.id}`);
@@ -138,8 +126,9 @@ export function drawPieceOutline(piece, color, lineWidth = 3) {
   ctx.scale(scale, scale);
   ctx.drawImage(piece.bitmap, 0, 0);
 
-  // Draw the outline
-  ctx.translate(pad, pad);
+  // Draw the outline using centered bounding frame translation (same as jigsawGenerator)
+  const boundingFrame = piece.calculateBoundingFrame();
+  ctx.translate(pad - boundingFrame.minX, pad - boundingFrame.minY);
   ctx.strokeStyle = color;
   ctx.lineWidth = lineWidth / scale; // Adjust line width for scale
   ctx.stroke(piece.path);

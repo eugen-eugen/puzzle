@@ -5,6 +5,7 @@
 import { Piece } from "./model/Piece.js";
 import { Point } from "./geometry/Point.js";
 import { Util } from "./utils/Util.js";
+import { isIndexedDBSupported, loadImageFromDB } from "./indexedDBStorage.js";
 
 const LS_KEY = "puzzle.save.v2";
 const AUTO_SAVE_DELAY = 1200; // ms debounce (SAVE_DEBOUNCE_MS)
@@ -124,6 +125,18 @@ function saveNow() {
           width: (img?.naturalWidth || img?.width) ?? null,
           height: (img?.naturalHeight || img?.height) ?? null,
         };
+
+        // Store image ID if using IndexedDB
+        if (typeof api.getCurrentImageId === "function") {
+          const imageId = api.getCurrentImageId();
+          if (imageId) {
+            payload.imageSource.imageId = imageId;
+            console.log(
+              "[persistence] Stored image ID for IndexedDB source:",
+              imageId
+            );
+          }
+        }
       }
 
       const json = JSON.stringify(payload);
@@ -184,26 +197,6 @@ function tryOfferResume() {
   }
 }
 
-function rebuildPath(piece) {
-  const path = new Path2D();
-  const w = piece.w,
-    h = piece.h;
-  path.moveTo(0, 0);
-  if (piece.sPoints?.north)
-    path.lineTo(piece.sPoints.north.x, piece.sPoints.north.y);
-  path.lineTo(w, 0);
-  if (piece.sPoints?.east)
-    path.lineTo(piece.sPoints.east.x, piece.sPoints.east.y);
-  path.lineTo(w, h);
-  if (piece.sPoints?.south)
-    path.lineTo(piece.sPoints.south.x, piece.sPoints.south.y);
-  path.lineTo(0, h);
-  if (piece.sPoints?.west)
-    path.lineTo(piece.sPoints.west.x, piece.sPoints.west.y);
-  path.closePath();
-  return path;
-}
-
 function loadGame() {
   if (!api) return;
   const raw = localStorage.getItem(LS_KEY);
@@ -244,8 +237,56 @@ function loadGame() {
       reconstructPieces(data, null);
     };
 
+    // Check if this is an IndexedDB source
+    if (imgSource.startsWith("idb:") && data.imageSource.imageId) {
+      console.log(
+        "[persistence] Attempting to load IndexedDB source:",
+        data.imageSource.imageId
+      );
+      if (isIndexedDBSupported()) {
+        try {
+          loadImageFromDB(data.imageSource.imageId)
+            .then((imageData) => {
+              const url = URL.createObjectURL(imageData.blob);
+              img.src = url;
+              // Restore the image ID for continued use
+              if (typeof api.setCurrentImageId === "function") {
+                api.setCurrentImageId(imageData.id);
+              }
+              // Clean up the blob URL after the image loads
+              img.onload = () => {
+                URL.revokeObjectURL(url);
+                api.setImage(img);
+                reconstructPieces(data, img);
+              };
+            })
+            .catch((error) => {
+              console.warn(
+                "[persistence] Failed to load IndexedDB image:",
+                error
+              );
+              console.warn(
+                "[persistence] Image may have been deleted from browser storage"
+              );
+              reconstructPieces(data, null);
+            });
+          return; // Exit early to avoid executing other loading paths
+        } catch (error) {
+          console.warn("[persistence] IndexedDB loading failed:", error);
+        }
+      } else {
+        console.warn("[persistence] IndexedDB not supported in this browser");
+      }
+      // Fallback to showing warning about missing image
+      console.warn("[persistence] Cannot reload IndexedDB image");
+      reconstructPieces(data, null);
+      return;
+    }
     // Determine if source is a URL or filename and handle accordingly
-    if (imgSource.startsWith("http://") || imgSource.startsWith("https://")) {
+    else if (
+      imgSource.startsWith("http://") ||
+      imgSource.startsWith("https://")
+    ) {
       // It's a URL, try to load it directly
       img.crossOrigin = "anonymous";
       img.src = imgSource;
@@ -277,7 +318,22 @@ function loadGame() {
 
 function reconstructPieces(data, masterImage) {
   const pieces = data.pieces.map((sp) => {
-    const path = rebuildPath(sp);
+    // Create temporary piece to generate path and calculate bounding frame
+    const tempPiece = new Piece({
+      id: -1,
+      gridY: sp.gridY || 0,
+      gridX: sp.gridX || 0,
+      corners: sp.corners || {
+        nw: { x: 0, y: 0 },
+        ne: { x: sp.w, y: 0 },
+        se: { x: sp.w, y: sp.h },
+        sw: { x: 0, y: sp.h },
+      },
+      sPoints: sp.sPoints || {},
+      w: sp.w,
+      h: sp.h,
+    });
+    const path = tempPiece.generatePath();
     const pad = sp.pad || 0;
     const cw = Math.ceil(sp.w + pad * 2);
     const ch = Math.ceil(sp.h + pad * 2);
@@ -290,21 +346,40 @@ function reconstructPieces(data, masterImage) {
       img.src = sp.bitmapData;
       img.onload = () => ctx.drawImage(img, 0, 0);
     } else if (masterImage) {
+      // Use the same temporary piece for bounding frame calculation
+      const boundingFrame = tempPiece.calculateBoundingFrame();
+
       ctx.save();
-      ctx.translate(pad, pad);
+      // Use same translation logic as generateJigsawPieces
+      ctx.translate(pad - boundingFrame.minX, pad - boundingFrame.minY);
       ctx.clip(path);
-      let srcX = (sp.imgX ?? sp.gridX * sp.w) - pad;
-      let srcY = (sp.imgY ?? sp.gridY * sp.h) - pad;
-      let srcW = sp.w + pad * 2;
-      let srcH = sp.h + pad * 2;
+
+      // Compute source rect based on actual piece boundaries (expand by pad)
+      // Use stored imgX/imgY which represent the actual corner positions (equivalent to c_nw.x, c_nw.y from generation)
+      const imgX = sp.imgX ?? 0; // Fallback to 0 if missing (shouldn't happen in normal cases)
+      const imgY = sp.imgY ?? 0; // Fallback to 0 if missing (shouldn't happen in normal cases)
+      const minX = boundingFrame.minX + imgX;
+      const maxX = boundingFrame.maxX + imgX;
+      const minY = boundingFrame.minY + imgY;
+      const maxY = boundingFrame.maxY + imgY;
+
+      let srcX = minX - pad;
+      let srcY = minY - pad;
+      let srcW = maxX - minX + pad * 2;
+      let srcH = maxY - minY + pad * 2;
+
       const imgW = masterImage.naturalWidth || masterImage.width;
       const imgH = masterImage.naturalHeight || masterImage.height;
       const clipX = Math.max(0, srcX);
       const clipY = Math.max(0, srcY);
       const clipW = Math.min(srcW, imgW - clipX);
       const clipH = Math.min(srcH, imgH - clipY);
-      const dx = clipX - (sp.imgX ?? sp.gridX * sp.w);
-      const dy = clipY - (sp.imgY ?? sp.gridY * sp.h);
+
+      // Adjust destination offset to align clipped region correctly with centered frame
+      // After translation, coordinate system is offset by (pad - boundingFrame.minX, pad - boundingFrame.minY)
+      // So destination should be relative to the piece's corner position
+      const dx = clipX - imgX;
+      const dy = clipY - imgY;
       ctx.drawImage(
         masterImage,
         clipX,
@@ -339,7 +414,7 @@ function reconstructPieces(data, masterImage) {
       imgY: sp.imgY,
       bitmap: canvas,
       path,
-      corners: {
+      corners: sp.corners || {
         nw: { x: 0, y: 0 },
         ne: { x: sp.w, y: 0 },
         se: { x: sp.w, y: sp.h },

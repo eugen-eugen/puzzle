@@ -28,6 +28,11 @@ import {
   drawPieceOutline,
   updateOrientationTipButton,
 } from "./display.js";
+import {
+  isIndexedDBSupported,
+  storeImageInDB,
+  loadImageFromDB,
+} from "./indexedDBStorage.js";
 
 // ================================
 // Module Constants (replacing magic numbers)
@@ -63,6 +68,7 @@ const zoomDisplay = document.getElementById("zoomDisplay");
 
 let currentImage = null;
 let currentImageSource = null; // Store filename or URL for persistence
+let currentImageId = null; // Store IndexedDB image ID for persistence
 let isGenerating = false;
 let persistence = null; // module ref once loaded
 let deepLinkActive = false; // true when URL provides image & pieces params
@@ -308,6 +314,14 @@ function getCurrentImageSource() {
   return currentImageSource;
 }
 
+function getCurrentImageId() {
+  return currentImageId;
+}
+
+function setCurrentImageId(imageId) {
+  currentImageId = imageId;
+}
+
 function updateProgress() {
   if (Util.isTotalPiecesEmpty(state)) {
     progressDisplay.textContent = t("status.emptyProgress");
@@ -410,7 +424,28 @@ imageInput.addEventListener("change", async (e) => {
   try {
     progressDisplay.textContent = t("status.loadingImage");
     currentImage = await processImage(file);
-    currentImageSource = file.name; // Store filename for persistence
+
+    // Try to store the file using IndexedDB if supported
+    currentImageId = null;
+    if (isIndexedDBSupported()) {
+      try {
+        console.log("[app] Attempting to store file in IndexedDB");
+        const result = await storeImageInDB(file);
+        currentImageId = result.imageId;
+        currentImageSource = `idb:${result.imageId}`; // 'idb:img_timestamp_randomid'
+        console.log(
+          "[app] File stored successfully in IndexedDB:",
+          result.imageId
+        );
+      } catch (error) {
+        console.warn("[app] Failed to store file in IndexedDB:", error.message);
+        // Fallback to regular filename storage
+        currentImageSource = file.webkitRelativePath || file.name;
+      }
+    } else {
+      // Store filename with directory path if available (webkitRelativePath) or just filename
+      currentImageSource = file.webkitRelativePath || file.name;
+    }
 
     // Reset slider to 0 and show original image
     pieceSlider.value = 0;
@@ -450,17 +485,6 @@ function clearAllPieceOutlines() {
 
 // Check if pieces are in correct positions
 function checkPuzzleCorrectness() {
-  console.log(
-    "[checkPuzzleCorrectness] Starting check with",
-    Util.getPieceCount(state),
-    "pieces"
-  );
-
-  if (Util.isArrayEmpty(state.pieces)) {
-    console.log("[checkPuzzleCorrectness] No pieces to check");
-    return;
-  }
-
   // Clear previous validation outlines
   state.pieces.forEach((piece) => {
     clearPieceOutline(piece);
@@ -502,8 +526,8 @@ function checkPuzzleCorrectness() {
       ),
     };
 
-    // For a more strict check, we'll examine positioning relative to neighbors
-    // If all pieces are just connected in one blob but wrong positions, we should catch this
+    // For a more strict check, we'll examine precise corner alignment between neighbors
+    // This ensures pieces are not just connected but positioned with correct corner matching
     let hasCorrectNeighborPositioning = true;
 
     Object.entries(expectedNeighbors).forEach(
@@ -516,53 +540,16 @@ function checkPuzzleCorrectness() {
               `Not connected to expected neighbor at (${expectedNeighbor.gridX}, ${expectedNeighbor.gridY})`
             );
           } else {
-            // Additionally check relative positioning
-            const pieceX = piece.position.x;
-            const pieceY = piece.position.y;
-            const neighborX = expectedNeighbor.position.x;
-            const neighborY = expectedNeighbor.position.y;
-
-            const deltaX = neighborX - pieceX;
-            const deltaY = neighborY - pieceY;
-            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-
-            // Expected piece dimensions (rough estimate)
-            const expectedPieceSize =
-              BASE_EXPECTED_PIECE_SIZE *
-              (piece.scale || DEFAULT_CORRECTNESS_SCALE_FALLBACK);
-
-            // Check if the relative positioning makes sense for the direction
-            let positionIsCorrect = false;
-            const tolerance =
-              expectedPieceSize * NEIGHBOR_POSITION_TOLERANCE_FACTOR; // Allow some tolerance
-
-            switch (direction) {
-              case "north":
-                // North neighbor should be above (negative Y) and roughly same X
-                positionIsCorrect =
-                  deltaY < -tolerance && Math.abs(deltaX) < tolerance;
-                break;
-              case "south":
-                // South neighbor should be below (positive Y) and roughly same X
-                positionIsCorrect =
-                  deltaY > tolerance && Math.abs(deltaX) < tolerance;
-                break;
-              case "east":
-                // East neighbor should be to the right (positive X) and roughly same Y
-                positionIsCorrect =
-                  deltaX > tolerance && Math.abs(deltaY) < tolerance;
-                break;
-              case "west":
-                // West neighbor should be to the left (negative X) and roughly same Y
-                positionIsCorrect =
-                  deltaX < -tolerance && Math.abs(deltaY) < tolerance;
-                break;
-            }
+            // Check if neighbor is correctly positioned by comparing corner alignment
+            const positionIsCorrect = piece.isNeighbor(
+              expectedNeighbor,
+              direction
+            );
 
             if (!positionIsCorrect) {
               hasCorrectNeighborPositioning = false;
               reasons.push(
-                `Neighbor ${direction} (${expectedNeighbor.gridX}, ${expectedNeighbor.gridY}) is not positioned correctly relative to this piece`
+                `Neighbor ${direction} (${expectedNeighbor.gridX}, ${expectedNeighbor.gridY}) corners are not properly aligned with this piece`
               );
             }
           }
@@ -633,39 +620,11 @@ function checkPuzzleCorrectness() {
             if (piece.groupId !== expectedNeighbor.groupId) {
               isCorrect = false;
             } else {
-              // Check relative positioning
-              const pieceX = piece.position.x;
-              const pieceY = piece.position.y;
-              const neighborX = expectedNeighbor.position.x;
-              const neighborY = expectedNeighbor.position.y;
-
-              const deltaX = neighborX - pieceX;
-              const deltaY = neighborY - pieceY;
-              const expectedPieceSize =
-                BASE_EXPECTED_PIECE_SIZE *
-                (piece.scale || DEFAULT_CORRECTNESS_SCALE_FALLBACK);
-              const tolerance =
-                expectedPieceSize * NEIGHBOR_POSITION_TOLERANCE_FACTOR;
-
-              let positionIsCorrect = false;
-              switch (direction) {
-                case "north":
-                  positionIsCorrect =
-                    deltaY < -tolerance && Math.abs(deltaX) < tolerance;
-                  break;
-                case "south":
-                  positionIsCorrect =
-                    deltaY > tolerance && Math.abs(deltaX) < tolerance;
-                  break;
-                case "east":
-                  positionIsCorrect =
-                    deltaX > tolerance && Math.abs(deltaY) < tolerance;
-                  break;
-                case "west":
-                  positionIsCorrect =
-                    deltaX < -tolerance && Math.abs(deltaY) < tolerance;
-                  break;
-              }
+              // Check if neighbor is correctly positioned by comparing corner alignment
+              const positionIsCorrect = piece.isNeighbor(
+                expectedNeighbor,
+                direction
+              );
 
               if (!positionIsCorrect) {
                 hasCorrectNeighborPositioning = false;
@@ -935,8 +894,10 @@ async function bootstrap() {
         setSliderValue,
         getCurrentImage,
         getCurrentImageSource,
+        getCurrentImageId,
         setImage: (img) => (currentImage = img),
         setImageSource: (source) => (currentImageSource = source),
+        setImageId: setCurrentImageId,
         regenerate: generatePuzzle,
         getState: () => state,
         setPieces: (pieces) => {

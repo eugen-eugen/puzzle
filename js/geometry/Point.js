@@ -219,6 +219,10 @@ export class Point {
     return `Point(${this.x}, ${this.y})`;
   }
 
+  toJSON() {
+    return { x: this.x, y: this.y };
+  }
+
   // ---------------- Validation ----------------
   isValid() {
     return (
