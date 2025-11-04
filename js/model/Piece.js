@@ -3,6 +3,7 @@
 // Integrates with Point geometry system and provides automatic worldData caching
 
 import { Point, rotatePointDeg } from "../geometry/Point.js";
+import { Rectangle } from "../geometry/Rectangle.js";
 import { state } from "../gameEngine.js";
 
 // WorldData cache setup - moved here to avoid circular dependencies
@@ -578,7 +579,7 @@ export class Piece {
   /**
    * Calculate the minimal bounding rectangle that contains all corner and side points
    * This is the "minmax frame" needed for pieces with non-orthogonal cuts
-   * @returns {Object} {minX, minY, maxX, maxY, width, height} bounding rectangle
+   * @returns {Rectangle} Rectangle with topLeft and bottomRight Point properties
    */
   calculateBoundingFrame() {
     const corners = this.corners;
@@ -610,24 +611,10 @@ export class Piece {
 
     // Handle edge case where no valid points found
     if (!isFinite(minX)) {
-      return {
-        minX: 0,
-        minY: 0,
-        maxX: this.w || 0,
-        maxY: this.h || 0,
-        width: this.w || 0,
-        height: this.h || 0,
-      };
+      return Rectangle.fromMinMax(0, 0, this.w || 0, this.h || 0);
     }
 
-    return {
-      minX,
-      minY,
-      maxX,
-      maxY,
-      width: maxX - minX,
-      height: maxY - minY,
-    };
+    return Rectangle.fromMinMax(minX, minY, maxX, maxY);
   }
 
   /**

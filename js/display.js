@@ -11,8 +11,25 @@ import { Point } from "./geometry/Point.js";
 import { getPieceElement } from "./interactionManager.js";
 import { Util } from "./utils/Util.js";
 
+// Display Constants
+const MIN_ZOOM = 0.1;
+const MAX_ZOOM = 5.0;
+const ZOOM_STEP_FACTOR = 1.2; // Button zoom multiplier
+const WHEEL_ZOOM_IN_FACTOR = 1.1; // Mouse wheel up (zoom in)
+const WHEEL_ZOOM_OUT_FACTOR = 0.9; // Mouse wheel down (zoom out)
+
 let piecesViewport = null;
 let piecesContainer = null;
+let zoomDisplay = null;
+
+// Zoom and pan state
+let zoomLevel = 1.0;
+let panOffset = new Point(0, 0);
+let isPanning = false;
+let lastPanPosition = new Point(0, 0);
+
+// Margin enforcement state
+let initialMargins = null;
 
 // Initialize the viewport element reference
 export function initViewport(
@@ -21,6 +38,8 @@ export function initViewport(
 ) {
   piecesViewport = document.getElementById(viewportElementId);
   piecesContainer = document.getElementById(containerId);
+  zoomDisplay = document.getElementById("zoomDisplay");
+
   if (!Util.isElementValid(piecesViewport)) {
     console.warn(
       `[display] Viewport element with ID '${viewportElementId}' not found`
@@ -29,6 +48,11 @@ export function initViewport(
   if (!Util.isElementValid(piecesContainer)) {
     console.warn(
       `[display] Container element with ID '${containerId}' not found`
+    );
+  }
+  if (!Util.isElementValid(zoomDisplay)) {
+    console.warn(
+      `[display] Zoom display element with ID 'zoomDisplay' not found`
     );
   }
   return piecesViewport;
@@ -46,10 +70,76 @@ export function applyPiecePosition(el, piece) {
   return el;
 }
 
+// Zoom and pan state getters and setters
+export function getZoomLevel() {
+  return zoomLevel;
+}
+
+export function setZoomLevel(newZoomLevel) {
+  zoomLevel = newZoomLevel;
+}
+
+export function getPanOffset() {
+  return panOffset;
+}
+
+export function setPanOffset(newPanOffset) {
+  panOffset = Point.from(newPanOffset);
+}
+
+export function getIsPanning() {
+  return isPanning;
+}
+
+export function setIsPanning(panning) {
+  isPanning = panning;
+}
+
+export function getLastPanPosition() {
+  return lastPanPosition;
+}
+
+export function setLastPanPosition(position) {
+  lastPanPosition = Point.from(position);
+}
+
+// Zoom function with optional center point
+export function setZoom(newZoomLevel, center = null) {
+  const oldZoom = zoomLevel;
+  const clampedZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoomLevel));
+  zoomLevel = clampedZoom;
+
+  // If zoom center is provided, adjust pan to zoom to that point
+  if (center && piecesContainer) {
+    const containerRect = piecesContainer.getBoundingClientRect();
+    const containerOffset = new Point(containerRect.left, containerRect.top);
+    const viewportCenter = center.subtract(containerOffset);
+
+    // Adjust pan to keep the zoom center point in the same position
+    const zoomRatio = clampedZoom / oldZoom;
+    const panDelta = viewportCenter.subtract(panOffset).scaled(zoomRatio);
+    panOffset = viewportCenter.subtract(panDelta);
+  }
+
+  updateViewportTransform();
+  updateZoomDisplay();
+}
+
 // Apply viewport transform (pan and zoom) to the managed viewport element
-export function updateViewportTransform(panOffset, zoomLevel) {
-  if (!Util.isElementValid(piecesViewport) || !panOffset) return;
-  piecesViewport.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`;
+export function updateViewportTransform(
+  panOffsetParam = null,
+  zoomLevelParam = null
+) {
+  // Use parameters if provided, otherwise use internal state
+  const currentPanOffset = panOffsetParam || panOffset;
+  const currentZoomLevel = zoomLevelParam !== null ? zoomLevelParam : zoomLevel;
+
+  // Update internal state if parameters were provided
+  if (panOffsetParam) panOffset = Point.from(panOffsetParam);
+  if (zoomLevelParam !== null) zoomLevel = zoomLevelParam;
+
+  if (!Util.isElementValid(piecesViewport) || !currentPanOffset) return;
+  piecesViewport.style.transform = `translate(${currentPanOffset.x}px, ${currentPanOffset.y}px) scale(${currentZoomLevel})`;
 }
 
 // Coordinate transformation function - converts screen coordinates to viewport coordinates
@@ -187,6 +277,158 @@ export function updateOrientationTipButton(selectedPiece) {
     orientationTipButton.style.display = "none";
   }
 }
+
+// Update zoom display to show current zoom percentage
+export function updateZoomDisplay() {
+  if (!zoomDisplay) return;
+  zoomDisplay.textContent = Math.round(zoomLevel * 100) + "%";
+}
+
+export function setInitialMargins(margins) {
+  initialMargins = margins;
+}
+
+export function enforceInitialMargins(piecesBounds) {
+  if (!initialMargins) {
+    return;
+  }
+
+  const margin = 50;
+  const minX = piecesBounds.left - margin;
+  const maxX = piecesBounds.right + margin;
+  const minY = piecesBounds.top - margin;
+  const maxY = piecesBounds.bottom + margin;
+
+  // Adjust pan offset to keep pieces within margins
+  const currentX = panOffset.x;
+  const currentY = panOffset.y;
+
+  let newX = currentX;
+  let newY = currentY;
+
+  if (minX < -window.innerWidth / 2) {
+    newX = currentX + (-window.innerWidth / 2 - minX);
+  }
+  if (maxX > window.innerWidth / 2) {
+    newX = currentX + (window.innerWidth / 2 - maxX);
+  }
+  if (minY < -window.innerHeight / 2) {
+    newY = currentY + (-window.innerHeight / 2 - minY);
+  }
+  if (maxY > window.innerHeight / 2) {
+    newY = currentY + (window.innerHeight / 2 - maxY);
+  }
+
+  if (newX !== currentX || newY !== currentY) {
+    panOffset = new Point(newX, newY);
+    updateViewportTransform();
+  }
+}
+
+// Apply visual feedback using shape outlines based on piece correctness
+export function applyPieceCorrectnessVisualFeedback(piece, isCorrect) {
+  if (isCorrect) {
+    drawPieceOutline(piece, "#2ea862", 4); // Green outline for correct pieces
+    return "correct";
+  } else {
+    drawPieceOutline(piece, "#c94848", 4); // Red outline for incorrect pieces
+    return "incorrect";
+  }
+}
+
+// Apply blinking effect for incorrect pieces
+export function applyBlinkingEffectForIncorrectPieces(pieces, constants) {
+  const { BLINK_INTERVAL_MS, BLINK_HALF_CYCLES, BLINK_START_DELAY_MS } =
+    constants;
+
+  // Add blinking effect for incorrect pieces
+  setTimeout(() => {
+    let blinkingPieces = 0;
+
+    pieces.forEach((piece) => {
+      let isCorrect = true;
+
+      // Repeat the same correctness check as above
+      if (piece.rotation !== 0) {
+        isCorrect = false;
+      }
+
+      const expectedNeighbors = {
+        north: pieces.find(
+          (p) => p.gridX === piece.gridX && p.gridY === piece.gridY - 1
+        ),
+        east: pieces.find(
+          (p) => p.gridX === piece.gridX + 1 && p.gridY === piece.gridY
+        ),
+        south: pieces.find(
+          (p) => p.gridX === piece.gridX && p.gridY === piece.gridY + 1
+        ),
+        west: pieces.find(
+          (p) => p.gridX === piece.gridX - 1 && p.gridY === piece.gridY
+        ),
+      };
+
+      Object.entries(expectedNeighbors).forEach(
+        ([direction, expectedNeighbor]) => {
+          if (expectedNeighbor) {
+            if (piece.groupId !== expectedNeighbor.groupId) {
+              isCorrect = false;
+            } else {
+              // Check if neighbor is correctly positioned by comparing corner alignment
+              const positionIsCorrect = piece.isNeighbor(
+                expectedNeighbor,
+                direction
+              );
+
+              if (!positionIsCorrect) {
+                isCorrect = false;
+              }
+            }
+          }
+        }
+      );
+
+      // Create blinking effect for incorrect pieces
+      if (!isCorrect) {
+        blinkingPieces++;
+
+        // Cycle between clear and red outline for blinking effect
+        let blinkCount = 0;
+        const blinkInterval = setInterval(() => {
+          console.log(
+            `[checkPuzzleCorrectness] Blink ${blinkCount} for piece ${piece.id}`
+          );
+
+          if (blinkCount % 2 === 0) {
+            clearPieceOutline(piece);
+          } else {
+            drawPieceOutline(piece, "#c94848", 4);
+          }
+          blinkCount++;
+
+          if (blinkCount >= BLINK_HALF_CYCLES) {
+            // Blink 4 times (8 half-cycles)
+            clearInterval(blinkInterval);
+            drawPieceOutline(piece, "#c94848", 4); // End with red outline
+          }
+        }, BLINK_INTERVAL_MS); // intervals for blinking
+      }
+    });
+
+    console.log(
+      `[checkPuzzleCorrectness] Started blinking for ${blinkingPieces} pieces`
+    );
+  }, BLINK_START_DELAY_MS); // Small delay before starting blink effect
+}
+
+// Export zoom constants for use by other modules
+export {
+  MIN_ZOOM,
+  MAX_ZOOM,
+  ZOOM_STEP_FACTOR,
+  WHEEL_ZOOM_IN_FACTOR,
+  WHEEL_ZOOM_OUT_FACTOR,
+};
 
 // Optional future ideas:
 // - applyPieceTransform(el, piece) to handle rotation + position via CSS translate/rotate.

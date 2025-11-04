@@ -3,7 +3,8 @@
 // Using single CONNECTION_TOLERANCE for squared distance comparisons.
 
 import { state, connectPieces } from "./gameEngine.js";
-import { updateProgress, getCurrentZoom } from "./app.js";
+import { getCurrentZoom } from "./app.js";
+import { updateProgress } from "./controlBar.js";
 import { applyPiecePosition } from "./display.js";
 // Geometry utilities (new Point-based refactor)
 import {
@@ -15,6 +16,19 @@ import {
 // ================================
 // Module Constants
 // ================================
+// Direction constants
+const NORTH = "north";
+const EAST = "east";
+const SOUTH = "south";
+const WEST = "west";
+const ALL_SIDES = [NORTH, EAST, SOUTH, WEST];
+
+// Corner constants
+const NORTHWEST = "nw";
+const NORTHEAST = "ne";
+const SOUTHEAST = "se";
+const SOUTHWEST = "sw";
+
 const DEFAULT_CONNECTION_DISTANCE_PX = 30; // Base pixel distance for matching
 const CONNECTION_TOLERANCE_SQ =
   DEFAULT_CONNECTION_DISTANCE_PX * DEFAULT_CONNECTION_DISTANCE_PX; // 30^2 = 900
@@ -38,14 +52,14 @@ let currentHighlight = null; // { pieceId, sideName, mapping }
 
 function sideCornerKeys(side) {
   switch (side) {
-    case "north":
-      return ["nw", "ne"];
-    case "east":
-      return ["ne", "se"];
-    case "south":
-      return ["se", "sw"];
-    case "west":
-      return ["sw", "nw"];
+    case NORTH:
+      return [NORTHWEST, NORTHEAST];
+    case EAST:
+      return [NORTHEAST, SOUTHEAST];
+    case SOUTH:
+      return [SOUTHEAST, SOUTHWEST];
+    case WEST:
+      return [SOUTHWEST, NORTHWEST];
     default:
       return [];
   }
@@ -112,7 +126,7 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
   const movingEdges = movingPiece.edges;
   const stationaryEdges = stationaryPiece.edges;
 
-  ["north", "east", "south", "west"].forEach((mSide) => {
+  ALL_SIDES.forEach((mSide) => {
     const mPol = movingEdges[mSide];
     if (mPol === 0) return; // border side ignored
     const mSPoint = movingPiece.sPoints[mSide];
@@ -122,7 +136,7 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
     const mwcB = movingWD.worldCorners[mCornerNames[1]];
     const mwS = movingWD.worldSPoints[mSide];
 
-    ["north", "east", "south", "west"].forEach((sSide) => {
+    ALL_SIDES.forEach((sSide) => {
       const sPol = stationaryEdges[sSide];
       if (sPol === 0) return;
       if (!isComplementary(mPol, sPol)) return;

@@ -3,7 +3,7 @@
 import { SpatialIndex, chooseCellSize } from "./spatialIndex.js";
 import { state } from "./gameEngine.js";
 import { initConnectionManager } from "./connectionManager.js";
-import { updateProgress } from "./app.js";
+import { updateProgress } from "./controlBar.js";
 import { Point } from "./geometry/Point.js";
 import { applyPiecePosition } from "./display.js";
 import {

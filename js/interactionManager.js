@@ -4,11 +4,15 @@ import { Point, rotatePointDeg } from "./geometry/Point.js";
 import {
   clearAllPieceOutlines,
   ensureRectInView,
-  enforceInitialMargins,
   fitAllPiecesInView,
   getViewportState,
+  calculatePiecesBounds,
 } from "./app.js";
-import { screenToViewport, applyPiecePosition } from "./display.js";
+import {
+  screenToViewport,
+  applyPiecePosition,
+  enforceInitialMargins,
+} from "./display.js";
 import { handleDragMove, handleDragEnd } from "./connectionManager.js";
 import { state } from "./gameEngine.js";
 
@@ -217,7 +221,7 @@ function onDragEnd(event) {
   handleDragEnd(piece, wasDetached);
 
   const wentOutside = element.hasAttribute("data-outside");
-  enforceInitialMargins();
+  enforceInitialMargins(calculatePiecesBounds(state.pieces));
 
   if (wentOutside) {
     fitAllPiecesInView();

@@ -308,8 +308,6 @@ export class Point {
 
     for (const piece of pieces) {
       const position = getPiecePosition(piece);
-      if (!Point.isValid(position)) continue;
-
       let topLeft = position;
       let bottomRight = position;
 
