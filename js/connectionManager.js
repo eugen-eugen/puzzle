@@ -213,10 +213,8 @@ function findCandidate(movingPiece) {
   const longestSide = Math.max(bmpW, bmpH);
   const coarseR = longestSide * COARSE_RADIUS_MULTIPLIER;
 
-  const centerX = movingWD.worldCorners.nw.x; // rough anchor
-  const centerY = movingWD.worldCorners.nw.y;
   const neighborIds = spatialIndex.queryRadius(
-    { x: centerX, y: centerY },
+    movingWD.worldCorners.nw,
     coarseR
   );
 
@@ -239,22 +237,6 @@ function findCandidate(movingPiece) {
 
     const candidateWD = candidate.worldData;
     const match = matchSides(movingPiece, candidate, movingWD, candidateWD);
-
-    // Debug: Log match results for NW corner
-    if (movingPiece.gridX === 0 && movingPiece.gridY === 0) {
-      console.log("[findCandidate] Match result:", {
-        candidateId: id,
-        candidateGrid: { x: candidate.gridX, y: candidate.gridY },
-        matchFound: !!match,
-        matchDetails: match
-          ? {
-              score: match.score,
-              movingSide: match.movingSide,
-              stationarySide: match.stationarySide,
-            }
-          : null,
-      });
-    }
 
     if (match && (!best || match.score < best.score)) best = match;
   });
@@ -284,43 +266,8 @@ function finePlace(movingPiece, highlightData) {
   const mWorldCorner = movingWD.worldCorners[movingCornerKey];
   const sWorldCorner = stationaryWD.worldCorners[stationaryCornerKey];
 
-  // Debug: Always log when stationary piece is nw corner (gridX=0, gridY=0)
-  if (stationaryPiece.gridX === 0 && stationaryPiece.gridY === 0) {
-    console.log("[finePlace] NW corner as stationary piece:", {
-      stationaryId: stationaryPiece.id,
-      stationaryDisplay: {
-        x: stationaryPiece.position.x,
-        y: stationaryPiece.position.y,
-      },
-      stationaryCornerKey,
-      stationaryCornerLocal: stationaryPiece.corners[stationaryCornerKey],
-      stationaryCornerWorld: sWorldCorner,
-      movingId: movingPiece.id,
-      movingCornerKey,
-      movingCornerWorld: mWorldCorner,
-      dx: sWorldCorner.x - mWorldCorner.x,
-      dy: sWorldCorner.y - mWorldCorner.y,
-    });
-  }
-
   const dx = sWorldCorner.x - mWorldCorner.x;
   const dy = sWorldCorner.y - mWorldCorner.y;
-
-  // Debug: Check for unusual delta values that might indicate a problem
-  if (
-    Math.abs(dx) > FINE_PLACE_LARGE_DELTA_THRESHOLD ||
-    Math.abs(dy) > FINE_PLACE_LARGE_DELTA_THRESHOLD
-  ) {
-    console.warn("[finePlace] Unusually large fine placement delta", {
-      dx,
-      dy,
-      stationaryPieceGrid: {
-        x: stationaryPiece.gridX,
-        y: stationaryPiece.gridY,
-      },
-      movingPieceGrid: { x: movingPiece.gridX, y: movingPiece.gridY },
-    });
-  }
 
   // Get all pieces in the moving group (including the moving piece itself)
   const movingGroupPieces = getMovingGroupPieces(movingPiece); // Apply translation to all pieces in the moving group
