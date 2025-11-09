@@ -2,12 +2,11 @@
 // Encapsulates all piece-related properties and behaviors
 // Integrates with Point geometry system and provides automatic worldData caching
 
-import { Point, rotatePointDeg } from "../geometry/Point.js";
+import { Point } from "../geometry/Point.js";
 import { Rectangle } from "../geometry/Rectangle.js";
 import { state } from "../gameEngine.js";
-
-// WorldData cache setup - moved here to avoid circular dependencies
-const FALLBACK_PIECE_SCALE = 0.35;
+import { DEFAULT_PIECE_SCALE } from "../constants/PieceConstants.js";
+import { applyPieceTransform } from "../display.js";
 
 /**
  * Jigsaw puzzle piece class
@@ -26,12 +25,11 @@ export class Piece {
     this.h = data.h;
     this.imgX = data.imgX;
     this.imgY = data.imgY;
-    this.pad = data.pad;
 
     // Visual representation
     this.bitmap = data.bitmap;
     this.path = data.path;
-    this.scale = data.scale || 0.35;
+    this.scale = data.scale || DEFAULT_PIECE_SCALE;
 
     // Position and orientation
     this.position =
@@ -212,41 +210,37 @@ export class Piece {
   /**
    * Internal computation function for world-space coordinates.
    * Computes the world-space coordinates for the corners and side points of a puzzle piece,
-   * taking into account its position, scale, rotation, and padding.
+   * taking into account its position, scale, and rotation.
    * Updated to work with the new centered positioning system.
    * @private
    */
   _computeWorldDataInternal() {
-    // Requires: this.bitmap.width/height, this.pad, this.position, this.rotation, this.scale
-    if (this.scale == null) this.scale = FALLBACK_PIECE_SCALE; // fallback if not set
+    // Requires: this.bitmap.width/height, this.position, this.rotation, this.scale
+    // Note: this.scale is guaranteed to be set in constructor, so no null check needed
 
     const scale = this.scale;
-    const pad = this.pad;
 
     // Calculate the bounding frame to determine visual center
     const boundingFrame = this.calculateBoundingFrame();
-    const visualCenterX = (boundingFrame.minX + boundingFrame.maxX) / 2;
-    const visualCenterY = (boundingFrame.minY + boundingFrame.maxY) / 2;
 
     // The piece position now represents the visual center, so calculate canvas top-left
-    const bmpW = this.bitmap.width * scale;
-    const bmpH = this.bitmap.height * scale;
-    const canvasCenterX = bmpW / 2;
-    const canvasCenterY = bmpH / 2;
-
-    // Calculate offset to canvas top-left from visual center
-    const offsetX = (visualCenterX + pad) * scale - canvasCenterX;
-    const offsetY = (visualCenterY + pad) * scale - canvasCenterY;
-
-    // Canvas top-left position
-    const canvasX = this.position.x - offsetX;
-    const canvasY = this.position.y - offsetY;
+    const bitmapSize = new Point(
+      this.bitmap.width * scale,
+      this.bitmap.height * scale
+    );
+    const canvasCenter = bitmapSize.scaled(0.5);
+    const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+    const offset = scaledCenterOffset.sub(canvasCenter);
+    const canvasTopLeft = this.position.sub(offset);
 
     // Pivot point for rotation is still the visual center (this.position)
     const pivot = new Point(this.position.x, this.position.y);
 
     const toCanvasLocalPoint = (pt) =>
-      new Point((pt.x + pad) * scale, (pt.y + pad) * scale);
+      new Point(
+        (pt.x - boundingFrame.minX) * scale,
+        (pt.y - boundingFrame.minY) * scale
+      );
 
     // Corners
     const c = this.corners;
@@ -260,15 +254,9 @@ export class Piece {
     const worldCorners = {};
     for (const [key, pLocal] of Object.entries(cornersLocal)) {
       // Translate to canvas position, then rotate around visual center
-      const translated = pLocal.addPoint(new Point(canvasX, canvasY));
-      const rotated = rotatePointDeg(
-        translated.x,
-        translated.y,
-        pivot.x,
-        pivot.y,
-        this.rotation
-      );
-      worldCorners[key] = rotated; // rotatePointDeg already returns plain object
+      const translated = pLocal.addPoint(canvasTopLeft);
+      const rotated = translated.rotatedAroundDeg(pivot, this.rotation);
+      worldCorners[key] = rotated.toObject(); // Convert Point to plain object
     }
 
     // Side points
@@ -281,15 +269,9 @@ export class Piece {
         return;
       }
       const local = toCanvasLocalPoint(p);
-      const translated = local.addPoint(new Point(canvasX, canvasY));
-      const rotated = rotatePointDeg(
-        translated.x,
-        translated.y,
-        pivot.x,
-        pivot.y,
-        this.rotation
-      );
-      worldSPoints[side] = rotated; // rotatePointDeg already returns plain object
+      const translated = local.addPoint(canvasTopLeft);
+      const rotated = translated.rotatedAroundDeg(pivot, this.rotation);
+      worldSPoints[side] = rotated.toObject(); // Convert Point to plain object
     });
 
     return { worldCorners, worldSPoints };
@@ -308,6 +290,32 @@ export class Piece {
     } else {
       this.position.mutSet(x, y);
     }
+  }
+
+  /**
+   * Set position by specifying the center point of the piece
+   * Converts center coordinates to the internal position representation used by setPosition()
+   * This is the inverse operation of getCenter()
+   * @param {Point} centerPoint - Center point of the piece
+   * @param {HTMLElement} element - DOM element for accurate dimensions
+   */
+  placeCenter(centerPoint, element) {
+    // Reverse the getCenter() calculation
+    const w = element.offsetWidth;
+    const h = element.offsetHeight;
+
+    // Calculate offset used in getCenter()
+    const boundingFrame = this.calculateBoundingFrame();
+    const scale = this.scale || 0.35;
+
+    const canvasCenter = new Point(w / 2, h / 2);
+    const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+    const offset = scaledCenterOffset.sub(canvasCenter);
+
+    // getCenter() returns: this.position.sub(offset).add(canvasCenter)
+    // So to get this.position from centerPoint: centerPoint.sub(canvasCenter).add(offset)
+    const position = centerPoint.sub(canvasCenter).add(offset);
+    this.setPosition(position);
   }
 
   /**
@@ -335,25 +343,16 @@ export class Piece {
       const w = element.offsetWidth;
       const h = element.offsetHeight;
 
-      // Calculate offset used in applyToElement
+      // Calculate offset used in applyPieceTransform
       const boundingFrame = this.calculateBoundingFrame();
       const scale = this.scale || 0.35;
-      const pad = this.pad || 0;
 
-      const visualCenterX = (boundingFrame.minX + boundingFrame.maxX) / 2;
-      const visualCenterY = (boundingFrame.minY + boundingFrame.maxY) / 2;
-
-      const canvasCenterX = w / 2;
-      const canvasCenterY = h / 2;
-
-      const offsetX = (visualCenterX + pad) * scale - canvasCenterX;
-      const offsetY = (visualCenterY + pad) * scale - canvasCenterY;
+      const canvasCenter = new Point(w / 2, h / 2);
+      const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+      const offset = scaledCenterOffset.sub(canvasCenter);
 
       // The visual center is now at the position plus canvas center minus offset
-      return new Point(
-        this.position.x - offsetX + canvasCenterX,
-        this.position.y - offsetY + canvasCenterY
-      );
+      return this.position.sub(offset).add(canvasCenter);
     }
 
     // Without element, the position now represents the visual center of the piece
@@ -371,23 +370,18 @@ export class Piece {
       const w = element.offsetWidth;
       const h = element.offsetHeight;
 
-      // Calculate the positioning offset used in applyToElement
+      // Calculate the positioning offset used in applyPieceTransform
       const boundingFrame = this.calculateBoundingFrame();
       const scale = this.scale || 0.35;
-      const pad = this.pad || 0;
 
-      const visualCenterX = (boundingFrame.minX + boundingFrame.maxX) / 2;
-      const visualCenterY = (boundingFrame.minY + boundingFrame.maxY) / 2;
-
-      const canvasCenterX = w / 2;
-      const canvasCenterY = h / 2;
-
-      const offsetX = (visualCenterX + pad) * scale - canvasCenterX;
-      const offsetY = (visualCenterY + pad) * scale - canvasCenterY;
+      const canvasCenter = new Point(w / 2, h / 2);
+      const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+      const offset = scaledCenterOffset.sub(canvasCenter);
+      const topLeft = this.position.sub(offset);
 
       return {
-        x: this.position.x - offsetX,
-        y: this.position.y - offsetY,
+        x: topLeft.x,
+        y: topLeft.y,
         width: w,
         height: h,
       };
@@ -396,17 +390,14 @@ export class Piece {
     // Calculate bounds based on actual piece geometry
     const boundingFrame = this.calculateBoundingFrame();
     const scale = this.scale || 0.35;
-    const pad = this.pad || 0;
-
-    // Calculate visual dimensions
-    const visualWidth = boundingFrame.width * scale;
-    const visualHeight = boundingFrame.height * scale;
+    const scaledFrame = boundingFrame.scaled(scale);
+    const halfSize = scaledFrame.centerOffset;
 
     return {
-      x: this.position.x - visualWidth / 2,
-      y: this.position.y - visualHeight / 2,
-      width: visualWidth,
-      height: visualHeight,
+      x: this.position.x - halfSize.x,
+      y: this.position.y - halfSize.y,
+      width: scaledFrame.width,
+      height: scaledFrame.height,
     };
   }
 
@@ -421,27 +412,19 @@ export class Piece {
       // Use DOM element dimensions if available, but adjust for centering
       const boundingFrame = this.calculateBoundingFrame();
       const scale = this.scale || 0.35;
-      const pad = this.pad || 0;
 
-      const bitmapWidth = element.offsetWidth;
-      const bitmapHeight = element.offsetHeight;
-
-      // Calculate the actual visual piece center within the bitmap
-      const pieceVisualCenterX = (boundingFrame.minX + boundingFrame.maxX) / 2;
-      const pieceVisualCenterY = (boundingFrame.minY + boundingFrame.maxY) / 2;
-
-      // Calculate offset from bitmap center to piece visual center
-      const bitmapCenterX = bitmapWidth / 2;
-      const bitmapCenterY = bitmapHeight / 2;
-      const offsetX = (pieceVisualCenterX + pad) * scale - bitmapCenterX;
-      const offsetY = (pieceVisualCenterY + pad) * scale - bitmapCenterY;
+      const bitmapSize = new Point(element.offsetWidth, element.offsetHeight);
+      const bitmapCenter = bitmapSize.scaled(0.5);
+      const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+      const offset = scaledCenterOffset.sub(bitmapCenter);
+      const topLeft = this.position.sub(offset);
 
       // Return bounds centered on the actual piece shape
       return {
-        x: this.position.x - offsetX,
-        y: this.position.y - offsetY,
-        width: bitmapWidth,
-        height: bitmapHeight,
+        x: topLeft.x,
+        y: topLeft.y,
+        width: bitmapSize.x,
+        height: bitmapSize.y,
       };
     }
 
@@ -493,20 +476,12 @@ export class Piece {
       const preCenter = piece.getCenter(pieceEl);
 
       // Rotate the center around the pivot
-      const rotatedCenter = Point.from(
-        rotatePointDeg(
-          preCenter.x,
-          preCenter.y,
-          pivot.x,
-          pivot.y,
-          rotationDegrees
-        )
-      );
+      const rotatedCenter = preCenter.rotatedAroundDeg(pivot, rotationDegrees);
 
       // With the new positioning system, the position IS the visual center
-      piece.setPosition(rotatedCenter);
+      piece.placeCenter(rotatedCenter, pieceEl);
 
-      piece.applyToElement(pieceEl);
+      applyPieceTransform(pieceEl, piece);
 
       if (spatialIndex) {
         piece.updateSpatialIndex(spatialIndex, pieceEl);
@@ -678,7 +653,6 @@ export class Piece {
       edges: this.edges,
       corners: this.corners,
       sPoints: this.sPoints,
-      pad: this.pad,
       w: this.w,
       h: this.h,
       scale: this.scale,
@@ -717,38 +691,6 @@ export class Piece {
   }
 
   // ===== Utility Methods =====
-
-  /**
-   * Apply piece position and rotation to DOM element
-   * Adjusts positioning so the visual center of the piece shape aligns with the position
-   * @param {HTMLElement} element - Target DOM element
-   */
-  applyToElement(element) {
-    if (!element) return;
-
-    // Calculate offset to center the actual piece shape within the padded canvas
-    const boundingFrame = this.calculateBoundingFrame();
-    const scale = this.scale || 0.35;
-    const pad = this.pad || 0;
-
-    // Calculate the visual center offset from the canvas origin
-    const visualCenterX = (boundingFrame.minX + boundingFrame.maxX) / 2;
-    const visualCenterY = (boundingFrame.minY + boundingFrame.maxY) / 2;
-
-    // Calculate how much to offset the element position to center the piece shape
-    const canvasCenterX =
-      (element.offsetWidth || this.bitmap.width * scale) / 2;
-    const canvasCenterY =
-      (element.offsetHeight || this.bitmap.height * scale) / 2;
-
-    const offsetX = (visualCenterX + pad) * scale - canvasCenterX;
-    const offsetY = (visualCenterY + pad) * scale - canvasCenterY;
-
-    // Apply position with centering offset
-    element.style.left = this.position.x - offsetX + "px";
-    element.style.top = this.position.y - offsetY + "px";
-    element.style.transform = `rotate(${this.rotation}deg)`;
-  }
 
   /**
    * Update spatial index with current position

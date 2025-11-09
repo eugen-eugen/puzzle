@@ -17,8 +17,6 @@ import { Point } from "./geometry/Point.js";
 const MIN_GRID_DIMENSION = 2;
 const MAX_DEPTH_FACTOR = 0.18; // Relative to min(pieceW,pieceH)
 const MIN_DEPTH_FACTOR = 0.1; // Relative to min(pieceW,pieceH)
-const PAD_EXTRA_FACTOR = 1.25; // Extra factor on maxDepth when computing pad
-const PAD_EXTRA_PIXELS = 6; // Extra pixels beyond scaled depth
 const DEBUG_OUTLINE_COLOR = "#ff00aa";
 const DEBUG_OUTLINE_WIDTH = 1.25;
 const RANDOM_ROTATIONS = [0, 90, 180, 270];
@@ -106,28 +104,27 @@ export function generateJigsawPieces(img, targetCount) {
         tempPiece.corners,
         tempPiece.sPoints
       );
-      // Padding: allow for outward bumps on any side; expand symmetric
-      const pad = Math.ceil(maxDepth * PAD_EXTRA_FACTOR + PAD_EXTRA_PIXELS);
-      const pw = Math.ceil(actualPieceW + pad * 2);
-      const ph = Math.ceil(actualPieceH + pad * 2);
+      // Use bounding frame dimensions directly for canvas
+      const pw = Math.ceil(actualPieceW);
+      const ph = Math.ceil(actualPieceH);
       const canvas = document.createElement("canvas");
       canvas.width = pw;
       canvas.height = ph;
       const ctx = canvas.getContext("2d");
       ctx.save();
-      // Center the bounding frame in the canvas: pad for border + offset to center the frame
-      ctx.translate(pad - boundingFrame.minX, pad - boundingFrame.minY);
+      // Center the bounding frame in the canvas
+      ctx.translate(-boundingFrame.minX, -boundingFrame.minY);
       ctx.clip(path);
-      // Compute source rect based on actual piece boundaries (expand by pad)
+      // Compute source rect based on actual piece boundaries
       const minX = boundingFrame.minX + c_nw.x;
       const maxX = boundingFrame.maxX + c_nw.x;
       const minY = boundingFrame.minY + c_nw.y;
       const maxY = boundingFrame.maxY + c_nw.y;
 
-      let srcX = minX - pad;
-      let srcY = minY - pad;
-      let srcW = maxX - minX + pad * 2;
-      let srcH = maxY - minY + pad * 2;
+      let srcX = minX;
+      let srcY = minY;
+      let srcW = maxX - minX;
+      let srcH = maxY - minY;
 
       // Clamp to master image bounds
       const clipX = Math.max(0, srcX);
@@ -136,7 +133,7 @@ export function generateJigsawPieces(img, targetCount) {
       const clipH = Math.min(srcH, master.height - clipY);
 
       // Adjust destination offset to align clipped region correctly with centered frame
-      // After translation, coordinate system is offset by (pad - boundingFrame.minX, pad - boundingFrame.minY)
+      // After translation, coordinate system is offset by (-boundingFrame.minX, -boundingFrame.minY)
       // So destination should be relative to the piece's corner position
       const dx = clipX - c_nw.x;
       const dy = clipY - c_nw.y;
@@ -144,7 +141,7 @@ export function generateJigsawPieces(img, targetCount) {
       ctx.restore();
       // Debug outline (optional)
       ctx.save();
-      ctx.translate(pad - boundingFrame.minX, pad - boundingFrame.minY);
+      ctx.translate(-boundingFrame.minX, -boundingFrame.minY);
       ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
       ctx.lineWidth = DEBUG_OUTLINE_WIDTH;
       ctx.stroke(path);
@@ -189,7 +186,6 @@ export function generateJigsawPieces(img, targetCount) {
           RANDOM_ROTATIONS[Math.floor(Math.random() * RANDOM_ROTATIONS.length)],
         path,
         bitmap: canvas,
-        pad,
         edges: { north, east, south, west },
         groupId: "g" + pieceId, // Each piece starts in its own group
         // Geometry data for calculation

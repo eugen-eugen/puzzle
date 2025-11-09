@@ -14,6 +14,7 @@ import { Rectangle } from "./geometry/Rectangle.js";
 import { Util } from "./utils/Util.js";
 import { Piece } from "./model/Piece.js";
 import { loadRemoteImageWithTimeout } from "./imageProcessor.js";
+import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
 import {
   updateViewportTransform,
   initViewport,
@@ -56,7 +57,7 @@ import {
 // ================================
 // Module Constants (replacing magic numbers)
 // ================================
-const DEFAULT_CORRECTNESS_SCALE_FALLBACK = 0.35; // Fallback scale if piece.scale missing
+const DEFAULT_CORRECTNESS_SCALE_FALLBACK = DEFAULT_PIECE_SCALE; // Use consistent scale fallback
 const BLINK_INTERVAL_MS = 300; // Interval between blink frames
 const BLINK_HALF_CYCLES = 8; // Half cycles (on/off) => 4 full blinks
 const BLINK_START_DELAY_MS = 100; // Delay before starting blink effect

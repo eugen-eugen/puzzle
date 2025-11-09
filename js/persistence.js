@@ -84,7 +84,6 @@ function serializeState(includeBitmaps = STORE_BITMAPS) {
         groupId: p.groupId,
         edges: p.edges,
         sPoints: p.sPoints,
-        pad: p.pad,
         w: p.w,
         h: p.h,
         scale: p.scale,
@@ -334,9 +333,10 @@ function reconstructPieces(data, masterImage) {
       h: sp.h,
     });
     const path = tempPiece.generatePath();
-    const pad = sp.pad || 0;
-    const cw = Math.ceil(sp.w + pad * 2);
-    const ch = Math.ceil(sp.h + pad * 2);
+    // Use bounding frame to determine canvas size
+    const boundingFrame = tempPiece.calculateBoundingFrame();
+    const cw = Math.ceil(boundingFrame.width);
+    const ch = Math.ceil(boundingFrame.height);
     const canvas = document.createElement("canvas");
     canvas.width = cw;
     canvas.height = ch;
@@ -346,15 +346,12 @@ function reconstructPieces(data, masterImage) {
       img.src = sp.bitmapData;
       img.onload = () => ctx.drawImage(img, 0, 0);
     } else if (masterImage) {
-      // Use the same temporary piece for bounding frame calculation
-      const boundingFrame = tempPiece.calculateBoundingFrame();
-
       ctx.save();
       // Use same translation logic as generateJigsawPieces
-      ctx.translate(pad - boundingFrame.minX, pad - boundingFrame.minY);
+      ctx.translate(-boundingFrame.minX, -boundingFrame.minY);
       ctx.clip(path);
 
-      // Compute source rect based on actual piece boundaries (expand by pad)
+      // Compute source rect based on actual piece boundaries
       // Use stored imgX/imgY which represent the actual corner positions (equivalent to c_nw.x, c_nw.y from generation)
       const imgX = sp.imgX ?? 0; // Fallback to 0 if missing (shouldn't happen in normal cases)
       const imgY = sp.imgY ?? 0; // Fallback to 0 if missing (shouldn't happen in normal cases)
@@ -363,10 +360,10 @@ function reconstructPieces(data, masterImage) {
       const minY = boundingFrame.minY + imgY;
       const maxY = boundingFrame.maxY + imgY;
 
-      let srcX = minX - pad;
-      let srcY = minY - pad;
-      let srcW = maxX - minX + pad * 2;
-      let srcH = maxY - minY + pad * 2;
+      let srcX = minX;
+      let srcY = minY;
+      let srcW = maxX - minX;
+      let srcH = maxY - minY;
 
       const imgW = masterImage.naturalWidth || masterImage.width;
       const imgH = masterImage.naturalHeight || masterImage.height;
@@ -376,7 +373,7 @@ function reconstructPieces(data, masterImage) {
       const clipH = Math.min(srcH, imgH - clipY);
 
       // Adjust destination offset to align clipped region correctly with centered frame
-      // After translation, coordinate system is offset by (pad - boundingFrame.minX, pad - boundingFrame.minY)
+      // After translation, coordinate system is offset by (-boundingFrame.minX, -boundingFrame.minY)
       // So destination should be relative to the piece's corner position
       const dx = clipX - imgX;
       const dy = clipY - imgY;
@@ -406,7 +403,6 @@ function reconstructPieces(data, masterImage) {
       groupId: sp.groupId,
       edges: sp.edges,
       sPoints: sp.sPoints,
-      pad: sp.pad,
       w: sp.w,
       h: sp.h,
       scale: sp.scale,

@@ -5,7 +5,8 @@ import { state } from "./gameEngine.js";
 import { initConnectionManager } from "./connectionManager.js";
 import { updateProgress } from "./controlBar.js";
 import { Point } from "./geometry/Point.js";
-import { applyPiecePosition } from "./display.js";
+import { applyPiecePosition, applyPieceTransform } from "./display.js";
+import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
 import {
   initializeInteractions,
   getSelectedPiece,
@@ -21,7 +22,7 @@ const pieceElements = new Map(); // id -> DOM element
 // ================================
 // Module Constants (magic numbers -> named)
 // ================================
-const DEFAULT_RENDER_SCALE = 0.7; // initial downscale factor for display vs original image size
+const DEFAULT_RENDER_SCALE = DEFAULT_PIECE_SCALE; // Use consistent scale everywhere
 const MIN_RENDERED_DIMENSION = 24; // Minimum drawn width/height to keep piece interactable
 const OUTSIDE_THRESHOLD_PX = 40; // Distance from right boundary to mark piece as 'outside'
 const DETACH_FLASH_DURATION_MS = 1000; // Duration of detached visual indicator
@@ -293,20 +294,12 @@ function rotateGroup(selectedPiece, rotationDegrees) {
     const size = elementSizePoint(pieceEl);
     const halfSize = size.scaled(0.5);
     const preCenter = piece.getCenter(pieceEl);
-    const rotatedCenter = Point.from(
-      rotatePointDeg(
-        preCenter.x,
-        preCenter.y,
-        pivot.x,
-        pivot.y,
-        rotationDegrees
-      )
-    );
+    const rotatedCenter = preCenter.rotatedAroundDeg(pivot, rotationDegrees);
     const topLeft = rotatedCenter.clone().mutSubPoint(halfSize);
     piece.setPosition(topLeft);
 
     // Apply DOM updates
-    piece.applyToElement(pieceEl);
+    applyPieceTransform(pieceEl, piece);
 
     if (spatialIndex) {
       piece.updateSpatialIndex(spatialIndex, pieceEl);

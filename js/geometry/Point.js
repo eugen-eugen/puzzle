@@ -11,8 +11,7 @@
 // - Static helpers accept either plain objects `{x,y}` or Point instances.
 
 import { Util } from "../utils/Util.js";
-// - Legacy helper `rotatePointDeg` available for plain object rotation.
-// - All rotation methods use degrees for consistency and ease of use.
+// All rotation methods use degrees for consistency and ease of use.
 //
 // Incremental adoption strategy:
 // 1. Import and start using for new features (e.g., future viewport calculations).
@@ -330,7 +329,4 @@ export class Point {
 // Optional legacy helper adapters (can be used during migration):
 export function dist2(a, b) {
   return Point.from(a).distance2(b);
-}
-export function rotatePointDeg(px, py, cx, cy, deg) {
-  return new Point(px, py).rotatedAroundDeg(new Point(cx, cy), deg).toObject();
 }

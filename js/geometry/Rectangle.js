@@ -97,6 +97,14 @@ export class Rectangle {
     return new Point(this.x + this.width / 2, this.y + this.height / 2);
   }
 
+  /**
+   * Get center offset from origin (0,0)
+   * @returns {Point} Center point relative to origin
+   */
+  get centerOffset() {
+    return new Point(this.width / 2, this.height / 2);
+  }
+
   // ---------------- Validation ----------------
   isEmpty() {
     return this.width <= 0 || this.height <= 0;
@@ -222,6 +230,37 @@ export class Rectangle {
       this.width * factor,
       this.height * factor
     );
+  }
+
+  /**
+   * Mutating scale rectangle by factor
+   * @param {number} factor - Scale factor
+   * @returns {Rectangle} This rectangle (for chaining)
+   */
+  scale(factor) {
+    this.x *= factor;
+    this.y *= factor;
+    this.width *= factor;
+    this.height *= factor;
+    return this;
+  }
+
+  /**
+   * Mutating translate rectangle by offset
+   * @param {Point|number} offsetOrX - Point offset or X offset
+   * @param {number} [y] - Y offset (if first param is number)
+   * @returns {Rectangle} This rectangle (for chaining)
+   */
+  shift(offsetOrX, y) {
+    if (typeof offsetOrX === "number" && typeof y === "number") {
+      this.x += offsetOrX;
+      this.y += y;
+    } else {
+      const offset = Point.from(offsetOrX);
+      this.x += offset.x;
+      this.y += offset.y;
+    }
+    return this;
   }
 
   /**

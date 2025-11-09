@@ -67,7 +67,39 @@ export function applyPiecePosition(el, piece) {
   if (!el || !piece || !piece.position) return el;
   el.style.left = piece.position.x + "px";
   el.style.top = piece.position.y + "px";
+  el.style.transform = `rotate(${piece.rotation}deg)`;
   return el;
+}
+
+/**
+ * Apply complete piece transformation (position and rotation) to DOM element
+ * Adjusts positioning so the visual center of the piece shape aligns with the position
+ * @param {HTMLElement} element - Target DOM element
+ * @param {Piece} piece - Piece instance with position, rotation, and geometry data
+ * @returns {HTMLElement} The element for chaining
+ */
+export function applyPieceTransform(element, piece) {
+  if (!element || !piece) return element;
+
+  // Calculate offset to center the actual piece shape within the canvas
+  const boundingFrame = piece.calculateBoundingFrame();
+  const scale = piece.scale || 0.35;
+
+  // Calculate how much to offset the element position to center the piece shape
+  const canvasCenter = new Point(
+    (element.offsetWidth || piece.bitmap.width * scale) / 2,
+    (element.offsetHeight || piece.bitmap.height * scale) / 2
+  );
+  const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+  const offset = scaledCenterOffset.sub(canvasCenter);
+  const elementPosition = piece.position.sub(offset);
+
+  // Apply position with centering offset
+  element.style.left = elementPosition.x + "px";
+  element.style.top = elementPosition.y + "px";
+  element.style.transform = `rotate(${piece.rotation}deg)`;
+
+  return element;
 }
 
 // Zoom and pan state getters and setters
@@ -200,10 +232,9 @@ export function drawPieceOutline(piece, color, lineWidth = 3) {
 
   const ctx = canvas.getContext("2d");
   const scale = piece.scale || 0.35;
-  const pad = piece.pad || 0;
 
   console.log(
-    `[drawPieceOutline] Drawing with scale=${scale}, pad=${pad}, lineWidth=${lineWidth}`
+    `[drawPieceOutline] Drawing with scale=${scale}, lineWidth=${lineWidth}`
   );
 
   // Save current context state
@@ -218,7 +249,7 @@ export function drawPieceOutline(piece, color, lineWidth = 3) {
 
   // Draw the outline using centered bounding frame translation (same as jigsawGenerator)
   const boundingFrame = piece.calculateBoundingFrame();
-  ctx.translate(pad - boundingFrame.minX, pad - boundingFrame.minY);
+  ctx.translate(-boundingFrame.minX, -boundingFrame.minY);
   ctx.strokeStyle = color;
   ctx.lineWidth = lineWidth / scale; // Adjust line width for scale
   ctx.stroke(piece.path);

@@ -5,13 +5,10 @@
 import { state, connectPieces } from "./gameEngine.js";
 import { getCurrentZoom } from "./app.js";
 import { updateProgress } from "./controlBar.js";
-import { applyPiecePosition } from "./display.js";
+import { applyPieceTransform } from "./display.js";
 // Geometry utilities (new Point-based refactor)
-import {
-  Point,
-  dist2 as pointDist2,
-  rotatePointDeg as pointRotatePointDeg,
-} from "./geometry/Point.js";
+import { Point, dist2 as pointDist2 } from "./geometry/Point.js";
+import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
 
 // ================================
 // Module Constants
@@ -22,6 +19,47 @@ const EAST = "east";
 const SOUTH = "south";
 const WEST = "west";
 const ALL_SIDES = [NORTH, EAST, SOUTH, WEST];
+
+// Side mapping for rotation - maps from original side to rotated side
+// Based on 90-degree increments (0, 90, 180, 270 degrees)
+const ROTATION_SIDE_MAPPING = {
+  0: { north: NORTH, east: EAST, south: SOUTH, west: WEST },
+  90: { north: EAST, east: SOUTH, south: WEST, west: NORTH },
+  180: { north: SOUTH, east: WEST, south: NORTH, west: EAST },
+  270: { north: WEST, east: NORTH, south: EAST, west: SOUTH },
+};
+
+/**
+ * Get the actual world-oriented side name for a piece's logical side based on its rotation
+ * @param {string} logicalSide - The logical side name (north, east, south, west)
+ * @param {number} rotation - Rotation in degrees
+ * @returns {string} The actual world-oriented side name
+ */
+function getWorldSide(logicalSide, rotation) {
+  // Normalize rotation to 0, 90, 180, 270
+  const normalizedRotation = (Math.round(rotation / 90) * 90) % 360;
+  const mapping =
+    ROTATION_SIDE_MAPPING[normalizedRotation] || ROTATION_SIDE_MAPPING[0];
+  return mapping[logicalSide] || logicalSide;
+}
+
+/**
+ * Get the logical side name from a world-oriented side for a piece based on its rotation
+ * @param {string} worldSide - The world-oriented side name
+ * @param {number} rotation - Rotation in degrees
+ * @returns {string} The logical side name
+ */
+function getLogicalSide(worldSide, rotation) {
+  const normalizedRotation = (Math.round(rotation / 90) * 90) % 360;
+  const mapping =
+    ROTATION_SIDE_MAPPING[normalizedRotation] || ROTATION_SIDE_MAPPING[0];
+
+  // Find the logical side that maps to this world side
+  for (const [logical, world] of Object.entries(mapping)) {
+    if (world === worldSide) return logical;
+  }
+  return worldSide;
+}
 
 // Corner constants
 const NORTHWEST = "nw";
@@ -35,7 +73,6 @@ const CONNECTION_TOLERANCE_SQ =
 const DEFAULT_ALIGNMENT_TOLERANCE_SQ = CONNECTION_TOLERANCE_SQ; // Same heuristic currently
 const FINE_PLACE_LARGE_DELTA_THRESHOLD = 1000; // Warn if alignment exceeds this many pixels
 const COARSE_RADIUS_MULTIPLIER = 1.5; // Radius multiplier relative to longest side
-const FALLBACK_PIECE_SCALE = 0.35; // Fallback scale for missing piece.scale (should match generators / renderer defaults)
 
 // Public configuration (can be overridden during init)
 const CONFIG = {
@@ -126,26 +163,58 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
   const movingEdges = movingPiece.edges;
   const stationaryEdges = stationaryPiece.edges;
 
-  ALL_SIDES.forEach((mSide) => {
-    const mPol = movingEdges[mSide];
+  ALL_SIDES.forEach((mLogicalSide) => {
+    const mPol = movingEdges[mLogicalSide];
     if (mPol === 0) return; // border side ignored
-    const mSPoint = movingPiece.sPoints[mSide];
+    const mSPoint = movingPiece.sPoints[mLogicalSide];
     if (!mSPoint) return; // border
-    const mCornerNames = sideCornerKeys(mSide);
+
+    // Get the actual world-oriented side for the moving piece
+    const mWorldSide = getWorldSide(mLogicalSide, movingPiece.rotation);
+    const mCornerNames = sideCornerKeys(mLogicalSide);
     const mwcA = movingWD.worldCorners[mCornerNames[0]];
     const mwcB = movingWD.worldCorners[mCornerNames[1]];
-    const mwS = movingWD.worldSPoints[mSide];
+    const mwS = movingWD.worldSPoints[mLogicalSide];
 
-    ALL_SIDES.forEach((sSide) => {
-      const sPol = stationaryEdges[sSide];
+    ALL_SIDES.forEach((sLogicalSide) => {
+      const sPol = stationaryEdges[sLogicalSide];
       if (sPol === 0) return;
       if (!isComplementary(mPol, sPol)) return;
-      const sSPoint = stationaryPiece.sPoints[sSide];
+      const sSPoint = stationaryPiece.sPoints[sLogicalSide];
       if (!sSPoint) return;
-      const sCornerNames = sideCornerKeys(sSide);
+
+      // Get the actual world-oriented side for the stationary piece
+      const sWorldSide = getWorldSide(sLogicalSide, stationaryPiece.rotation);
+
+      // Check if the world-oriented sides are opposite to each other
+      const opposites = {
+        [NORTH]: SOUTH,
+        [SOUTH]: NORTH,
+        [EAST]: WEST,
+        [WEST]: EAST,
+      };
+
+      if (opposites[mWorldSide] !== sWorldSide) {
+        // Debug: Log when sides don't align in world space
+        if (movingPiece.gridX === 0 && movingPiece.gridY === 0) {
+          console.log("[matchSides] Sides don't align:", {
+            movingPiece: movingPiece.id,
+            stationaryPiece: stationaryPiece.id,
+            mLogicalSide,
+            sLogicalSide,
+            mWorldSide,
+            sWorldSide,
+            movingRotation: movingPiece.rotation,
+            stationaryRotation: stationaryPiece.rotation,
+          });
+        }
+        return; // Sides don't align in world space
+      }
+
+      const sCornerNames = sideCornerKeys(sLogicalSide);
       const swcA = stationaryWD.worldCorners[sCornerNames[0]];
       const swcB = stationaryWD.worldCorners[sCornerNames[1]];
-      const swS = stationaryWD.worldSPoints[sSide];
+      const swS = stationaryWD.worldSPoints[sLogicalSide];
 
       // Create waypoint arrays: [corner1, sidePoint, corner2]
       const mWaypoints = [mwcA, mwS, mwcB];
@@ -177,11 +246,30 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
         }
 
         if (!best || agg < best.score) {
+          // Debug: Log successful matches for rotated pieces
+          if (
+            (movingPiece.rotation !== 0 || stationaryPiece.rotation !== 0) &&
+            movingPiece.gridX === 0 &&
+            movingPiece.gridY === 0
+          ) {
+            console.log("[matchSides] Found match with rotation:", {
+              movingPiece: movingPiece.id,
+              stationaryPiece: stationaryPiece.id,
+              movingRotation: movingPiece.rotation,
+              stationaryRotation: stationaryPiece.rotation,
+              mLogicalSide,
+              sLogicalSide,
+              mWorldSide,
+              sWorldSide,
+              score: agg,
+            });
+          }
+
           best = {
             score: agg,
             stationaryPieceId: stationaryPiece.id,
-            movingSide: mSide,
-            stationarySide: sSide,
+            movingSide: mLogicalSide,
+            stationarySide: sLogicalSide,
             mapping: {
               movingCornerA: mCornerNames[0],
               movingCornerB: mCornerNames[1],
@@ -279,7 +367,7 @@ function finePlace(movingPiece, highlightData) {
     piece.position.mutAdd(dx, dy);
     if (pieceElementsAccessor) {
       const el = pieceElementsAccessor(piece.id);
-      if (el) applyPiecePosition(el, piece);
+      if (el) applyPieceTransform(el, piece);
     }
   });
 }

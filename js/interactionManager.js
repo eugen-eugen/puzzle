@@ -1,6 +1,6 @@
 // interactionManager.js - interact.js integration for puzzle pieces
 
-import { Point, rotatePointDeg } from "./geometry/Point.js";
+import { Point } from "./geometry/Point.js";
 import {
   clearAllPieceOutlines,
   ensureRectInView,
