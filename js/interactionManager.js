@@ -44,12 +44,6 @@ export function initializeInteractions(pieceElementsMap, spatialIndexInstance) {
   pieceElements = pieceElementsMap;
   spatialIndex = spatialIndexInstance;
 
-  console.log("[interactionManager] Initializing interactions", {
-    pieceCount: pieceElementsMap.size,
-    hasInteract: !!window.interact,
-    interactType: typeof window.interact,
-  });
-
   if (!window.interact) {
     console.error(
       "[interactionManager] interact.js is not loaded! Interaction functionality will not work."
@@ -135,12 +129,9 @@ export function addPieceInteraction(element) {
  * Handle drag start
  */
 function onDragStart(event) {
-  console.log("[interactionManager] onDragStart", event);
   const element = event.target.closest(".piece") || event.target;
   const pieceId = element.dataset.id;
   const piece = findPiece(pieceId);
-
-  console.log("[interactionManager] drag start", { pieceId, piece, element });
 
   if (!piece) return;
 
@@ -239,7 +230,6 @@ function onDragEnd(event) {
  * Handle single tap
  */
 function onTap(event) {
-  console.log("[interactionManager] onTap", event);
   const element = event.target.closest(".piece") || event.target;
   const pieceId = element.dataset.id;
 

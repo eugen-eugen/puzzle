@@ -76,74 +76,8 @@ export class Point {
     return new Point((this.x + p.x) / 2, (this.y + p.y) / 2);
   }
 
-  rotatedAroundDeg(pivot, deg) {
-    pivot = Point.from(pivot);
-    const dx = this.x - pivot.x;
-    const dy = this.y - pivot.y;
-
-    // Fast path for common rotations
-    let cos, sin;
-
-    if (deg === 0) {
-      cos = 1;
-      sin = 0;
-    } else if (deg === 90) {
-      cos = 0;
-      sin = 1;
-    } else if (deg === 180) {
-      cos = -1;
-      sin = 0;
-    } else if (deg === 270) {
-      cos = 0;
-      sin = -1;
-    } else {
-      // Only normalize for non-standard angles
-      const rad = (deg * Math.PI) / 180;
-      cos = Math.cos(rad);
-      sin = Math.sin(rad);
-    }
-
-    return new Point(
-      pivot.x + dx * cos - dy * sin,
-      pivot.y + dx * sin + dy * cos
-    );
-  }
-
-  // ---------------- Mutating (in-place) ----------------
-  mutSet(x, y) {
-    this.x = x;
-    this.y = y;
-    return this;
-  }
-  mutCopy(p) {
-    p = Point.from(p);
-    this.x = p.x;
-    this.y = p.y;
-    return this;
-  }
-  mutAdd(dx, dy) {
-    this.x += dx;
-    this.y += dy;
-    return this;
-  }
-  mutAddPoint(p) {
-    p = Point.from(p);
-    this.x += p.x;
-    this.y += p.y;
-    return this;
-  }
-  mutSubPoint(p) {
-    p = Point.from(p);
-    this.x -= p.x;
-    this.y -= p.y;
-    return this;
-  }
-  mutScale(f) {
-    this.x *= f;
-    this.y *= f;
-    return this;
-  }
-  mutRotateAroundDeg(pivot, deg) {
+  // ---------------- Internal Helpers ----------------
+  _calculateRotatedCoords(pivot, deg) {
     pivot = Point.from(pivot);
     const dx = this.x - pivot.x;
     const dy = this.y - pivot.y;
@@ -185,8 +119,55 @@ export class Point {
       }
     }
 
-    this.x = pivot.x + dx * cos - dy * sin;
-    this.y = pivot.y + dx * sin + dy * cos;
+    return {
+      x: pivot.x + dx * cos - dy * sin,
+      y: pivot.y + dx * sin + dy * cos,
+    };
+  }
+
+  rotatedAroundDeg(pivot, deg) {
+    const coords = this._calculateRotatedCoords(pivot, deg);
+    return new Point(coords.x, coords.y);
+  }
+
+  // ---------------- Mutating (in-place) ----------------
+  mutSet(x, y) {
+    this.x = x;
+    this.y = y;
+    return this;
+  }
+  mutCopy(p) {
+    p = Point.from(p);
+    this.x = p.x;
+    this.y = p.y;
+    return this;
+  }
+  mutAdd(dx, dy) {
+    this.x += dx;
+    this.y += dy;
+    return this;
+  }
+  mutAddPoint(p) {
+    p = Point.from(p);
+    this.x += p.x;
+    this.y += p.y;
+    return this;
+  }
+  mutSubPoint(p) {
+    p = Point.from(p);
+    this.x -= p.x;
+    this.y -= p.y;
+    return this;
+  }
+  mutScale(f) {
+    this.x *= f;
+    this.y *= f;
+    return this;
+  }
+  mutRotateAroundDeg(pivot, deg) {
+    const coords = this._calculateRotatedCoords(pivot, deg);
+    this.x = coords.x;
+    this.y = coords.y;
     return this;
   }
 

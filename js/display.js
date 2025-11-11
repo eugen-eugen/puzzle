@@ -264,11 +264,8 @@ export function drawPieceOutline(piece, color, lineWidth = 3) {
 
 // Function to clear piece outline (redraw without stroke)
 export function clearPieceOutline(piece) {
-  console.log(`[clearPieceOutline] Clearing outline for piece ${piece.id}`);
-
   const element = getPieceElement(piece.id);
   if (!element) {
-    console.warn(`[clearPieceOutline] No element found for piece ${piece.id}`);
     return;
   }
 
@@ -288,10 +285,6 @@ export function clearPieceOutline(piece) {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   ctx.scale(scale, scale);
   ctx.drawImage(piece.bitmap, 0, 0);
-
-  console.log(
-    `[clearPieceOutline] Successfully cleared outline for piece ${piece.id}`
-  );
 
   // Restore context state
   ctx.restore();

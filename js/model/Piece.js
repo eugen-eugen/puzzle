@@ -233,8 +233,8 @@ export class Piece {
     const offset = scaledCenterOffset.sub(canvasCenter);
     const canvasTopLeft = this.position.sub(offset);
 
-    // Pivot point for rotation is still the visual center (this.position)
-    const pivot = new Point(this.position.x, this.position.y);
+    // Pivot point for rotation should be the visual center of the piece
+    const pivot = this.getCenter();
 
     const toCanvasLocalPoint = (pt) =>
       new Point(
@@ -337,26 +337,27 @@ export class Piece {
    * @returns {Point} Center point
    */
   getCenter(element = null) {
+    // Calculate offset used in positioning calculations
+    const boundingFrame = this.calculateBoundingFrame();
+    const scale = this.scale || 0.35;
+
+    let w, h;
     if (element) {
-      // With the new centered positioning, the piece position IS the visual center
-      // But we need to account for the DOM element's center
-      const w = element.offsetWidth;
-      const h = element.offsetHeight;
-
-      // Calculate offset used in applyPieceTransform
-      const boundingFrame = this.calculateBoundingFrame();
-      const scale = this.scale || 0.35;
-
-      const canvasCenter = new Point(w / 2, h / 2);
-      const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
-      const offset = scaledCenterOffset.sub(canvasCenter);
-
-      // The visual center is now at the position plus canvas center minus offset
-      return this.position.sub(offset).add(canvasCenter);
+      // Use DOM element dimensions if available
+      w = element.offsetWidth;
+      h = element.offsetHeight;
+    } else {
+      // Use scaled bounding frame dimensions when no element is provided
+      w = boundingFrame.width * scale;
+      h = boundingFrame.height * scale;
     }
 
-    // Without element, the position now represents the visual center of the piece
-    return this.position.clone();
+    const canvasCenter = new Point(w / 2, h / 2);
+    const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+    const offset = scaledCenterOffset.sub(canvasCenter);
+
+    // The visual center is now at the position plus canvas center minus offset
+    return this.position.sub(offset).add(canvasCenter);
   }
 
   /**
