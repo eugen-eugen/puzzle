@@ -249,7 +249,7 @@ export function drawPieceOutline(piece, color, lineWidth = 3) {
 
   // Draw the outline using centered bounding frame translation (same as jigsawGenerator)
   const boundingFrame = piece.calculateBoundingFrame();
-  ctx.translate(-boundingFrame.minX, -boundingFrame.minY);
+  ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
   ctx.strokeStyle = color;
   ctx.lineWidth = lineWidth / scale; // Adjust line width for scale
   ctx.stroke(piece.path);

@@ -113,13 +113,13 @@ export function generateJigsawPieces(img, targetCount) {
       const ctx = canvas.getContext("2d");
       ctx.save();
       // Center the bounding frame in the canvas
-      ctx.translate(-boundingFrame.minX, -boundingFrame.minY);
+      ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
       ctx.clip(path);
       // Compute source rect based on actual piece boundaries
-      const minX = boundingFrame.minX + c_nw.x;
-      const maxX = boundingFrame.maxX + c_nw.x;
-      const minY = boundingFrame.minY + c_nw.y;
-      const maxY = boundingFrame.maxY + c_nw.y;
+      const minX = boundingFrame.topLeft.x + c_nw.x;
+      const maxX = boundingFrame.bottomRight.x + c_nw.x;
+      const minY = boundingFrame.topLeft.y + c_nw.y;
+      const maxY = boundingFrame.bottomRight.y + c_nw.y;
 
       let srcX = minX;
       let srcY = minY;
@@ -133,7 +133,7 @@ export function generateJigsawPieces(img, targetCount) {
       const clipH = Math.min(srcH, master.height - clipY);
 
       // Adjust destination offset to align clipped region correctly with centered frame
-      // After translation, coordinate system is offset by (-boundingFrame.minX, -boundingFrame.minY)
+      // After translation, coordinate system is offset by (-boundingFrame.topLeft.x, -boundingFrame.topLeft.y)
       // So destination should be relative to the piece's corner position
       const dx = clipX - c_nw.x;
       const dy = clipY - c_nw.y;
@@ -141,7 +141,7 @@ export function generateJigsawPieces(img, targetCount) {
       ctx.restore();
       // Debug outline (optional)
       ctx.save();
-      ctx.translate(-boundingFrame.minX, -boundingFrame.minY);
+      ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
       ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
       ctx.lineWidth = DEBUG_OUTLINE_WIDTH;
       ctx.stroke(path);

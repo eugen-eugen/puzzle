@@ -25,20 +25,7 @@ export class Rectangle {
     ) {
       return new Rectangle(obj.x, obj.y, obj.width, obj.height);
     }
-    // Support {minX, minY, maxX, maxY} format
-    if (
-      obj.minX !== undefined &&
-      obj.minY !== undefined &&
-      obj.maxX !== undefined &&
-      obj.maxY !== undefined
-    ) {
-      return new Rectangle(
-        obj.minX,
-        obj.minY,
-        obj.maxX - obj.minX,
-        obj.maxY - obj.minY
-      );
-    }
+
     return new Rectangle(0, 0, 0, 0);
   }
 
@@ -61,21 +48,6 @@ export class Rectangle {
   }
 
   // ---------------- Properties ----------------
-  get minX() {
-    return this.x;
-  }
-
-  get minY() {
-    return this.y;
-  }
-
-  get maxX() {
-    return this.x + this.width;
-  }
-
-  get maxY() {
-    return this.y + this.height;
-  }
 
   get topLeft() {
     return new Point(this.x, this.y);
@@ -137,12 +109,12 @@ export class Rectangle {
     if (this.isEmpty()) return rect.clone();
     if (rect.isEmpty()) return this.clone();
 
-    const minX = Math.min(this.minX, rect.minX);
-    const minY = Math.min(this.minY, rect.minY);
-    const maxX = Math.max(this.maxX, rect.maxX);
-    const maxY = Math.max(this.maxY, rect.maxY);
-
-    return Rectangle.fromMinMax(minX, minY, maxX, maxY);
+    return Rectangle.fromMinMax(
+      Math.min(this.topLeft.x, rect.topLeft.x),
+      Math.min(this.topLeft.y, rect.topLeft.y),
+      Math.max(this.bottomRight.x, rect.bottomRight.x),
+      Math.max(this.bottomRight.y, rect.bottomRight.y)
+    );
   }
 
   /**
@@ -161,10 +133,10 @@ export class Rectangle {
     }
     if (rect.isEmpty()) return this;
 
-    const minX = Math.min(this.minX, rect.minX);
-    const minY = Math.min(this.minY, rect.minY);
-    const maxX = Math.max(this.maxX, rect.maxX);
-    const maxY = Math.max(this.maxY, rect.maxY);
+    const minX = Math.min(this.topLeft.x, rect.topLeft.x);
+    const minY = Math.min(this.topLeft.y, rect.topLeft.y);
+    const maxX = Math.max(this.bottomRight.x, rect.bottomRight.x);
+    const maxY = Math.max(this.bottomRight.y, rect.bottomRight.y);
 
     this.x = minX;
     this.y = minY;
@@ -181,10 +153,10 @@ export class Rectangle {
    */
   intersect(r) {
     const rect = Rectangle.from(r);
-    const minX = Math.max(this.minX, rect.minX);
-    const minY = Math.max(this.minY, rect.minY);
-    const maxX = Math.min(this.maxX, rect.maxX);
-    const maxY = Math.min(this.maxY, rect.maxY);
+    const minX = Math.max(this.topLeft.x, rect.topLeft.x);
+    const minY = Math.max(this.topLeft.y, rect.topLeft.y);
+    const maxX = Math.min(this.bottomRight.x, rect.bottomRight.x);
+    const maxY = Math.min(this.bottomRight.y, rect.bottomRight.y);
 
     if (minX >= maxX || minY >= maxY) {
       return Rectangle.empty();
@@ -283,19 +255,19 @@ export class Rectangle {
       // Rectangle containment
       const rect = Rectangle.from(pointOrRect);
       return (
-        this.minX <= rect.minX &&
-        this.minY <= rect.minY &&
-        this.maxX >= rect.maxX &&
-        this.maxY >= rect.maxY
+        this.topLeft.x <= rect.topLeft.x &&
+        this.topLeft.y <= rect.topLeft.y &&
+        this.bottomRight.x >= rect.bottomRight.x &&
+        this.bottomRight.y >= rect.bottomRight.y
       );
     } else {
       // Point containment
       const point = Point.from(pointOrRect);
       return (
-        point.x >= this.minX &&
-        point.x <= this.maxX &&
-        point.y >= this.minY &&
-        point.y <= this.maxY
+        point.x >= this.topLeft.x &&
+        point.x <= this.bottomRight.x &&
+        point.y >= this.topLeft.y &&
+        point.y <= this.bottomRight.y
       );
     }
   }
@@ -303,10 +275,10 @@ export class Rectangle {
   overlaps(r) {
     const rect = Rectangle.from(r);
     return !(
-      this.maxX <= rect.minX ||
-      this.minX >= rect.maxX ||
-      this.maxY <= rect.minY ||
-      this.minY >= rect.maxY
+      this.bottomRight.x <= rect.topLeft.x ||
+      this.topLeft.x >= rect.bottomRight.x ||
+      this.bottomRight.y <= rect.topLeft.y ||
+      this.topLeft.y >= rect.bottomRight.y
     );
   }
 
@@ -331,16 +303,6 @@ export class Rectangle {
       y: this.y,
       width: this.width,
       height: this.height,
-    };
-  }
-
-  // Legacy compatibility
-  toMinMax() {
-    return {
-      minX: this.minX,
-      minY: this.minY,
-      maxX: this.maxX,
-      maxY: this.maxY,
     };
   }
 
@@ -371,8 +333,9 @@ export class Rectangle {
     if (!boundingFrame || !position) return Rectangle.empty();
 
     const pos = Point.from(position);
-    const worldMin = pos.add(new Point(boundingFrame.minX, boundingFrame.minY));
-    const worldMax = pos.add(new Point(boundingFrame.maxX, boundingFrame.maxY));
+    const frame = Rectangle.from(boundingFrame);
+    const worldMin = pos.add(frame.topLeft);
+    const worldMax = pos.add(frame.bottomRight);
 
     return Rectangle.fromPoints(worldMin, worldMax);
   }

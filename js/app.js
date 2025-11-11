@@ -671,10 +671,10 @@ function fitAllPiecesInView() {
   const bounds = calculatePiecesBounds(state.pieces);
 
   if (!bounds) return;
-  const minX = bounds.minX;
-  const minY = bounds.minY;
-  const maxX = bounds.maxX;
-  const maxY = bounds.maxY;
+  const minX = bounds.topLeft.x;
+  const minY = bounds.topLeft.y;
+  const maxX = bounds.bottomRight.x;
+  const maxY = bounds.bottomRight.y;
 
   if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY))
     return;
