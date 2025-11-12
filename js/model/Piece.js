@@ -237,10 +237,7 @@ export class Piece {
     const pivot = this.getCenter();
 
     const toCanvasLocalPoint = (pt) =>
-      new Point(
-        (pt.x - boundingFrame.minX) * scale,
-        (pt.y - boundingFrame.minY) * scale
-      );
+      pt.subtract(boundingFrame.topLeft).scaled(scale);
 
     // Corners
     const c = this.corners;
@@ -577,12 +574,10 @@ export class Piece {
     let maxY = -Infinity;
 
     for (const point of allPoints) {
-      if (point && typeof point.x === "number" && typeof point.y === "number") {
-        minX = Math.min(minX, point.x);
-        maxX = Math.max(maxX, point.x);
-        minY = Math.min(minY, point.y);
-        maxY = Math.max(maxY, point.y);
-      }
+      minX = Math.min(minX, point.x);
+      maxX = Math.max(maxX, point.x);
+      minY = Math.min(minY, point.y);
+      maxY = Math.max(maxY, point.y);
     }
 
     // Handle edge case where no valid points found
