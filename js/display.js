@@ -10,6 +10,7 @@
 import { Point } from "./geometry/Point.js";
 import { getPieceElement } from "./interactionManager.js";
 import { Util } from "./utils/Util.js";
+import { groupManager } from "./GroupManager.js";
 
 // Display Constants
 const MIN_ZOOM = 0.1;
@@ -395,7 +396,7 @@ export function applyBlinkingEffectForIncorrectPieces(pieces, constants) {
       Object.entries(expectedNeighbors).forEach(
         ([direction, expectedNeighbor]) => {
           if (expectedNeighbor) {
-            if (piece.groupId !== expectedNeighbor.groupId) {
+            if (!groupManager.areInSameGroup(piece, expectedNeighbor)) {
               isCorrect = false;
             } else {
               // Check if neighbor is correctly positioned by comparing corner alignment

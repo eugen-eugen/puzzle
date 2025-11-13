@@ -14,6 +14,7 @@ import { Rectangle } from "./geometry/Rectangle.js";
 import { Util } from "./utils/Util.js";
 import { Piece } from "./model/Piece.js";
 import { loadRemoteImageWithTimeout } from "./imageProcessor.js";
+import { groupManager } from "./GroupManager.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
 import {
   updateViewportTransform,
@@ -497,6 +498,8 @@ async function bootstrap() {
         setPieces: (pieces) => {
           state.pieces = pieces;
           state.totalPieces = pieces.length;
+          // Initialize GroupManager with restored pieces
+          groupManager.initialize();
         },
         redrawPiecesContainer: () => {
           const viewport = getViewport();

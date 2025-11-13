@@ -1,6 +1,7 @@
 // Piece.js - Jigsaw puzzle piece model class
 // Encapsulates all piece-related properties and behaviors
 // Integrates with Point geometry system and provides automatic worldData caching
+// Updated: 2025-11-13 - Legacy methods removed, GroupManager enforced
 
 import { Point } from "../geometry/Point.js";
 import { Rectangle } from "../geometry/Rectangle.js";
@@ -18,7 +19,51 @@ export class Piece {
     this.id = data.id;
     this.gridX = data.gridX;
     this.gridY = data.gridY;
-    this.groupId = data.groupId || `g${data.id}`;
+
+    // Initialize groupId - only the constructor and GroupManager should set this
+    this._groupId = data.groupId || `g${data.id}`;
+
+    // Define groupId property with getter/setter to track modifications
+    Object.defineProperty(this, "groupId", {
+      get() {
+        return this._groupId;
+      },
+      set(value) {
+        // Only allow setting from trusted sources
+        const stackTrace = new Error().stack || "";
+        const isFromConstructor =
+          stackTrace.includes("new Piece") ||
+          stackTrace.includes("constructor");
+        const isFromGroupManager =
+          stackTrace.includes("GroupManager") ||
+          stackTrace.includes("/GroupManager.js");
+        const isFromGroup =
+          stackTrace.includes("/Group.js") || stackTrace.includes("Group");
+        const isFromSerialization =
+          stackTrace.includes("serialize") ||
+          stackTrace.includes("deserialize") ||
+          stackTrace.includes("persistence");
+
+        const isTrusted =
+          isFromConstructor ||
+          isFromGroupManager ||
+          isFromGroup ||
+          isFromSerialization;
+
+        if (!isTrusted) {
+          const error = new Error(
+            `[Piece] Direct groupId modification is not allowed for piece ${this.id}. Use GroupManager operations instead.`
+          );
+          console.error(error.message);
+          console.trace("Stack trace for unauthorized groupId modification:");
+          throw error;
+        }
+
+        this._groupId = value;
+      },
+      enumerable: true,
+      configurable: true,
+    });
 
     // Physical dimensions
     this.w = data.w;
@@ -457,7 +502,10 @@ export class Piece {
    * @param {Object} spatialIndex - Spatial index for updating piece positions
    */
   rotateGroup(rotationDegrees, getPieceElement, spatialIndex) {
-    const groupPieces = this.getGroupPieces();
+    // Use GroupManager to get group pieces - offensive programming
+    const group = window.groupManager.getGroup(this.groupId);
+    const groupPieces = group ? group.getPieces() : [this];
+
     const selectedEl = getPieceElement(this.id);
     if (!selectedEl) return;
 
@@ -489,46 +537,29 @@ export class Piece {
 
   // ===== Group Management =====
 
-  /**
-   * Get all pieces in the same group
-   * @returns {Piece[]} Array of pieces in the same group (including this piece)
-   */
-  getGroupPieces() {
-    return state.pieces.filter((p) => p.groupId === this.groupId);
-  }
+  // getGroupPieces() method has been removed - use GroupManager.getGroup().getPieces() instead
 
   /**
    * Detach this piece from its current group (create new group)
-   * @returns {string} New group ID
+   * @deprecated Use GroupManager.detachPiece() instead - this method throws an error
+   * @throws {Error} Always throws - use GroupManager.detachPiece() instead
    */
   detachFromGroup() {
-    const oldGroupId = this.groupId;
-    const newGroupId = `g${this.id}_${Date.now()}`;
-    this.groupId = newGroupId;
-    console.debug(
-      `[Piece] Detached piece ${this.id} from group ${oldGroupId} to ${newGroupId}`
+    throw new Error(
+      "[Piece] detachFromGroup() is removed. Use GroupManager.detachPiece() instead."
     );
-    return newGroupId;
   }
 
   /**
    * Merge this piece's group with another piece's group
+   * @deprecated Use GroupManager.mergeGroups() instead - this method throws an error
    * @param {Piece} otherPiece - Target piece whose group to merge with
+   * @throws {Error} Always throws - use GroupManager.mergeGroups() instead
    */
   mergeWithGroup(otherPiece) {
-    if (this.groupId === otherPiece.groupId) return; // Already in same group
-
-    const fromGroupId = this.groupId;
-    const toGroupId = otherPiece.groupId;
-
-    // Update all pieces in this piece's group to the target group
-    state.pieces.forEach((piece) => {
-      if (piece.groupId === fromGroupId) {
-        piece.groupId = toGroupId;
-      }
-    });
-
-    console.debug(`[Piece] Merged group ${fromGroupId} into ${toGroupId}`);
+    throw new Error(
+      "[Piece] mergeWithGroup() is removed. Use GroupManager.mergeGroups() instead."
+    );
   }
 
   // ===== Geometry Access =====
@@ -765,6 +796,38 @@ export class Piece {
       default:
         return false;
     }
+  }
+
+  /**
+   * Check if this piece is a neighbor of another piece in any direction
+   * Used for Group connectivity validation - checks all four directions
+   * @param {Piece} otherPiece - The piece to check against
+   * @returns {boolean} True if pieces are neighbors in any direction
+   */
+  isAnyNeighbor(otherPiece) {
+    if (!otherPiece) {
+      return false;
+    }
+
+    // Check all four directions
+    return (
+      this.isNeighbor(otherPiece, "north") ||
+      this.isNeighbor(otherPiece, "south") ||
+      this.isNeighbor(otherPiece, "east") ||
+      this.isNeighbor(otherPiece, "west")
+    );
+  }
+
+  /**
+   * Check if this piece is properly managed by GroupManager
+   * @returns {boolean} True if piece's group exists in GroupManager
+   */
+  isProperlyGrouped() {
+    if (typeof window !== "undefined" && window.groupManager) {
+      const group = window.groupManager.getGroup(this.groupId);
+      return group && group.getPieces().includes(this);
+    }
+    return false; // Cannot verify without GroupManager
   }
 
   /**

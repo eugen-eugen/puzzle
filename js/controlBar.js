@@ -9,6 +9,7 @@ import {
   fixSelectedPieceOrientation,
 } from "./interactionManager.js";
 import { state } from "./gameEngine.js";
+import { groupManager } from "./GroupManager.js";
 import { t } from "./i18n.js";
 import { Point } from "./geometry/Point.js";
 import {
@@ -144,9 +145,25 @@ function updateProgress() {
 
   const totalPieces = state.totalPieces;
 
-  // Count unique groups (all pieces have groupId now)
-  const groupIds = new Set(state.pieces.map((piece) => piece.groupId));
-  const numberOfGroups = groupIds.size; // g in the formula
+  // Use GroupManager for accurate group counting
+  let numberOfGroups;
+  try {
+    const groups = groupManager.getAllGroups();
+    numberOfGroups = groups.length;
+
+    // Validate group connectivity for debugging
+    const issues = groupManager.validateAllGroups();
+    if (issues.length > 0) {
+      console.warn("[updateProgress] Group validation issues:", issues);
+    }
+  } catch (error) {
+    console.warn(
+      "[updateProgress] GroupManager not available, falling back to simple count"
+    );
+    // Fallback to old method
+    const groupIds = new Set(state.pieces.map((piece) => piece.groupId));
+    numberOfGroups = groupIds.size;
+  }
 
   // Apply the simplified scoring formula
   const score = totalPieces - (numberOfGroups - 1);
@@ -213,6 +230,10 @@ async function generatePuzzle() {
     );
     state.pieces = pieces;
     state.totalPieces = pieces.length;
+
+    // Initialize GroupManager with new pieces BEFORE scattering
+    groupManager.initialize();
+
     const viewport = getViewport();
     if (viewport) {
       scatterInitialPieces(viewport, pieces);

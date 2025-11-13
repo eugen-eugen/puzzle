@@ -7,6 +7,7 @@ import { updateProgress } from "./controlBar.js";
 import { Point } from "./geometry/Point.js";
 import { applyPiecePosition, applyPieceTransform } from "./display.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
+import { groupManager } from "./GroupManager.js";
 import {
   initializeInteractions,
   getSelectedPiece,
@@ -56,7 +57,9 @@ function elementSizePoint(el) {
 }
 
 function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
-  const groupPieces = piece.getGroupPieces();
+  const group = groupManager.getGroup(piece.groupId);
+  const groupPieces = group ? group.getPieces() : [piece];
+
   if (groupPieces.length > 1) {
     rotateGroup(piece, rotationDegrees);
   } else {
@@ -111,6 +114,9 @@ export function scatterInitialPieces(container, pieces) {
     const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
     spatialIndex.insert({ id: p.id, position: centerPoint });
   });
+
+  // Initialize GroupManager with pieces
+  groupManager.initialize();
 
   // Initialize connection manager once pieces & spatial index are ready
   initConnectionManager({
@@ -177,6 +183,9 @@ export function renderPiecesAtPositions(container, pieces) {
     spatialIndex.insert({ id: p.id, position: centerPoint });
   });
 
+  // Initialize GroupManager with pieces
+  groupManager.initialize();
+
   initConnectionManager({
     spatialIndex,
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
@@ -193,7 +202,8 @@ export function renderPiecesAtPositions(container, pieces) {
 
 function moveGroup(draggedPiece, deltaX, deltaY) {
   // Get all pieces in the same group as the dragged piece
-  const groupPieces = draggedPiece.getGroupPieces();
+  const group = groupManager.getGroup(draggedPiece.groupId);
+  const groupPieces = group ? group.getPieces() : [draggedPiece];
 
   groupPieces.forEach((p) => {
     // Update piece position
@@ -217,8 +227,9 @@ function moveGroup(draggedPiece, deltaX, deltaY) {
 }
 
 function getGroupPieces(piece) {
-  // Use Piece class method
-  return piece.getGroupPieces();
+  // Use GroupManager - offensive programming
+  const group = groupManager.getGroup(piece.groupId);
+  return group ? group.getPieces() : [piece];
 }
 
 function detachPieceFromGroup(piece) {
@@ -231,8 +242,14 @@ function detachPieceFromGroup(piece) {
     oldGroupId
   );
 
-  // Create a new unique group for this piece using Piece method
-  const newGroupId = piece.detachFromGroup();
+  // Create a new unique group for this piece using GroupManager
+  const newGroup = groupManager.detachPiece(piece);
+  if (!newGroup) {
+    console.error(
+      "[pieceRenderer] GroupManager detachment failed - piece cannot be detached"
+    );
+    return; // Exit early if detachment fails
+  }
 
   // Add visual indication that this piece is detached
   const el = pieceElements.get(piece.id);
@@ -278,7 +295,9 @@ function moveSinglePiece(piece, delta) {
 
 function rotateGroup(selectedPiece, rotationDegrees) {
   // All pieces sharing groupId rotate around the selected piece's visual center.
-  const groupPieces = selectedPiece.getGroupPieces();
+  const group = groupManager.getGroup(selectedPiece.groupId);
+  const groupPieces = group ? group.getPieces() : [selectedPiece];
+
   const selectedEl = pieceElements.get(selectedPiece.id);
   if (!selectedEl) return;
   const selectedSize = elementSizePoint(selectedEl);

@@ -1,5 +1,6 @@
 // indexedDBStorage.js - IndexedDB storage for persistent image handling
 // Stores images as blobs in IndexedDB for true persistence across sessions
+// Only keeps the most recent image - previous images are automatically deleted
 
 const DB_NAME = "PuzzleImageStorage";
 const DB_VERSION = 1;
@@ -50,6 +51,7 @@ export function isIndexedDBSupported() {
 
 /**
  * Store an image file in IndexedDB
+ * Clears all previous images to ensure only the most recent image is kept
  */
 export async function storeImageInDB(file) {
   if (!isIndexedDBSupported()) {
@@ -58,6 +60,17 @@ export async function storeImageInDB(file) {
 
   try {
     await initIndexedDB();
+
+    // Clear all existing images first to ensure only one image is stored
+    try {
+      await clearAllImages();
+      console.log("Cleared previous images before storing new one");
+    } catch (clearError) {
+      console.warn(
+        "Failed to clear previous images, proceeding anyway:",
+        clearError
+      );
+    }
 
     // Generate unique ID for the image
     const imageId = `img_${Date.now()}_${Math.random()
@@ -82,7 +95,9 @@ export async function storeImageInDB(file) {
       const request = store.add(imageData);
 
       request.onsuccess = () => {
-        console.log(`Stored image in IndexedDB: ${imageId}`);
+        console.log(
+          `Stored image in IndexedDB: ${imageId} (previous images cleared)`
+        );
         resolve({
           imageId: imageId,
           filename: imageData.filename,

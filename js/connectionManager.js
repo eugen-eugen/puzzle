@@ -1,6 +1,8 @@
 // connectionManager.js - geometric connection detection & grouping
 // Implements matching rules defined in GAME_SPECIFICATION.md
 // Using single CONNECTION_TOLERANCE for squared distance comparisons.
+// Updated: 2025-11-13 - Removed legacy mergeWithGroup calls, fixed getGroupPieces() calls
+// CACHE BUST: 2025-11-13-14:30:00 - All getGroupPieces() calls eliminated
 
 import { state, connectPieces } from "./gameEngine.js";
 import { getCurrentZoom } from "./app.js";
@@ -9,6 +11,7 @@ import { applyPieceTransform } from "./display.js";
 // Geometry utilities (new Point-based refactor)
 import { Point, dist2 as pointDist2 } from "./geometry/Point.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
+import { groupManager } from "./GroupManager.js";
 
 // ================================
 // Module Constants
@@ -300,16 +303,28 @@ function finePlace(movingPiece, highlightData) {
 }
 
 function getMovingGroupPieces(movingPiece) {
-  // Use Piece class method
-  return movingPiece.getGroupPieces();
+  // Use GroupManager - offensive programming
+  const group = groupManager.getGroup(movingPiece.groupId);
+  return group ? group.getPieces() : [movingPiece];
 }
 
 function mergeGroups(pieceA, pieceB) {
-  // Use Piece class method
-  pieceB.mergeWithGroup(pieceA);
+  // Use GroupManager for proper connectivity validation
+  if (!groupManager) {
+    console.error(
+      "[connectionManager] GroupManager not available - cannot merge groups"
+    );
+    return;
+  }
 
-  // Update progress after group merge
-  updateProgress();
+  const success = groupManager.mergeGroups(pieceA, pieceB);
+
+  if (!success) {
+    console.error(
+      "[connectionManager] Group merge failed - pieces cannot be merged (likely connectivity violation)"
+    );
+    // No fallback - respect GroupManager's connectivity validation
+  }
 }
 
 export function initConnectionManager(opts) {

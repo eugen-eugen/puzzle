@@ -4,6 +4,7 @@
 
 import { Piece } from "./model/Piece.js";
 import { Point } from "./geometry/Point.js";
+import { Rectangle } from "./geometry/Rectangle.js";
 import { Util } from "./utils/Util.js";
 import { isIndexedDBSupported, loadImageFromDB } from "./indexedDBStorage.js";
 
@@ -249,9 +250,7 @@ function loadGame() {
               const url = URL.createObjectURL(imageData.blob);
               img.src = url;
               // Restore the image ID for continued use
-              if (typeof api.setCurrentImageId === "function") {
-                api.setCurrentImageId(imageData.id);
-              }
+              api.setImageId(imageData.id);
               // Clean up the blob URL after the image loads
               img.onload = () => {
                 URL.revokeObjectURL(url);
@@ -348,27 +347,25 @@ function reconstructPieces(data, masterImage) {
     } else if (masterImage) {
       ctx.save();
       // Use same translation logic as generateJigsawPieces
-      ctx.translate(-boundingFrame.minX, -boundingFrame.minY);
+      ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
       ctx.clip(path);
 
       // Compute source rect based on actual piece boundaries
       // Use stored imgX/imgY which represent the actual corner positions (equivalent to c_nw.x, c_nw.y from generation)
       const imgX = sp.imgX ?? 0; // Fallback to 0 if missing (shouldn't happen in normal cases)
       const imgY = sp.imgY ?? 0; // Fallback to 0 if missing (shouldn't happen in normal cases)
-      const minX = boundingFrame.minX + imgX;
-      const maxX = boundingFrame.maxX + imgX;
-      const minY = boundingFrame.minY + imgY;
-      const maxY = boundingFrame.maxY + imgY;
+      const imgPoint = new Point(imgX, imgY);
+      const min = boundingFrame.topLeft.add(imgPoint);
+      const max = boundingFrame.bottomRight.add(imgPoint);
+      const srcRect = new Rectangle(min.x, min.y, max.x - min.x, max.y - min.y);
 
-      let srcX = minX;
-      let srcY = minY;
-      let srcW = maxX - minX;
-      let srcH = maxY - minY;
+      let srcW = max.x - min.x;
+      let srcH = max.y - min.y;
 
       const imgW = masterImage.naturalWidth || masterImage.width;
       const imgH = masterImage.naturalHeight || masterImage.height;
-      const clipX = Math.max(0, srcX);
-      const clipY = Math.max(0, srcY);
+      const clipX = Math.max(0, srcRect.x);
+      const clipY = Math.max(0, srcRect.y);
       const clipW = Math.min(srcW, imgW - clipX);
       const clipH = Math.min(srcH, imgH - clipY);
 

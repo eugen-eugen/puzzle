@@ -8,6 +8,7 @@ import {
   getViewportState,
   calculatePiecesBounds,
 } from "./app.js";
+import { groupManager } from "./GroupManager.js";
 import {
   screenToViewport,
   applyPiecePosition,
@@ -360,7 +361,8 @@ function moveSinglePiece(piece, delta) {
  * Move a group of pieces
  */
 function moveGroup(draggedPiece, delta) {
-  const groupPieces = draggedPiece.getGroupPieces();
+  const group = groupManager.getGroup(draggedPiece.groupId);
+  const groupPieces = group ? group.getPieces() : [draggedPiece];
 
   groupPieces.forEach((p) => {
     p.position.mutAdd(delta.x, delta.y);
@@ -383,7 +385,8 @@ function moveGroup(draggedPiece, delta) {
  * Rotate piece or group
  */
 function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
-  const groupPieces = piece.getGroupPieces();
+  const group = groupManager.getGroup(piece.groupId);
+  const groupPieces = group ? group.getPieces() : [piece];
   if (groupPieces.length > 1) {
     piece.rotateGroup(rotationDegrees, getPieceElement, spatialIndex);
   } else {
@@ -401,7 +404,15 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
 function detachPieceFromGroup(piece) {
   const oldGroupId = piece.groupId;
 
-  const newGroupId = piece.detachFromGroup();
+  // Use GroupManager for proper connectivity handling
+  const newGroup = groupManager.detachPiece(piece);
+
+  if (!newGroup) {
+    console.error(
+      "[interactionManager] GroupManager detachment failed - piece cannot be detached"
+    );
+    return; // Exit early if detachment fails
+  }
 
   const el = pieceElements.get(piece.id);
   if (el) {
@@ -468,7 +479,11 @@ export function fixSelectedPieceOrientation() {
   if (targetRotation <= -180) targetRotation += 360;
   if (targetRotation > 180) targetRotation -= 360;
 
-  if (piece.getGroupPieces().length > 1) {
+  // Check if piece is in a multi-piece group
+  const group = groupManager.getGroup(piece.groupId);
+  const isMultiPieceGroup = group && group.size() > 1;
+
+  if (isMultiPieceGroup) {
     piece.rotateGroup(targetRotation, getPieceElement, spatialIndex);
   } else {
     piece.rotation = 0;
