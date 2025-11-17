@@ -450,6 +450,7 @@ function setCaptureInitialMargins(captureFunc) {
 export {
   initControlBar,
   updateProgress,
+  updatePieceDisplay,
   generatePuzzle,
   getSliderValue,
   setSliderValue,

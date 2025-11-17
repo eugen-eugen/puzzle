@@ -243,7 +243,9 @@ function findCandidate(movingPiece) {
     if (!candidate) return;
 
     // Skip pieces that are already in the same group as the moving piece
-    if (candidate.groupId === movingPiece.groupId) return;
+    const candidateGroup = groupManager.getGroupForPiece(candidate);
+    const movingGroup = groupManager.getGroupForPiece(movingPiece);
+    if (candidateGroup && movingGroup && candidateGroup === movingGroup) return;
 
     // Debug: Log each candidate evaluation for NW corner
     if (movingPiece.gridX === 0 && movingPiece.gridY === 0) {

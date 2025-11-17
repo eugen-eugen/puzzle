@@ -52,6 +52,7 @@ import {
   pieceCountToSlider,
   setPersistence,
   setCaptureInitialMargins,
+  updatePieceDisplay,
   imageInput,
 } from "./controlBar.js";
 
@@ -274,18 +275,35 @@ function checkPuzzleCorrectness() {
   // Since pieces can be rotated and moved freely, we need to check if they form
   // a valid puzzle configuration based on their connections and relative positions
 
+  // First, check if all pieces have the same rotation (uniform rotation is acceptable)
+  const rotations = state.pieces.map((p) => p.rotation);
+  const allSameRotation = rotations.every((r) => r === rotations[0]);
+
   // For a piece to be "correct", it must meet these criteria:
-  // 1. Be in correct rotation (0 degrees)
+  // 1. Have the same rotation as all other pieces (uniform rotation is OK)
   // 2. Be connected to all expected neighbors
-  // 3. Have reasonable relative positioning to neighbors
+  // 3. Have correct relative positioning to neighbors
   state.pieces.forEach((piece) => {
     let isCorrect = true;
     let reasons = [];
 
-    // Check rotation first - pieces should be in original orientation (0 degrees) for "correct"
-    if (piece.rotation !== 0) {
-      isCorrect = false;
-      reasons.push(`Wrong rotation: ${piece.rotation}° (should be 0°)`);
+    // Check rotation - all pieces should have uniform rotation
+    if (!allSameRotation) {
+      // If rotations are not uniform, check if this specific piece matches the most common rotation
+      const rotationCounts = {};
+      rotations.forEach((r) => {
+        rotationCounts[r] = (rotationCounts[r] || 0) + 1;
+      });
+      const mostCommonRotation = Object.entries(rotationCounts).sort(
+        (a, b) => b[1] - a[1]
+      )[0][0];
+
+      if (piece.rotation !== Number(mostCommonRotation)) {
+        isCorrect = false;
+        reasons.push(
+          `Inconsistent rotation: ${piece.rotation}° (most pieces at ${mostCommonRotation}°)`
+        );
+      }
     }
 
     // Get pieces that should be neighbors based on grid coordinates

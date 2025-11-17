@@ -396,7 +396,14 @@ export function applyBlinkingEffectForIncorrectPieces(pieces, constants) {
       Object.entries(expectedNeighbors).forEach(
         ([direction, expectedNeighbor]) => {
           if (expectedNeighbor) {
-            if (!groupManager.areInSameGroup(piece, expectedNeighbor)) {
+            // Check if they're in the same group by comparing their group objects
+            const pieceGroup = groupManager.getGroupForPiece(piece);
+            const neighborGroup =
+              groupManager.getGroupForPiece(expectedNeighbor);
+            const areInSameGroup =
+              pieceGroup && neighborGroup && pieceGroup === neighborGroup;
+
+            if (!areInSameGroup) {
               isCorrect = false;
             } else {
               // Check if neighbor is correctly positioned by comparing corner alignment
