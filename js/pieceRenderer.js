@@ -61,7 +61,8 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
   const groupPieces = group ? group.getPieces() : [piece];
 
   if (groupPieces.length > 1) {
-    rotateGroup(piece, rotationDegrees);
+    const getPieceElement = (id) => pieceElements.get(id);
+    group.rotate(rotationDegrees, piece, getPieceElement, spatialIndex);
   } else {
     piece.rotate(rotationDegrees);
     el.style.transform = `rotate(${piece.rotation}deg)`;
@@ -291,39 +292,6 @@ function moveSinglePiece(piece, delta) {
   if (spatialIndex) {
     piece.updateSpatialIndex(spatialIndex, el);
   }
-}
-
-function rotateGroup(selectedPiece, rotationDegrees) {
-  // All pieces sharing groupId rotate around the selected piece's visual center.
-  const group = groupManager.getGroup(selectedPiece.groupId);
-  const groupPieces = group ? group.getPieces() : [selectedPiece];
-
-  const selectedEl = pieceElements.get(selectedPiece.id);
-  if (!selectedEl) return;
-  const selectedSize = elementSizePoint(selectedEl);
-  const pivot = selectedPiece.getCenter(selectedEl);
-
-  groupPieces.forEach((piece) => {
-    const pieceEl = pieceElements.get(piece.id);
-    if (!pieceEl) return;
-
-    // Update cumulative rotation using Piece method
-    piece.rotate(rotationDegrees);
-
-    const size = elementSizePoint(pieceEl);
-    const halfSize = size.scaled(0.5);
-    const preCenter = piece.getCenter(pieceEl);
-    const rotatedCenter = preCenter.rotatedAroundDeg(pivot, rotationDegrees);
-    const topLeft = rotatedCenter.clone().mutSubPoint(halfSize);
-    piece.setPosition(topLeft);
-
-    // Apply DOM updates
-    applyPieceTransform(pieceEl, piece);
-
-    if (spatialIndex) {
-      piece.updateSpatialIndex(spatialIndex, pieceEl);
-    }
-  });
 }
 
 // applyHighlight function moved to interactionManager.js

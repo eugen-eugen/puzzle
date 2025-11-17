@@ -495,46 +495,6 @@ export class Piece {
     if (this.rotation < 0) this.rotation += 360;
   }
 
-  /**
-   * Rotate this piece's entire group around this piece as the pivot
-   * @param {number} rotationDegrees - Degrees to rotate (positive = clockwise)
-   * @param {Function} getPieceElement - Function to get DOM element by piece ID
-   * @param {Object} spatialIndex - Spatial index for updating piece positions
-   */
-  rotateGroup(rotationDegrees, getPieceElement, spatialIndex) {
-    // Use GroupManager to get group pieces - offensive programming
-    const group = window.groupManager.getGroup(this.groupId);
-    const groupPieces = group ? group.getPieces() : [this];
-
-    const selectedEl = getPieceElement(this.id);
-    if (!selectedEl) return;
-
-    // With the new positioning system, the pivot is the visual center (this.position)
-    const pivot = this.getCenter(selectedEl);
-
-    groupPieces.forEach((piece) => {
-      const pieceEl = getPieceElement(piece.id);
-      if (!pieceEl) return;
-
-      piece.rotate(rotationDegrees);
-
-      // Get the current visual center of the piece
-      const preCenter = piece.getCenter(pieceEl);
-
-      // Rotate the center around the pivot
-      const rotatedCenter = preCenter.rotatedAroundDeg(pivot, rotationDegrees);
-
-      // With the new positioning system, the position IS the visual center
-      piece.placeCenter(rotatedCenter, pieceEl);
-
-      applyPieceTransform(pieceEl, piece);
-
-      if (spatialIndex) {
-        piece.updateSpatialIndex(spatialIndex, pieceEl);
-      }
-    });
-  }
-
   // ===== Group Management =====
 
   // getGroupPieces() method has been removed - use GroupManager.getGroup().getPieces() instead

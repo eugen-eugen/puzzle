@@ -161,7 +161,7 @@ class GroupManager {
     try {
       // Check connectivity before merging
       const allPieces = [...groupA.getPieces(), ...groupB.getPieces()];
-      if (!Group.isConnectedSet(allPieces)) {
+      if (!Group.arePiecesConnected(allPieces)) {
         console.warn(
           "[GroupManager] Cannot merge - would create disconnected group"
         );
@@ -248,33 +248,28 @@ class GroupManager {
   }
 
   /**
-   * Rotate an entire group around a pivot point
+   * Rotate an entire group around a pivot piece
+   * @param {string} groupId - ID of the group to rotate
+   * @param {number} angleDegrees - Rotation angle in degrees
+   * @param {Piece} pivotPiece - Piece to use as rotation pivot
+   * @param {Function} getPieceElement - Function to get DOM element by piece ID
+   * @param {Object} spatialIndex - Spatial index for updating piece positions
    */
-  rotateGroup(groupId, angleDegrees, pivot = null) {
+  rotateGroup(
+    groupId,
+    angleDegrees,
+    pivotPiece,
+    getPieceElement,
+    spatialIndex
+  ) {
     const group = this.getGroup(groupId);
     if (!group) return false;
 
     try {
-      group.rotate(angleDegrees, pivot);
+      group.rotate(angleDegrees, pivotPiece, getPieceElement, spatialIndex);
       return true;
     } catch (error) {
       console.error("[GroupManager] Error rotating group:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Set selection state for a group
-   */
-  setGroupSelection(groupId, selected) {
-    const group = this.getGroup(groupId);
-    if (!group) return false;
-
-    try {
-      group.setSelected(selected);
-      return true;
-    } catch (error) {
-      console.error("[GroupManager] Error setting group selection:", error);
       return false;
     }
   }

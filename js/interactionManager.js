@@ -388,7 +388,7 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
   const group = groupManager.getGroup(piece.groupId);
   const groupPieces = group ? group.getPieces() : [piece];
   if (groupPieces.length > 1) {
-    piece.rotateGroup(rotationDegrees, getPieceElement, spatialIndex);
+    group.rotate(rotationDegrees, piece, getPieceElement, spatialIndex);
   } else {
     piece.rotate(rotationDegrees);
     el.style.transform = `rotate(${piece.rotation}deg)`;
@@ -484,7 +484,7 @@ export function fixSelectedPieceOrientation() {
   const isMultiPieceGroup = group && group.size() > 1;
 
   if (isMultiPieceGroup) {
-    piece.rotateGroup(targetRotation, getPieceElement, spatialIndex);
+    group.rotate(targetRotation, piece, getPieceElement, spatialIndex);
   } else {
     piece.rotation = 0;
     pieceEl.style.transform = `rotate(0deg)`;

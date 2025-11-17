@@ -5,21 +5,17 @@
 
 import { Point } from "../geometry/Point.js";
 import { Rectangle } from "../geometry/Rectangle.js";
+import { applyPieceTransform } from "../display.js";
 
 export class Group {
   constructor(id, initialPieces = []) {
     this.id = id;
     this.pieces = new Set(initialPieces);
-    this.rotation = 0; // Group's collective rotation in degrees
-    this.scale = 1.0; // Group's collective scale factor
-    this.isSelected = false;
-    this.isDragging = false;
-    this.lastUpdateTimestamp = Date.now();
 
     // Initialize group properties based on initial pieces
     if (initialPieces.length > 0) {
       // Validate connectivity of initial pieces
-      if (!Group.isConnectedSet(initialPieces)) {
+      if (!Group.arePiecesConnected(initialPieces)) {
         throw new Error(
           `Cannot create group ${id}: initial pieces are not connected`
         );
@@ -28,7 +24,6 @@ export class Group {
       initialPieces.forEach((piece) => {
         if (piece) piece.groupId = this.id;
       });
-      this._updateGroupProperties();
     }
   }
 
@@ -37,124 +32,33 @@ export class Group {
   // ================================
 
   /**
-   * Add a piece to this group
-   * @param {Piece} piece - Piece to add
-   * @throws {Error} If adding the piece would violate connectivity constraint
-   */
-  addPiece(piece) {
-    if (!piece) return false;
-
-    // If group is empty, any piece can be added
-    if (this.isEmpty()) {
-      this.pieces.add(piece);
-      piece.groupId = this.id;
-      this._updateGroupProperties();
-      this.lastUpdateTimestamp = Date.now();
-      return true;
-    }
-
-    // Check if the piece is connected to at least one existing piece in the group
-    if (!this._isConnectedToGroup(piece)) {
-      throw new Error(
-        `Cannot add piece ${piece.id} to group ${this.id}: piece is not connected to any piece in the group`
-      );
-    }
-
-    this.pieces.add(piece);
-    piece.groupId = this.id;
-    this._updateGroupProperties();
-    this.lastUpdateTimestamp = Date.now();
-    return true;
-  }
-
-  /**
-   * Remove a piece from this group
-   * @param {Piece} piece - Piece to remove
-   * @returns {Array<Group>} Array of groups created from fragmentation (may be empty)
-   */
-  removePiece(piece) {
-    if (!piece || !this.pieces.has(piece)) return [];
-
-    this.pieces.delete(piece);
-    piece.groupId = null;
-
-    // Check if removal causes fragmentation
-    const remainingPieces = Array.from(this.pieces);
-    if (remainingPieces.length === 0) {
-      // Group is now empty
-      this._resetGroupProperties();
-      this.lastUpdateTimestamp = Date.now();
-      return [];
-    }
-
-    // Find connected components in the remaining pieces
-    const connectedComponents = this._findConnectedComponents(remainingPieces);
-
-    if (connectedComponents.length <= 1) {
-      // No fragmentation occurred
-      this._updateGroupProperties();
-      this.lastUpdateTimestamp = Date.now();
-      return [];
-    }
-
-    // Fragmentation occurred - need to split into multiple groups
-    const newGroups = [];
-
-    // Keep the largest component in this group
-    const largestComponent = connectedComponents.reduce((largest, current) =>
-      current.length > largest.length ? current : largest
-    );
-
-    // Clear current group and rebuild with largest component
-    this.pieces.clear();
-    largestComponent.forEach((piece) => {
-      this.pieces.add(piece);
-      piece.groupId = this.id;
-    });
-
-    // Create new groups for other components
-    connectedComponents.forEach((component, index) => {
-      if (component !== largestComponent) {
-        const newGroupId = `${this.id}_split_${index}_${Date.now()}`;
-        const newGroup = new Group(newGroupId, component);
-        newGroups.push(newGroup);
-      }
-    });
-
-    this._updateGroupProperties();
-    this.lastUpdateTimestamp = Date.now();
-    return newGroups;
-  }
-
-  /**
    * Add multiple pieces to this group
    * @param {Array<Piece>} pieces - Array of pieces to add
    * @throws {Error} If adding the pieces would violate connectivity constraint
    */
   addPieces(pieces) {
-    if (!Array.isArray(pieces)) return false;
+    if (!Array.isArray(pieces)) return 0;
+
+    // Filter out null/undefined pieces
+    const validPieces = pieces.filter((p) => p !== null && p !== undefined);
+    if (validPieces.length === 0) return 0;
 
     // First validate that all pieces together with existing pieces form a connected set
-    const allPieces = [...Array.from(this.pieces), ...pieces];
-    if (!Group.isConnectedSet(allPieces)) {
+    const allPieces = [...Array.from(this.pieces), ...validPieces];
+    if (!Group.arePiecesConnected(allPieces)) {
       throw new Error(
         `Cannot add pieces to group ${this.id}: resulting group would not be connected`
       );
     }
 
     let added = 0;
-    pieces.forEach((piece) => {
-      if (piece && !this.pieces.has(piece)) {
+    validPieces.forEach((piece) => {
+      if (!this.pieces.has(piece)) {
         this.pieces.add(piece);
         piece.groupId = this.id;
         added++;
       }
     });
-
-    if (added > 0) {
-      this._updateGroupProperties();
-      this.lastUpdateTimestamp = Date.now();
-    }
 
     return added;
   }
@@ -183,18 +87,14 @@ export class Group {
     const remainingPieces = Array.from(this.pieces);
     if (remainingPieces.length === 0) {
       // Group is now empty
-      this._resetGroupProperties();
-      this.lastUpdateTimestamp = Date.now();
       return [];
     }
 
     // Find connected components in the remaining pieces
-    const connectedComponents = this._findConnectedComponents(remainingPieces);
+    const connectedSubGroups = this._findConnectedComponents(remainingPieces);
 
-    if (connectedComponents.length <= 1) {
+    if (connectedSubGroups.length <= 1) {
       // No fragmentation occurred
-      this._updateGroupProperties();
-      this.lastUpdateTimestamp = Date.now();
       return [];
     }
 
@@ -202,38 +102,27 @@ export class Group {
     const newGroups = [];
 
     // Keep the largest component in this group
-    const largestComponent = connectedComponents.reduce((largest, current) =>
+    const largestSubGroup = connectedSubGroups.reduce((largest, current) =>
       current.length > largest.length ? current : largest
     );
 
     // Clear current group and rebuild with largest component
     this.pieces.clear();
-    largestComponent.forEach((piece) => {
+    largestSubGroup.forEach((piece) => {
       this.pieces.add(piece);
       piece.groupId = this.id;
     });
 
     // Create new groups for other components
-    connectedComponents.forEach((component, index) => {
-      if (component !== largestComponent) {
+    connectedSubGroups.forEach((subGroup, index) => {
+      if (subGroup !== largestSubGroup) {
         const newGroupId = `${this.id}_split_${index}_${Date.now()}`;
-        const newGroup = new Group(newGroupId, component);
+        const newGroup = new Group(newGroupId, subGroup);
         newGroups.push(newGroup);
       }
     });
 
-    this._updateGroupProperties();
-    this.lastUpdateTimestamp = Date.now();
     return newGroups;
-  }
-
-  /**
-   * Check if this group contains a specific piece
-   * @param {Piece} piece - Piece to check
-   * @returns {boolean}
-   */
-  hasPiece(piece) {
-    return this.pieces.has(piece);
   }
 
   /**
@@ -268,8 +157,6 @@ export class Group {
       piece.groupId = null;
     });
     this.pieces.clear();
-    this._resetGroupProperties();
-    this.lastUpdateTimestamp = Date.now();
   }
 
   // ================================
@@ -314,137 +201,64 @@ export class Group {
     return bounds ? bounds.center : null;
   }
 
-  /**
-   * Get the centroid (average position) of all pieces in this group
-   * @returns {Point|null}
-   */
-  getCentroid() {
-    if (this.isEmpty()) return null;
-
-    let totalX = 0;
-    let totalY = 0;
-    let count = 0;
-
-    for (const piece of this.pieces) {
-      if (piece && piece.position) {
-        totalX += piece.position.x;
-        totalY += piece.position.y;
-        count++;
-      }
-    }
-
-    return count > 0 ? new Point(totalX / count, totalY / count) : null;
-  }
-
   // ================================
   // Group Transformations
   // ================================
 
   /**
    * Move the entire group by an offset
-   * @param {Point|number} offsetOrX - Point offset or X offset
-   * @param {number} [y] - Y offset (if first param is number)
+   * @param {Point} offset - Point offset
    */
-  translate(offsetOrX, y) {
-    let offset;
-    if (typeof offsetOrX === "number" && typeof y === "number") {
-      offset = new Point(offsetOrX, y);
-    } else {
-      offset = Point.from(offsetOrX);
-    }
-
+  translate(offset) {
     this.pieces.forEach((piece) => {
       if (piece && piece.position) {
         piece.position = piece.position.add(offset);
       }
     });
-
-    this.lastUpdateTimestamp = Date.now();
   }
 
   /**
-   * Rotate the entire group around its center
+   * Rotate the entire group around a pivot point
    * @param {number} angleDegrees - Rotation angle in degrees
-   * @param {Point} [pivot] - Optional pivot point (defaults to group center)
+   * @param {Piece} pivotPiece - Piece to use as rotation pivot
+   * @param {Function} getPieceElement - Function to get DOM element by piece ID
+   * @param {Object} spatialIndex - Spatial index for updating piece positions
    */
-  rotate(angleDegrees, pivot = null) {
+  rotate(angleDegrees, pivotPiece, getPieceElement, spatialIndex) {
     if (this.isEmpty()) return;
 
-    const rotationCenter = pivot || this.getCenter();
-    if (!rotationCenter) return;
+    const pivotEl = getPieceElement(pivotPiece.id);
+    if (!pivotEl) return;
+
+    // Use the pivot piece's visual center as the rotation point
+    const pivot = pivotPiece.getCenter(pivotEl);
 
     this.pieces.forEach((piece) => {
-      if (piece) {
-        // Rotate piece position around the pivot
-        if (piece.position) {
-          piece.position = piece.position.rotateAround(
-            rotationCenter,
-            angleDegrees
-          );
-        }
-        // Update piece's own rotation
-        piece.rotation = (piece.rotation + angleDegrees) % 360;
+      if (!piece) return;
+
+      const pieceEl = getPieceElement(piece.id);
+      if (!pieceEl) return;
+
+      // Rotate the piece itself
+      piece.rotate(angleDegrees);
+
+      // Get the current visual center of the piece
+      const preCenter = piece.getCenter(pieceEl);
+
+      // Rotate the center around the pivot
+      const rotatedCenter = preCenter.rotatedAroundDeg(pivot, angleDegrees);
+
+      // Update piece position to the new center
+      piece.placeCenter(rotatedCenter, pieceEl);
+
+      // Apply transform to DOM element (position and rotation)
+      applyPieceTransform(pieceEl, piece);
+
+      // Update spatial index
+      if (spatialIndex) {
+        piece.updateSpatialIndex(spatialIndex, pieceEl);
       }
     });
-
-    this.rotation = (this.rotation + angleDegrees) % 360;
-    this.lastUpdateTimestamp = Date.now();
-  }
-
-  /**
-   * Scale the entire group from its center
-   * @param {number} scaleFactor - Scale factor (1.0 = no change)
-   * @param {Point} [pivot] - Optional pivot point (defaults to group center)
-   */
-  scale(scaleFactor, pivot = null) {
-    if (this.isEmpty() || scaleFactor <= 0) return;
-
-    const scaleCenter = pivot || this.getCenter();
-    if (!scaleCenter) return;
-
-    this.pieces.forEach((piece) => {
-      if (piece && piece.position) {
-        // Scale piece position relative to pivot
-        const relativePos = piece.position.subtract(scaleCenter);
-        const scaledPos = relativePos.scaled(scaleFactor);
-        piece.position = scaleCenter.add(scaledPos);
-      }
-    });
-
-    this.scale *= scaleFactor;
-    this.lastUpdateTimestamp = Date.now();
-  }
-
-  // ================================
-  // Group State Management
-  // ================================
-
-  /**
-   * Set the selection state of this group
-   * @param {boolean} selected - Whether this group is selected
-   */
-  setSelected(selected) {
-    this.isSelected = selected;
-    this.pieces.forEach((piece) => {
-      if (piece && typeof piece.setSelected === "function") {
-        piece.setSelected(selected);
-      }
-    });
-    this.lastUpdateTimestamp = Date.now();
-  }
-
-  /**
-   * Set the dragging state of this group
-   * @param {boolean} dragging - Whether this group is being dragged
-   */
-  setDragging(dragging) {
-    this.isDragging = dragging;
-    this.pieces.forEach((piece) => {
-      if (piece && typeof piece.setDragging === "function") {
-        piece.setDragging(dragging);
-      }
-    });
-    this.lastUpdateTimestamp = Date.now();
   }
 
   // ================================
@@ -464,36 +278,6 @@ export class Group {
     otherGroup.clear();
 
     return true;
-  }
-
-  /**
-   * Split this group into two groups based on a predicate function
-   * @param {Function} predicate - Function that returns true for pieces to keep in this group
-   * @returns {Group|null} New group containing pieces that didn't match predicate, or null
-   */
-  split(predicate, newGroupId) {
-    if (this.isEmpty()) return null;
-
-    const piecesToMove = [];
-    const piecesToKeep = [];
-
-    this.pieces.forEach((piece) => {
-      if (predicate(piece)) {
-        piecesToKeep.push(piece);
-      } else {
-        piecesToMove.push(piece);
-      }
-    });
-
-    if (piecesToMove.length === 0) return null;
-
-    // Create new group for pieces that didn't match predicate
-    const newGroup = new Group(newGroupId, piecesToMove);
-
-    // Remove pieces from this group
-    this.removePieces(piecesToMove);
-
-    return newGroup;
   }
 
   // ================================
@@ -522,7 +306,6 @@ export class Group {
         piece.groupId = this.id;
       }
     });
-    this.lastUpdateTimestamp = Date.now();
   }
 
   /**
@@ -536,75 +319,7 @@ export class Group {
       pieceCount: this.size(),
       bounds: bounds,
       center: this.getCenter(),
-      centroid: this.getCentroid(),
-      rotation: this.rotation,
-      scale: this.scale,
-      isSelected: this.isSelected,
-      isDragging: this.isDragging,
-      lastUpdate: this.lastUpdateTimestamp,
     };
-  }
-
-  /**
-   * Convert group to JSON for serialization
-   * @returns {Object} JSON representation
-   */
-  toJSON() {
-    return {
-      id: this.id,
-      pieceIds: this.getPieces().map((piece) => piece.id),
-      rotation: this.rotation,
-      scale: this.scale,
-      isSelected: this.isSelected,
-      lastUpdate: this.lastUpdateTimestamp,
-    };
-  }
-
-  /**
-   * Create group from JSON data
-   * @param {Object} data - JSON data
-   * @param {Map<string, Piece>} pieceMap - Map of piece IDs to piece objects
-   * @returns {Group} New group instance
-   */
-  static fromJSON(data, pieceMap) {
-    const pieces = data.pieceIds
-      .map((id) => pieceMap.get(id))
-      .filter((piece) => piece !== undefined);
-
-    const group = new Group(data.id, pieces);
-    group.rotation = data.rotation || 0;
-    group.scale = data.scale || 1.0;
-    group.isSelected = data.isSelected || false;
-    group.lastUpdateTimestamp = data.lastUpdate || Date.now();
-
-    return group;
-  }
-
-  // ================================
-  // Private Helper Methods
-  // ================================
-
-  /**
-   * Update group properties based on current pieces
-   * @private
-   */
-  _updateGroupProperties() {
-    // This could calculate average position, rotation, etc.
-    // For now, we'll keep it simple
-    if (this.isEmpty()) {
-      this._resetGroupProperties();
-    }
-  }
-
-  /**
-   * Reset group properties to defaults
-   * @private
-   */
-  _resetGroupProperties() {
-    this.rotation = 0;
-    this.scale = 1.0;
-    this.isSelected = false;
-    this.isDragging = false;
   }
 
   // ================================
@@ -612,52 +327,28 @@ export class Group {
   // ================================
 
   /**
-   * Check if a piece is connected to at least one piece in this group
-   * @param {Piece} piece - Piece to check
-   * @returns {boolean} True if piece is connected to group
-   * @private
-   */
-  _isConnectedToGroup(piece) {
-    if (!piece || !piece.isAnyNeighbor) return false;
-
-    // If group is empty, the piece will be the first and only piece, so it's connected
-    if (this.isEmpty()) return true;
-
-    for (const groupPiece of this.pieces) {
-      if (groupPiece && piece.isAnyNeighbor(groupPiece)) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
    * Check if a set of pieces forms a connected graph
    * @param {Array<Piece>} pieces - Array of pieces to check
    * @returns {boolean} True if all pieces are connected
    * @private
    */
-  static isConnectedSet(pieces) {
+  static arePiecesConnected(pieces) {
     if (!pieces || pieces.length === 0) return true;
     // Exception: a single piece is always connected
     if (pieces.length === 1) return true;
 
-    const validPieces = pieces.filter((p) => p !== null && p !== undefined);
-    if (validPieces.length <= 1) return true;
-
     // Build adjacency graph
     const adjacencyMap = new Map();
-    validPieces.forEach((piece) => {
+    pieces.forEach((piece) => {
       adjacencyMap.set(piece, new Set());
     });
 
     // Find neighbors using piece.isAnyNeighbor method
-    for (let i = 0; i < validPieces.length; i++) {
-      const piece1 = validPieces[i];
+    for (let i = 0; i < pieces.length; i++) {
+      const piece1 = pieces[i];
 
-      for (let j = i + 1; j < validPieces.length; j++) {
-        const piece2 = validPieces[j];
-        if (!piece2) continue;
+      for (let j = i + 1; j < pieces.length; j++) {
+        const piece2 = pieces[j];
 
         if (piece1.isAnyNeighbor(piece2)) {
           adjacencyMap.get(piece1).add(piece2);
@@ -668,8 +359,8 @@ export class Group {
 
     // Use DFS to check if all pieces are reachable from first piece
     const visited = new Set();
-    const stack = [validPieces[0]];
-    visited.add(validPieces[0]);
+    const stack = [pieces[0]];
+    visited.add(pieces[0]);
 
     while (stack.length > 0) {
       const current = stack.pop();
@@ -684,7 +375,7 @@ export class Group {
     }
 
     // All pieces should be visited if the set is connected
-    return visited.size === validPieces.length;
+    return visited.size === pieces.length;
   }
 
   /**
@@ -696,20 +387,17 @@ export class Group {
   _findConnectedComponents(pieces) {
     if (!pieces || pieces.length === 0) return [];
 
-    const validPieces = pieces.filter((p) => p && p.isAnyNeighbor);
-    if (validPieces.length === 0) return [];
-
     // Build adjacency graph
     const adjacencyMap = new Map();
-    validPieces.forEach((piece) => {
+    pieces.forEach((piece) => {
       adjacencyMap.set(piece, new Set());
     });
 
     // Find neighbors
-    for (let i = 0; i < validPieces.length; i++) {
-      const piece1 = validPieces[i];
-      for (let j = i + 1; j < validPieces.length; j++) {
-        const piece2 = validPieces[j];
+    for (let i = 0; i < pieces.length; i++) {
+      const piece1 = pieces[i];
+      for (let j = i + 1; j < pieces.length; j++) {
+        const piece2 = pieces[j];
         if (piece1.isAnyNeighbor(piece2)) {
           adjacencyMap.get(piece1).add(piece2);
           adjacencyMap.get(piece2).add(piece1);
@@ -721,7 +409,7 @@ export class Group {
     const visited = new Set();
     const components = [];
 
-    for (const piece of validPieces) {
+    for (const piece of pieces) {
       if (!visited.has(piece)) {
         const component = [];
         const stack = [piece];
@@ -756,7 +444,7 @@ export class Group {
     if (this.size() <= 1) return true;
 
     const pieces = Array.from(this.pieces);
-    return Group.isConnectedSet(pieces);
+    return Group.arePiecesConnected(pieces);
   }
 
   /**
