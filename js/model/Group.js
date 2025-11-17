@@ -10,7 +10,6 @@ export class Group {
   constructor(id, initialPieces = []) {
     this.id = id;
     this.pieces = new Set(initialPieces);
-    this.position = new Point(0, 0); // Group's collective position offset
     this.rotation = 0; // Group's collective rotation in degrees
     this.scale = 1.0; // Group's collective scale factor
     this.isSelected = false;
@@ -360,7 +359,6 @@ export class Group {
       }
     });
 
-    this.position = this.position.add(offset);
     this.lastUpdateTimestamp = Date.now();
   }
 
@@ -539,7 +537,6 @@ export class Group {
       bounds: bounds,
       center: this.getCenter(),
       centroid: this.getCentroid(),
-      position: this.position,
       rotation: this.rotation,
       scale: this.scale,
       isSelected: this.isSelected,
@@ -556,7 +553,6 @@ export class Group {
     return {
       id: this.id,
       pieceIds: this.getPieces().map((piece) => piece.id),
-      position: this.position.toJSON(),
       rotation: this.rotation,
       scale: this.scale,
       isSelected: this.isSelected,
@@ -576,7 +572,6 @@ export class Group {
       .filter((piece) => piece !== undefined);
 
     const group = new Group(data.id, pieces);
-    group.position = Point.from(data.position);
     group.rotation = data.rotation || 0;
     group.scale = data.scale || 1.0;
     group.isSelected = data.isSelected || false;
@@ -606,7 +601,6 @@ export class Group {
    * @private
    */
   _resetGroupProperties() {
-    this.position = new Point(0, 0);
     this.rotation = 0;
     this.scale = 1.0;
     this.isSelected = false;
