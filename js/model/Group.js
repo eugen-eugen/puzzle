@@ -6,6 +6,7 @@
 import { Point } from "../geometry/Point.js";
 import { Rectangle } from "../geometry/Rectangle.js";
 import { applyPieceTransform } from "../display.js";
+import { Graph, alg } from "graphlib";
 
 export class Group {
   constructor(id, initialPieces = []) {
@@ -334,48 +335,28 @@ export class Group {
    */
   static arePiecesConnected(pieces) {
     if (!pieces || pieces.length === 0) return true;
-    // Exception: a single piece is always connected
     if (pieces.length === 1) return true;
 
-    // Build adjacency graph
-    const adjacencyMap = new Map();
-    pieces.forEach((piece) => {
-      adjacencyMap.set(piece, new Set());
-    });
+    // Build undirected graph using graphlib
+    const g = new Graph({ directed: false });
 
-    // Find neighbors using piece.isAnyNeighbor method
+    // Add nodes
+    pieces.forEach((piece) => g.setNode(piece.id, piece));
+
+    // Add edges between neighboring pieces
     for (let i = 0; i < pieces.length; i++) {
       const piece1 = pieces[i];
-
       for (let j = i + 1; j < pieces.length; j++) {
         const piece2 = pieces[j];
-
         if (piece1.isAnyNeighbor(piece2)) {
-          adjacencyMap.get(piece1).add(piece2);
-          adjacencyMap.get(piece2).add(piece1);
+          g.setEdge(piece1.id, piece2.id);
         }
       }
     }
 
-    // Use DFS to check if all pieces are reachable from first piece
-    const visited = new Set();
-    const stack = [pieces[0]];
-    visited.add(pieces[0]);
-
-    while (stack.length > 0) {
-      const current = stack.pop();
-      const neighbors = adjacencyMap.get(current) || new Set();
-
-      for (const neighbor of neighbors) {
-        if (!visited.has(neighbor)) {
-          visited.add(neighbor);
-          stack.push(neighbor);
-        }
-      }
-    }
-
-    // All pieces should be visited if the set is connected
-    return visited.size === pieces.length;
+    // Check if graph is connected (single component)
+    const components = alg.components(g);
+    return components.length === 1;
   }
 
   /**
@@ -387,52 +368,32 @@ export class Group {
   _findConnectedComponents(pieces) {
     if (!pieces || pieces.length === 0) return [];
 
-    // Build adjacency graph
-    const adjacencyMap = new Map();
+    // Build undirected graph using graphlib
+    const g = new Graph({ directed: false });
+
+    // Add nodes with pieces as labels
     pieces.forEach((piece) => {
-      adjacencyMap.set(piece, new Set());
+      g.setNode(piece.id, piece);
     });
 
-    // Find neighbors
+    // Add edges between neighboring pieces
     for (let i = 0; i < pieces.length; i++) {
       const piece1 = pieces[i];
       for (let j = i + 1; j < pieces.length; j++) {
         const piece2 = pieces[j];
         if (piece1.isAnyNeighbor(piece2)) {
-          adjacencyMap.get(piece1).add(piece2);
-          adjacencyMap.get(piece2).add(piece1);
+          g.setEdge(piece1.id, piece2.id);
         }
       }
     }
 
-    // Find connected components using DFS
-    const visited = new Set();
-    const components = [];
+    // Get connected components
+    const componentIds = alg.components(g);
 
-    for (const piece of pieces) {
-      if (!visited.has(piece)) {
-        const component = [];
-        const stack = [piece];
-        visited.add(piece);
-
-        while (stack.length > 0) {
-          const current = stack.pop();
-          component.push(current);
-
-          const neighbors = adjacencyMap.get(current) || new Set();
-          for (const neighbor of neighbors) {
-            if (!visited.has(neighbor)) {
-              visited.add(neighbor);
-              stack.push(neighbor);
-            }
-          }
-        }
-
-        components.push(component);
-      }
-    }
-
-    return components;
+    // Convert component IDs back to piece arrays using graph node labels
+    return componentIds.map((componentNodeIds) =>
+      componentNodeIds.map((nodeId) => g.node(nodeId))
+    );
   }
 
   /**

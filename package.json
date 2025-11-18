@@ -1,0 +1,24 @@
+{
+  "name": "puzzle",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "> A lightweight, offline‑capable, single–page jigsaw puzzle app that turns any uploaded image into an interactive puzzle with drag, rotate, group merge, detach, zoom & persistent resume.",
+  "main": "service-worker.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "graphlib": "^2.1.8"
+  },
+  "devDependencies": {
+    "vite": "^6.4.1"
+  }
+}

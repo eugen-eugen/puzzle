@@ -1,4 +1,8 @@
 // app.js - bootstrap for piece box window
+import "../css/main.css";
+import "../css/piece-box.css";
+import "../css/animations.css";
+
 import { initCommChannel } from "./windowManager.js";
 import { renderPiecesAtPositions } from "./pieceRenderer.js";
 import {

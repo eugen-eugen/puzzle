@@ -208,7 +208,7 @@ class GroupManager {
 
     try {
       // Remove piece from current group
-      const fragmentGroups = currentGroup.removePiece(piece);
+      const fragmentGroups = currentGroup.removePieces([piece]);
 
       // Create new single-piece group for detached piece
       const newGroup = this.createSinglePieceGroup(piece);
