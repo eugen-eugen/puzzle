@@ -10,6 +10,8 @@ import { Point } from "./geometry/Point.js";
 import { applyPieceTransform } from "./display.js";
 import { groupManager } from "./GroupManager.js";
 import { state } from "./gameEngine.js";
+// Spatial index now fully managed here
+import { SpatialIndex, chooseCellSize } from "./spatialIndex.js";
 
 /**
  * Contract (Phase 1)
@@ -78,6 +80,29 @@ export class GameTableController {
       }));
       this.spatialIndex.rebuild(proxyItems);
     }
+  }
+
+  // ----------------------------
+  // Spatial Index Lifecycle (centralized)
+  // ----------------------------
+  createSpatialIndex(areaW, areaH, avgPieceSize) {
+    this.spatialIndex = new SpatialIndex(
+      areaW,
+      areaH,
+      chooseCellSize(avgPieceSize)
+    );
+  }
+
+  rebuildSpatialIndex() {
+    if (!this.spatialIndex) return;
+    const items = [];
+    state.pieces.forEach((p) => {
+      const el = this._getElement(p.id);
+      // Prefer geometric center if element available
+      const center = p.getCenter ? p.getCenter(el) : this.getPiecePosition(p.id);
+      if (center) items.push({ id: p.id, position: center });
+    });
+    this.spatialIndex.rebuild(items);
   }
 
   attachPieceElements(pieceElements) {

@@ -1,6 +1,6 @@
 // pieceRenderer.js - render real jigsaw piece bitmaps with interact.js
 
-import { SpatialIndex, chooseCellSize } from "./spatialIndex.js";
+// SpatialIndex creation moved into GameTableController (central management)
 import { state } from "./gameEngine.js";
 import { initConnectionManager } from "./connectionManager.js";
 import { updateProgress } from "./controlBar.js";
@@ -34,7 +34,7 @@ const DOUBLE_TAP_MAX_DIST_SQ = 26 * 26; // Spatial tolerance between taps
 
 // Keep old constant name for backward compatibility inside this module (if referenced elsewhere)
 const SCALE = DEFAULT_RENDER_SCALE;
-let spatialIndex = null;
+// spatialIndex is now owned by GameTableController; do not manage locally here.
 
 // Ensure piece has proper position setup (now handled by Piece class)
 // This function is now mainly for backward compatibility
@@ -83,7 +83,8 @@ export function scatterInitialPieces(container, pieces) {
   const avgSize =
     (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
     SCALE;
-  spatialIndex = new SpatialIndex(areaW, areaH, chooseCellSize(avgSize));
+  // Create spatial index centrally
+  gameTableController.createSpatialIndex(areaW, areaH, avgSize);
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "piece";
@@ -115,7 +116,7 @@ export function scatterInitialPieces(container, pieces) {
     // Position already set & applied above
     p.scale = SCALE;
     // Insert true visual center into spatial index
-    spatialIndex.insert({ id: p.id, position: p.getCenter(wrapper) });
+  // Index update handled by controller after rebuild
   });
 
   // Initialize GroupManager with pieces
@@ -123,7 +124,6 @@ export function scatterInitialPieces(container, pieces) {
 
   // Initialize connection manager once pieces & spatial index are ready
   initConnectionManager({
-    spatialIndex,
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
     tolerance: CONNECTION_TOLERANCE_SQ, // squared distance tolerance (~30px)
     onHighlightChange: (pieceId, data) => applyHighlight(pieceId, data),
@@ -132,7 +132,8 @@ export function scatterInitialPieces(container, pieces) {
 
   // Initialize interact.js for all pieces
   // Attach spatial index directly to controller prior to enabling interactions
-  gameTableController.attachSpatialIndex(spatialIndex);
+  // Rebuild spatial index with actual centers now that DOM elements exist
+  gameTableController.rebuildSpatialIndex();
   initializeInteractions(pieceElements);
   // Sync controller positions after scattering
   gameTableController.syncAllPositions();
@@ -149,7 +150,7 @@ export function renderPiecesAtPositions(container, pieces) {
   const avgSize =
     (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
     (pieces[0]?.scale || SCALE || 0.7);
-  spatialIndex = new SpatialIndex(areaW, areaH, chooseCellSize(avgSize));
+  gameTableController.createSpatialIndex(areaW, areaH, avgSize);
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "piece";
@@ -178,14 +179,13 @@ export function renderPiecesAtPositions(container, pieces) {
     p.scale = scale;
     pieceElements.set(p.id, wrapper);
     container.appendChild(wrapper);
-    spatialIndex.insert({ id: p.id, position: p.getCenter(wrapper) });
+  // Controller will rebuild index after all pieces
   });
 
   // Initialize GroupManager with pieces
   groupManager.initialize();
 
   initConnectionManager({
-    spatialIndex,
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
     tolerance: 900,
     onHighlightChange: (pieceId, data) => applyHighlight(pieceId, data),
@@ -193,7 +193,7 @@ export function renderPiecesAtPositions(container, pieces) {
   });
 
   // Initialize interact.js for all pieces
-  gameTableController.attachSpatialIndex(spatialIndex);
+  gameTableController.rebuildSpatialIndex();
   initializeInteractions(pieceElements);
   // Sync controller positions after rendering
   gameTableController.syncAllPositions();
@@ -262,9 +262,7 @@ function moveSinglePiece(piece, delta) {
   if (el) {
     applyPieceTransform(el, piece);
   }
-  if (spatialIndex && el) {
-    spatialIndex.update({ id: piece.id, position: piece.getCenter(el) });
-  }
+  // Spatial index update delegated to controller via setPiecePosition / rebuilds.
 }
 
 // applyHighlight function moved to interactionManager.js

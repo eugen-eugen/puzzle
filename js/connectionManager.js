@@ -43,7 +43,7 @@ const CONFIG = {
   ALIGNMENT_TOLERANCE: DEFAULT_ALIGNMENT_TOLERANCE_SQ,
 };
 
-let spatialIndex = null;
+// spatialIndex now accessed exclusively via gameTableController.spatialIndex
 let getPieceById = null;
 let onHighlightChange = () => {};
 let pieceElementsAccessor = null; // function(id) -> HTMLElement
@@ -218,6 +218,7 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
 }
 
 function findCandidate(movingPiece) {
+  const spatialIndex = gameTableController.spatialIndex;
   if (!spatialIndex) return null;
   const movingWD = movingPiece.worldData;
 
@@ -335,7 +336,6 @@ function mergeGroups(pieceA, pieceB) {
 }
 
 export function initConnectionManager(opts) {
-  spatialIndex = opts.spatialIndex;
   getPieceById = opts.getPieceById;
   onHighlightChange = opts.onHighlightChange || onHighlightChange;
   pieceElementsAccessor = opts.getPieceElement || null;
