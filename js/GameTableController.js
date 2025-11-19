@@ -85,20 +85,26 @@ export class GameTableController {
   // ----------------------------
   // Spatial Index Lifecycle (centralized)
   // ----------------------------
-  createSpatialIndex(areaW, areaH, avgPieceSize) {
-    this.spatialIndex = new SpatialIndex(
-      areaW,
-      areaH,
-      chooseCellSize(avgPieceSize)
-    );
+  initializeSpatialIndex(areaW, areaH) {
+    // Compute average piece min dimension * scale for cell size heuristic
+    if (!state || !state.pieces || state.pieces.length === 0) return;
+    const avgSize =
+      state.pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) /
+      state.pieces.length *
+      (state.pieces[0]?.scale || 1);
+    this._createSpatialIndex(areaW, areaH, avgSize);
+    this._rebuildSpatialIndex();
   }
 
-  rebuildSpatialIndex() {
+  _createSpatialIndex(areaW, areaH, avgPieceSize) {
+    this.spatialIndex = new SpatialIndex(areaW, areaH, chooseCellSize(avgPieceSize));
+  }
+
+  _rebuildSpatialIndex() {
     if (!this.spatialIndex) return;
     const items = [];
     state.pieces.forEach((p) => {
       const el = this._getElement(p.id);
-      // Prefer geometric center if element available
       const center = p.getCenter ? p.getCenter(el) : this.getPiecePosition(p.id);
       if (center) items.push({ id: p.id, position: center });
     });
@@ -184,6 +190,8 @@ export class GameTableController {
       this._piecePositions.set(p.id, p.position.clone());
       this._updateSpatialIndexFor(p.id);
     });
+    // Optionally trigger full rebuild for better neighbor accuracy after rotation drift
+    // this._rebuildSpatialIndex(); // Uncomment if rotations cause center inaccuracies
   }
 
   rotatePieceOrGroup(pieceId, angleDegrees, getPieceElementFn) {

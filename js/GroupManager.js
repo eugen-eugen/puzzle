@@ -40,7 +40,9 @@ class GroupManager {
     piecesByGroup.forEach((pieces, groupId) => {
       try {
         // Skip connectivity validation during initialization to allow persisted groups with minor float offsets.
-        const group = new Group(groupId, pieces, { validateConnectivity: false });
+        const group = new Group(groupId, pieces, {
+          validateConnectivity: false,
+        });
         this.groups.set(groupId, group);
         console.log(
           `[GroupManager] Created group ${groupId} with ${pieces.length} pieces`

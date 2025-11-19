@@ -63,7 +63,7 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
 
   if (groupPieces.length > 1) {
     const getPieceElement = (id) => pieceElements.get(id);
-  group.rotate(rotationDegrees, piece, getPieceElement);
+    group.rotate(rotationDegrees, piece, getPieceElement);
   } else {
     piece.rotate(rotationDegrees);
     el.style.transform = `rotate(${piece.rotation}deg)`;
@@ -83,8 +83,7 @@ export function scatterInitialPieces(container, pieces) {
   const avgSize =
     (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
     SCALE;
-  // Create spatial index centrally
-  gameTableController.createSpatialIndex(areaW, areaH, avgSize);
+  // Spatial index will be initialized later by controller once DOM elements are ready
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "piece";
@@ -106,23 +105,23 @@ export function scatterInitialPieces(container, pieces) {
     const top = Math.random() * (areaH - scaledH);
     // Random placement uses center semantics directly
     const centerPoint = new Point(left + scaledW / 2, top + scaledH / 2);
-  ensurePiecePosition(p); // installs accessors early
-  // Derive internal position from visual center
-  p.placeCenter(centerPoint, wrapper);
-  applyPieceTransform(wrapper, p);
+    ensurePiecePosition(p); // installs accessors early
+    // Derive internal position from visual center
+    p.placeCenter(centerPoint, wrapper);
+    applyPieceTransform(wrapper, p);
     wrapper.appendChild(canvas);
     container.appendChild(wrapper);
     pieceElements.set(p.id, wrapper);
     // Position already set & applied above
     p.scale = SCALE;
     // Insert true visual center into spatial index
-  // Index update handled by controller after rebuild
+    // Index update handled by controller after rebuild
   });
 
   // Initialize GroupManager with pieces
   groupManager.initialize();
 
-  // Initialize connection manager once pieces & spatial index are ready
+  // Initialize connection manager once pieces are ready
   initConnectionManager({
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
     tolerance: CONNECTION_TOLERANCE_SQ, // squared distance tolerance (~30px)
@@ -132,8 +131,8 @@ export function scatterInitialPieces(container, pieces) {
 
   // Initialize interact.js for all pieces
   // Attach spatial index directly to controller prior to enabling interactions
-  // Rebuild spatial index with actual centers now that DOM elements exist
-  gameTableController.rebuildSpatialIndex();
+  // Initialize spatial index now that elements exist & positions known
+  gameTableController.initializeSpatialIndex(areaW, areaH);
   initializeInteractions(pieceElements);
   // Sync controller positions after scattering
   gameTableController.syncAllPositions();
@@ -150,7 +149,7 @@ export function renderPiecesAtPositions(container, pieces) {
   const avgSize =
     (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
     (pieces[0]?.scale || SCALE || 0.7);
-  gameTableController.createSpatialIndex(areaW, areaH, avgSize);
+  // Defer spatial index creation until after elements appended
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "piece";
@@ -179,7 +178,7 @@ export function renderPiecesAtPositions(container, pieces) {
     p.scale = scale;
     pieceElements.set(p.id, wrapper);
     container.appendChild(wrapper);
-  // Controller will rebuild index after all pieces
+    // Controller will rebuild index after all pieces
   });
 
   // Initialize GroupManager with pieces
@@ -193,7 +192,7 @@ export function renderPiecesAtPositions(container, pieces) {
   });
 
   // Initialize interact.js for all pieces
-  gameTableController.rebuildSpatialIndex();
+  gameTableController.initializeSpatialIndex(areaW, areaH);
   initializeInteractions(pieceElements);
   // Sync controller positions after rendering
   gameTableController.syncAllPositions();

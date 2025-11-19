@@ -124,7 +124,10 @@ export class Piece {
       }
     } catch (e) {
       // Non-fatal: controller may not be initialized yet during early bootstrap
-      console.warn(`[Piece] Controller registration skipped for piece ${this.id}:`, e.message);
+      console.warn(
+        `[Piece] Controller registration skipped for piece ${this.id}:`,
+        e.message
+      );
     }
   }
 

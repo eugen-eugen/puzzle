@@ -362,7 +362,11 @@ function moveGroup(draggedPiece, delta) {
  * Rotate piece or group
  */
 function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
-  gameTableController.rotatePieceOrGroup(piece.id, rotationDegrees, getPieceElement);
+  gameTableController.rotatePieceOrGroup(
+    piece.id,
+    rotationDegrees,
+    getPieceElement
+  );
   ensureRectInView(piece.position, new Point(el.offsetWidth, el.offsetHeight), {
     forceZoom: false,
   });
@@ -454,7 +458,12 @@ export function fixSelectedPieceOrientation() {
   const isMultiPieceGroup = group && group.size() > 1;
 
   if (isMultiPieceGroup) {
-    gameTableController.rotateGroup(group.id, targetRotation, piece, getPieceElement);
+    gameTableController.rotateGroup(
+      group.id,
+      targetRotation,
+      piece,
+      getPieceElement
+    );
   } else {
     gameTableController.rotatePiece(piece.id, targetRotation); // targetRotation resets orientation
   }

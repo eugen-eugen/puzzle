@@ -260,7 +260,6 @@ export class Group {
 
       // Apply transform to DOM element (position and rotation)
       applyPieceTransform(pieceEl, piece);
-
     });
   }
 
