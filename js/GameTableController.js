@@ -65,9 +65,11 @@ export class GameTableController {
         this._piecePositions.set(p.id, p.position.clone());
       }
     });
-    // Ensure spatial index exists & rebuild with current centers
-    this._ensureSpatialIndex();
-    this._rebuildSpatialIndex();
+    // Do NOT auto-create spatial index here; lifecycle controlled explicitly
+    // Only rebuild if already present (e.g., after scatter/resume explicit init)
+    if (this.spatialIndex) {
+      this._rebuildSpatialIndex();
+    }
   }
 
   // Register a single piece (called from Piece constructor)
@@ -104,6 +106,24 @@ export class GameTableController {
       this._indexAreaH,
       chooseCellSize(avgSize)
     );
+  }
+
+  // Explicit recreation used for scatter and resume scenarios
+  reinitializeSpatialIndex() {
+    if (!state || !state.pieces || state.pieces.length === 0) {
+      this.spatialIndex = null;
+      return;
+    }
+    if (this._indexAreaW == null || this._indexAreaH == null) return;
+    const avgSize =
+      (state.pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) /
+        state.pieces.length) * (state.pieces[0]?.scale || 1);
+    this.spatialIndex = new SpatialIndex(
+      this._indexAreaW,
+      this._indexAreaH,
+      chooseCellSize(avgSize)
+    );
+    this._rebuildSpatialIndex();
   }
 
   _rebuildSpatialIndex() {

@@ -131,7 +131,9 @@ export function scatterInitialPieces(container, pieces) {
 
   // Provide viewport area to controller and build spatial index implicitly via sync
   gameTableController.setSpatialIndexArea(areaW, areaH);
+  // Sync positions then explicitly (re)initialize spatial index for scatter scenario
   gameTableController.syncAllPositions();
+  gameTableController.reinitializeSpatialIndex();
   // Initialize interact.js after controller sync
   initializeInteractions(pieceElements);
 }
@@ -192,6 +194,7 @@ export function renderPiecesAtPositions(container, pieces) {
   // Provide viewport area and sync which will build/rebuild spatial index
   gameTableController.setSpatialIndexArea(areaW, areaH);
   gameTableController.syncAllPositions();
+  gameTableController.reinitializeSpatialIndex();
   // Initialize interactions post-sync
   initializeInteractions(pieceElements);
 }
