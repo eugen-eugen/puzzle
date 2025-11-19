@@ -1,6 +1,4 @@
 // pieceRenderer.js - render real jigsaw piece bitmaps with interact.js
-
-// SpatialIndex creation moved into GameTableController (central management)
 import { state } from "./gameEngine.js";
 import { initConnectionManager } from "./connectionManager.js";
 import { updateProgress } from "./controlBar.js";
@@ -17,7 +15,6 @@ import {
   getPieceElement,
   applyHighlight,
 } from "./interactionManager.js";
-// windowManager no longer needed for cross-window transfer (single-window mode)
 
 const pieceElements = new Map(); // id -> DOM element
 
@@ -32,12 +29,8 @@ const CONNECTION_TOLERANCE_SQ = 30 * 30; // Squared distance tolerance passed to
 const DOUBLE_TAP_MAX_DELAY_MS = 320; // Max delay between taps to count as double-tap
 const DOUBLE_TAP_MAX_DIST_SQ = 26 * 26; // Spatial tolerance between taps
 
-// Keep old constant name for backward compatibility inside this module (if referenced elsewhere)
 const SCALE = DEFAULT_RENDER_SCALE;
-// spatialIndex is now owned by GameTableController; do not manage locally here.
 
-// Ensure piece has proper position setup (now handled by Piece class)
-// This function is now mainly for backward compatibility
 function ensurePiecePosition(piece) {
   // Piece class instances already have position and accessors set up
   if (piece.position instanceof Point) return piece;
@@ -74,16 +67,13 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
 }
 
 export function scatterInitialPieces(container, pieces) {
-  // Use viewport dimensions rather than container bounds since pieces are positioned in viewport space
   const areaW = container.clientWidth || 800; // fallback if no size
   const areaH = container.clientHeight || 600;
   console.debug("[pieceRenderer] scatterInitialPieces count", pieces.length);
   pieceElements.clear();
-  // Initialize spatial index
   const avgSize =
     (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
     SCALE;
-  // Spatial index will be initialized later by controller once DOM elements are ready
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "piece";
@@ -103,10 +93,8 @@ export function scatterInitialPieces(container, pieces) {
     wrapper.style.height = scaledH + "px";
     const left = Math.random() * (areaW - scaledW);
     const top = Math.random() * (areaH - scaledH);
-    // Random placement uses center semantics directly
     const centerPoint = new Point(left + scaledW / 2, top + scaledH / 2);
     ensurePiecePosition(p); // installs accessors early
-    // Derive internal position from visual center
     p.placeCenter(centerPoint, wrapper);
     applyPieceTransform(wrapper, p);
     wrapper.appendChild(canvas);
@@ -114,14 +102,10 @@ export function scatterInitialPieces(container, pieces) {
     pieceElements.set(p.id, wrapper);
     // Position already set & applied above
     p.scale = SCALE;
-    // Insert true visual center into spatial index
-    // Index update handled by controller after rebuild
   });
 
-  // Initialize GroupManager with pieces
   groupManager.initialize();
 
-  // Initialize connection manager once pieces are ready
   initConnectionManager({
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
     tolerance: CONNECTION_TOLERANCE_SQ, // squared distance tolerance (~30px)
@@ -129,12 +113,8 @@ export function scatterInitialPieces(container, pieces) {
     getPieceElement: (id) => pieceElements.get(id),
   });
 
-  // Provide viewport area to controller and build spatial index implicitly via sync
-  gameTableController.setSpatialIndexArea(areaW, areaH);
-  // Sync positions then explicitly (re)initialize spatial index for scatter scenario
+  gameTableController.updateViewportArea(areaW, areaH);
   gameTableController.syncAllPositions();
-  gameTableController.reinitializeSpatialIndex();
-  // Initialize interact.js after controller sync
   initializeInteractions(pieceElements);
 }
 
@@ -145,11 +125,9 @@ export function renderPiecesAtPositions(container, pieces) {
   const areaH = container.clientHeight || 600;
   console.debug("[pieceRenderer] renderPiecesAtPositions count", pieces.length);
   pieceElements.clear();
-  // Initialize spatial index based on average size similar to scatter
   const avgSize =
     (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
     (pieces[0]?.scale || SCALE || 0.7);
-  // Defer spatial index creation until after elements appended
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "piece";
@@ -167,21 +145,17 @@ export function renderPiecesAtPositions(container, pieces) {
     ctx.restore();
     wrapper.style.width = scaledW + "px";
     wrapper.style.height = scaledH + "px";
-    // Determine semantics
     const fallbackLeft = Math.random() * (areaW - scaledW);
     const fallbackTop = Math.random() * (areaH - scaledH);
     ensurePiecePosition(p);
-    // All saved positions are internal; no semantic conversion.
     applyPieceTransform(wrapper, p);
     wrapper.appendChild(canvas);
     // Position already set & applied above
     p.scale = scale;
     pieceElements.set(p.id, wrapper);
     container.appendChild(wrapper);
-    // Controller will rebuild index after all pieces
   });
 
-  // Initialize GroupManager with pieces
   groupManager.initialize();
 
   initConnectionManager({
@@ -191,17 +165,10 @@ export function renderPiecesAtPositions(container, pieces) {
     getPieceElement: (id) => pieceElements.get(id),
   });
 
-  // Provide viewport area and sync which will build/rebuild spatial index
-  gameTableController.setSpatialIndexArea(areaW, areaH);
+  gameTableController.updateViewportArea(areaW, areaH);
   gameTableController.syncAllPositions();
-  gameTableController.reinitializeSpatialIndex();
-  // Initialize interactions post-sync
   initializeInteractions(pieceElements);
 }
-
-// Event handling now managed by interact.js in interactionManager.js
-
-// Legacy moveGroup removed – group movement now handled exclusively by GameTableController via interactionManager
 
 function getGroupPieces(piece) {
   // Use GroupManager - offensive programming
@@ -276,7 +243,3 @@ function findPiece(id) {
   // Use the imported state from gameEngine
   return state.pieces.find((p) => p.id === id);
 }
-
-// transferPieceToTable removed (single-window mode)
-
-// cloneBitmapPayload removed (no longer needed with dataURL strategy)

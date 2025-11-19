@@ -33,6 +33,7 @@ export class GameTableController {
     // Cached area dimensions for spatial index initialization
     this._indexAreaW = null;
     this._indexAreaH = null;
+    this._lastIndexSignature = null; // pieceCount|avgSize|areaWxH for avoiding redundant rebuilds
 
     // Initial bootstrap (may be empty if pieces loaded later)
     this._bootstrapPositions();
@@ -65,19 +66,20 @@ export class GameTableController {
         this._piecePositions.set(p.id, p.position.clone());
       }
     });
-    // Do NOT auto-create spatial index here; lifecycle controlled explicitly
-    // Only rebuild if already present (e.g., after scatter/resume explicit init)
-    if (this.spatialIndex) {
-      this._rebuildSpatialIndex();
-    }
+    // Auto manage spatial index lifecycle (create/rebuild if needed)
+    this._autoManageSpatialIndex();
   }
 
   // Register a single piece (called from Piece constructor)
   registerPiece(piece) {
     if (!piece || !(piece.position instanceof Point)) return;
     this._piecePositions.set(piece.id, piece.position.clone());
-    // Optionally index immediately
-    this._updateSpatialIndexFor(piece.id);
+    // Ensure index exists or updated appropriately
+    const hadIndex = !!this.spatialIndex;
+    this._autoManageSpatialIndex();
+    if (hadIndex && this.spatialIndex) {
+      this._updateSpatialIndexFor(piece.id);
+    }
   }
 
   attachSpatialIndex() {
@@ -89,41 +91,48 @@ export class GameTableController {
   // ----------------------------
   // Spatial Index Lifecycle (centralized)
   // ----------------------------
-  setSpatialIndexArea(areaW, areaH) {
+  updateViewportArea(areaW, areaH) {
     this._indexAreaW = areaW;
     this._indexAreaH = areaH;
+    // Force recreation if dimensions changed or index missing
+    this._autoManageSpatialIndex(true);
   }
 
-  _ensureSpatialIndex() {
-    if (this.spatialIndex) return;
-    if (!state || !state.pieces || state.pieces.length === 0) return;
-    if (this._indexAreaW == null || this._indexAreaH == null) return; // area not provided yet
-    const avgSize =
+  _computeAvgPieceSize() {
+    if (!state || !state.pieces || state.pieces.length === 0) return 0;
+    return (
       (state.pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) /
-        state.pieces.length) * (state.pieces[0]?.scale || 1);
-    this.spatialIndex = new SpatialIndex(
-      this._indexAreaW,
-      this._indexAreaH,
-      chooseCellSize(avgSize)
+        state.pieces.length) *
+      (state.pieces[0]?.scale || 1)
     );
   }
 
-  // Explicit recreation used for scatter and resume scenarios
-  reinitializeSpatialIndex() {
+  _autoManageSpatialIndex(forceRecreate = false) {
+    // Need area and pieces
+    if (this._indexAreaW == null || this._indexAreaH == null) return;
     if (!state || !state.pieces || state.pieces.length === 0) {
       this.spatialIndex = null;
+      this._lastIndexSignature = null;
       return;
     }
-    if (this._indexAreaW == null || this._indexAreaH == null) return;
-    const avgSize =
-      (state.pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) /
-        state.pieces.length) * (state.pieces[0]?.scale || 1);
-    this.spatialIndex = new SpatialIndex(
-      this._indexAreaW,
-      this._indexAreaH,
-      chooseCellSize(avgSize)
-    );
-    this._rebuildSpatialIndex();
+    const pieceCount = state.pieces.length;
+    const avgSize = this._computeAvgPieceSize();
+    const signature = `${pieceCount}|${avgSize.toFixed(2)}|${
+      this._indexAreaW
+    }x${this._indexAreaH}`;
+    const needsCreate = !this.spatialIndex;
+    const signatureChanged = this._lastIndexSignature !== signature;
+    if (forceRecreate || needsCreate || signatureChanged) {
+      this.spatialIndex = new SpatialIndex(
+        this._indexAreaW,
+        this._indexAreaH,
+        chooseCellSize(avgSize)
+      );
+      this._rebuildSpatialIndex();
+      this._lastIndexSignature = signature;
+      return;
+    }
+    // Otherwise incremental updates handled per piece on mutation
   }
 
   _rebuildSpatialIndex() {
@@ -131,7 +140,9 @@ export class GameTableController {
     const items = [];
     state.pieces.forEach((p) => {
       const el = this._getElement(p.id);
-      const center = p.getCenter ? p.getCenter(el) : this.getPiecePosition(p.id);
+      const center = p.getCenter
+        ? p.getCenter(el)
+        : this.getPiecePosition(p.id);
       if (center) items.push({ id: p.id, position: center });
     });
     this.spatialIndex.rebuild(items);

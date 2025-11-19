@@ -64,13 +64,8 @@ export function getViewport() {
   return piecesViewport;
 }
 
-export function applyPiecePosition(el, piece) {
-  if (!el || !piece || !piece.position) return el;
-  el.style.left = piece.position.x + "px";
-  el.style.top = piece.position.y + "px";
-  el.style.transform = `rotate(${piece.rotation}deg)`;
-  return el;
-}
+// Deprecated legacy position helper (top-left placement). Removed in favor of center-based applyPieceTransform.
+// If reintroduction is ever needed, restore from history; do NOT re-add without revisiting rotation semantics.
 
 /**
  * Apply complete piece transformation (position and rotation) to DOM element

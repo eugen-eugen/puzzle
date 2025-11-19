@@ -43,7 +43,6 @@ const CONFIG = {
   ALIGNMENT_TOLERANCE: DEFAULT_ALIGNMENT_TOLERANCE_SQ,
 };
 
-// spatialIndex now accessed exclusively via gameTableController.spatialIndex
 let getPieceById = null;
 let onHighlightChange = () => {};
 let pieceElementsAccessor = null; // function(id) -> HTMLElement
