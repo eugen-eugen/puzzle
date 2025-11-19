@@ -14,7 +14,6 @@ const CORE_ASSETS = [
   "/js/game-engine.js",
   "/js/jigsaw-generator.js",
   "/js/piece-renderer.js",
-  "/js/piece-renderer-worker.js",
   "/js/connection-manager.js",
   "/js/spatial-index.js",
   "/js/persistence.js",

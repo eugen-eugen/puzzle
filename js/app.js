@@ -8,8 +8,12 @@ import {
   getPieceElement,
   setSelectionChangeCallback,
 } from "./interaction-manager.js";
-// Persistence (lazy-loaded after definitions to avoid circular issues)
-// We'll dynamically import persistence so this file can export helpers first.
+import {
+  initPersistence,
+  clearSavedGame,
+  tryOfferResume,
+  requestAutoSave,
+} from "./persistence.js";
 import { state } from "./game-engine.js";
 import { initI18n, t, applyTranslations } from "./i18n.js";
 import { Point } from "./geometry/point.js";
@@ -72,7 +76,6 @@ const BLINK_START_DELAY_MS = 100; // Delay before starting blink effect
 const piecesContainer = document.getElementById("piecesContainer");
 const checkButton = document.getElementById("checkButton");
 
-let persistence = null; // module ref once loaded
 let deepLinkActive = false; // true when URL provides image & pieces params
 
 // Preserve initial left/top screen-space margins of the piece cluster so they don't grow.
@@ -418,7 +421,7 @@ document.addEventListener("mouseup", (e) => {
     setIsPanning(false);
     piecesContainer.style.cursor = "grab";
   }
-  if (persistence && persistence.requestAutoSave) persistence.requestAutoSave();
+  requestAutoSave();
 });
 
 // Keyboard shortcuts (zoom shortcuts are now in controlBar.js)
@@ -473,17 +476,12 @@ async function bootstrap() {
           },
           onTimeout: () => {
             deepLinkActive = false;
-            if (persistence) {
-              persistence.tryOfferResume();
-            }
+            tryOfferResume();
           },
           onError: () => {
             // Reset deep link flag and try normal resume flow
             deepLinkActive = false;
-            // If persistence is already loaded, try resume
-            if (persistence) {
-              persistence.tryOfferResume();
-            }
+            tryOfferResume();
           },
         }).catch(() => {
           // Error handling is already done in callbacks
@@ -499,12 +497,9 @@ async function bootstrap() {
   // Set up piece selection callback for orientation tip button
   setSelectionChangeCallback(updateOrientationTipButton);
 
-  // Late-load persistence module and attempt auto-resume AFTER i18n so modal is translated
-  import("./persistence.js")
-    .then((mod) => {
-      persistence = mod;
-      setPersistence(mod); // Set persistence reference in controlBar
-      mod.initPersistence({
+  // Initialize persistence after i18n so modal is translated
+  setPersistence({ initPersistence, clearSavedGame, tryOfferResume, requestAutoSave });
+  initPersistence({
         getViewportState,
         applyViewportState,
         getSliderValue,
@@ -551,21 +546,20 @@ async function bootstrap() {
           imageInput.click();
         },
       });
-      if (deepLinkActive) {
-        // User requested deep link session: discard any previous save silently
-        try {
-          mod.clearSavedGame();
-          console.info(
-            "[deep-link] Previous session discarded due to deep link mode"
-          );
-        } catch (e) {
-          console.warn("[deep-link] Failed to clear previous save", e);
-        }
-      } else {
-        mod.tryOfferResume();
-      }
-    })
-    .catch((err) => console.warn("Persistence module load failed", err));
+  
+  if (deepLinkActive) {
+    // User requested deep link session: discard any previous save silently
+    try {
+      clearSavedGame();
+      console.info(
+        "[deep-link] Previous session discarded due to deep link mode"
+      );
+    } catch (e) {
+      console.warn("[deep-link] Failed to clear previous save", e);
+    }
+  } else {
+    tryOfferResume();
+  }
 }
 
 bootstrap();
