@@ -1,14 +1,14 @@
 // controlBar.js - Control bar elements and event handlers
 // Centralizes all UI control elements including sliders, buttons, and their functionality
 
-import { processImage } from "./imageProcessor.js";
-import { generateJigsawPieces } from "./jigsawGenerator.js";
-import { scatterInitialPieces } from "./pieceRenderer.js";
+import { processImage } from "./image-processor.js";
+import { generateJigsawPieces } from "./jigsaw-generator.js";
+import { scatterInitialPieces } from "./piece-renderer.js";
 import {
   getSelectedPiece,
   fixSelectedPieceOrientation,
-} from "./interactionManager.js";
-import { state } from "./gameEngine.js";
+} from "./interaction-manager.js";
+import { state } from "./game-engine.js";
 import { groupManager } from "./group-manager.js";
 import { t } from "./i18n.js";
 import { Point } from "./geometry/point.js";
@@ -25,7 +25,7 @@ import {
   isIndexedDBSupported,
   storeImageInDB,
   loadImageFromDB,
-} from "./indexedDBStorage.js";
+} from "./indexed-db-storage.js";
 
 // Forward declaration for captureInitialMargins - will be set by app.js
 let captureInitialMargins = null;

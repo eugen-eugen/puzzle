@@ -9,9 +9,9 @@
 import { Point } from "./geometry/point.js";
 import { applyPieceTransform } from "./display.js";
 import { groupManager } from "./group-manager.js";
-import { state } from "./gameEngine.js";
+import { state } from "./game-engine.js";
 // Spatial index now fully managed here
-import { SpatialIndex, chooseCellSize } from "./spatialIndex.js";
+import { SpatialIndex, chooseCellSize } from "./spatial-index.js";
 
 /**
  * Contract (Phase 1)

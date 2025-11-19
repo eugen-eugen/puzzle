@@ -5,7 +5,7 @@
 
 import { Point } from "../geometry/point.js";
 import { Rectangle } from "../geometry/rectangle.js";
-import { state } from "../gameEngine.js";
+import { state } from "../game-engine.js";
 import { DEFAULT_PIECE_SCALE } from "../constants/piece-constants.js";
 import { applyPieceTransform } from "../display.js";
 import { gameTableController } from "../game-table-controller.js";

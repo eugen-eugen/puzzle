@@ -11,8 +11,8 @@ import {
 import { groupManager } from "./group-manager.js";
 import { gameTableController } from "./game-table-controller.js";
 import { screenToViewport, enforceInitialMargins } from "./display.js";
-import { handleDragMove, handleDragEnd } from "./connectionManager.js";
-import { state } from "./gameEngine.js";
+import { handleDragMove, handleDragEnd } from "./connection-manager.js";
+import { state } from "./game-engine.js";
 
 // Constants for interaction behavior
 const DOUBLE_TAP_MAX_DELAY_MS = 320;

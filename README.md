@@ -25,13 +25,13 @@
 | Module | Purpose |
 |--------|---------|
 | `js/app.js` | UI bootstrap, zoom/pan, progress, resume modal, orchestrates modules |
-| `js/jigsawGenerator.js` | Generates pieces via lattice + side waypoints, assigns polarity & geometry |
-| `js/pieceRenderer.js` | Renders canvases inside absolutely positioned DIV wrappers and handles drag / rotate |
-| `js/connectionManager.js` | Geometric side matching (corner + sPoint waypoint checks) + group merging |
-| `js/spatialIndex.js` | Uniform grid spatial index (currently) for coarse candidate lookup |
-| `js/gameEngine.js` | Central mutable state container (pieces, totals, snap settings) |
+| `js/jigsaw-generator.js` | Generates pieces via lattice + side waypoints, assigns polarity & geometry |
+| `js/piece-renderer.js` | Renders canvases inside absolutely positioned DIV wrappers and handles drag / rotate |
+| `js/connection-manager.js` | Geometric side matching (corner + sPoint waypoint checks) + group merging |
+| `js/spatial-index.js` | Uniform grid spatial index (currently) for coarse candidate lookup |
+| `js/game-engine.js` | Central mutable state container (pieces, totals, snap settings) |
 | `js/persistence.js` | Serialize / deserialize puzzle state into `localStorage` (light mode by default) |
-| `js/imageProcessor.js` | Image normalization & downscaling pipeline |
+| `js/image-processor.js` | Image normalization & downscaling pipeline |
 
 > The design favors small focused modules over a monolithic engine to keep iteration fast.
 
@@ -245,7 +245,7 @@ alert(t('error.generate', { error: e.message }));
 - Pure ES modules, no bundler required
 - Keep modules small; avoid circular imports (persistence is lazy‑loaded)
 - For performance profiling: add selective logging or wrap spatial queries
-- To experiment with tolerances, adjust constants in `connectionManager.js`
+- To experiment with tolerances, adjust constants in `connection-manager.js`
 
 ### Suggested Debug Enhancements (Not yet included)
 - Toggle overlays for world corners & sPoints
@@ -263,12 +263,12 @@ puzzle/
   js/
     app.js
     persistence.js
-    jigsawGenerator.js
-    pieceRenderer.js
-    connectionManager.js
-    spatialIndex.js
-    gameEngine.js
-    imageProcessor.js
+    jigsaw-generator.js
+    piece-renderer.js
+    connection-manager.js
+    spatial-index.js
+    game-engine.js
+    image-processor.js
   css/
     (stylesheets)
 ```

@@ -9,7 +9,7 @@
 - Remove legacy `game-table.html` and any multi-window artifacts
 - Initialize JS modules:
   - `app.js` (bootstrap + state init)
-  - `imageProcessor.js`, `jigsawGenerator.js`, `pieceRenderer.js`, `connectionManager.js` (planned), `gameEngine.js`
+  - `image-processor.js`, `jigsaw-generator.js`, `piece-renderer.js`, `connection-manager.js` (planned), `game-engine.js`
 - No cross-window drag module; single DOM hierarchy simplifies events
 - Offline-friendly: pure ES modules, optional bundling deferred
 

@@ -4,8 +4,8 @@
 // Handles group creation, merging, detachment, and connectivity validation
 
 import { Group } from "./model/group.js";
-import { state } from "./gameEngine.js";
-import { updateProgress } from "./controlBar.js";
+import { state } from "./game-engine.js";
+import { updateProgress } from "./control-bar.js";
 import { gameTableController } from "./game-table-controller.js";
 
 class GroupManager {

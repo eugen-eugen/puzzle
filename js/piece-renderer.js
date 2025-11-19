@@ -1,7 +1,7 @@
 // pieceRenderer.js - render real jigsaw piece bitmaps with interact.js
-import { state } from "./gameEngine.js";
-import { initConnectionManager } from "./connectionManager.js";
-import { updateProgress } from "./controlBar.js";
+import { state } from "./game-engine.js";
+import { initConnectionManager } from "./connection-manager.js";
+import { updateProgress } from "./control-bar.js";
 import { Point } from "./geometry/point.js";
 import { applyPieceTransform } from "./display.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
@@ -14,7 +14,7 @@ import {
   setSelectionChangeCallback,
   getPieceElement,
   applyHighlight,
-} from "./interactionManager.js";
+} from "./interaction-manager.js";
 
 const pieceElements = new Map(); // id -> DOM element
 

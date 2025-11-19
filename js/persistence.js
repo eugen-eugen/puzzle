@@ -6,7 +6,7 @@ import { Piece } from "./model/piece.js";
 import { Point } from "./geometry/point.js";
 import { Rectangle } from "./geometry/rectangle.js";
 import { Util } from "./utils/util.js";
-import { isIndexedDBSupported, loadImageFromDB } from "./indexedDBStorage.js";
+import { isIndexedDBSupported, loadImageFromDB } from "./indexed-db-storage.js";
 
 const LS_KEY = "puzzle.save.v2";
 const AUTO_SAVE_DELAY = 1200; // ms debounce (SAVE_DEBOUNCE_MS)

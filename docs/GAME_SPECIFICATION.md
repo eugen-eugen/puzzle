@@ -346,11 +346,11 @@ puzzle/
 │   └── animations.css      # (Future) connection / highlight animations
 ├── js/
 │   ├── app.js              # Bootstrap & UI wiring
-│   ├── imageProcessor.js   # Image upload & normalization
-│   ├── jigsawGenerator.js  # Waypoint-based piece generation
-│   ├── gameEngine.js       # Core state container
-│   ├── connectionManager.js# (Planned) connection detection logic
-│   └── pieceRenderer.js    # DOM/canvas piece rendering & interaction
+│   ├── image-processor.js   # Image upload & normalization
+│   ├── jigsaw-generator.js  # Waypoint-based piece generation
+│   ├── game-engine.js       # Core state container
+│   ├── connection-manager.js# (Planned) connection detection logic
+│   └── piece-renderer.js    # DOM/canvas piece rendering & interaction
 ├── assets/ (optional)
 └── docs/
   ├── GAME_SPECIFICATION.md

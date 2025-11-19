@@ -4,7 +4,7 @@
 // Updated: 2025-11-13 - Removed legacy mergeWithGroup calls, fixed getGroupPieces() calls
 // CACHE BUST: 2025-11-13-14:30:00 - All getGroupPieces() calls eliminated
 
-import { state, connectPieces } from "./gameEngine.js";
+import { state, connectPieces } from "./game-engine.js";
 import { getCurrentZoom } from "./app.js";
 import { applyPieceTransform } from "./display.js";
 import { gameTableController } from "./game-table-controller.js";

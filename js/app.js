@@ -3,20 +3,20 @@ import "../css/main.css";
 import "../css/piece-box.css";
 import "../css/animations.css";
 
-import { renderPiecesAtPositions } from "./pieceRenderer.js";
+import { renderPiecesAtPositions } from "./piece-renderer.js";
 import {
   getPieceElement,
   setSelectionChangeCallback,
-} from "./interactionManager.js";
+} from "./interaction-manager.js";
 // Persistence (lazy-loaded after definitions to avoid circular issues)
 // We'll dynamically import persistence so this file can export helpers first.
-import { state } from "./gameEngine.js";
+import { state } from "./game-engine.js";
 import { initI18n, t, applyTranslations } from "./i18n.js";
 import { Point } from "./geometry/point.js";
 import { Rectangle } from "./geometry/rectangle.js";
 import { Util } from "./utils/util.js";
 import { Piece } from "./model/piece.js";
-import { loadRemoteImageWithTimeout } from "./imageProcessor.js";
+import { loadRemoteImageWithTimeout } from "./image-processor.js";
 import { groupManager } from "./group-manager.js";
 import { gameTableController } from "./game-table-controller.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
@@ -58,7 +58,7 @@ import {
   setCaptureInitialMargins,
   updatePieceDisplay,
   imageInput,
-} from "./controlBar.js";
+} from "./control-bar.js";
 
 // ================================
 // Module Constants (replacing magic numbers)

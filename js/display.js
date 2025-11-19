@@ -8,7 +8,7 @@
 // - Returns the element for chaining.
 
 import { Point } from "./geometry/point.js";
-import { getPieceElement } from "./interactionManager.js";
+import { getPieceElement } from "./interaction-manager.js";
 import { Util } from "./utils/util.js";
 import { groupManager } from "./group-manager.js";
 
