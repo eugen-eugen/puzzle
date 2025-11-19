@@ -21,6 +21,7 @@ export class Group {
   constructor(id, initialPieces = [], { validateConnectivity = true } = {}) {
     this.id = id;
     this.pieces = new Set(initialPieces);
+    this.borderPieces = new Set();
 
     if (initialPieces.length > 0) {
       if (validateConnectivity && !Group.arePiecesConnected(initialPieces)) {
@@ -32,6 +33,7 @@ export class Group {
       initialPieces.forEach((piece) => {
         if (piece) piece.groupId = this.id;
       });
+      this._updateBorderPieces();
     }
   }
 
@@ -67,6 +69,10 @@ export class Group {
         added++;
       }
     });
+
+    if (added > 0) {
+      this._updateBorderPieces();
+    }
 
     return added;
   }
@@ -120,6 +126,7 @@ export class Group {
       this.pieces.add(piece);
       piece.groupId = this.id;
     });
+    this._updateBorderPieces();
 
     // Create new groups for other components
     connectedSubGroups.forEach((subGroup, index) => {
@@ -165,11 +172,66 @@ export class Group {
       piece.groupId = null;
     });
     this.pieces.clear();
+    this.borderPieces.clear();
   }
 
   // ================================
   // Group Properties & Calculations
   // ================================
+
+  /**
+   * Get all border pieces (pieces with less than 4 neighbors within this group)
+   * @returns {Array<Piece>}
+   */
+  getBorderPieces() {
+    return Array.from(this.borderPieces);
+  }
+
+  /**
+   * Update the set of border pieces based on current group membership
+   * A piece is a border piece if it has less than 4 neighbors within the group
+   * @private
+   */
+  _updateBorderPieces() {
+    this.borderPieces.clear();
+
+    if (this.pieces.size === 0) return;
+
+    // Build a map of grid positions for quick lookup
+    const gridMap = new Map();
+    for (const piece of this.pieces) {
+      if (!piece) continue;
+      const key = `${piece.gridX},${piece.gridY}`;
+      gridMap.set(key, piece);
+    }
+
+    // For each piece, count how many of its neighbors are in this group
+    for (const piece of this.pieces) {
+      if (!piece) continue;
+
+      let neighborCount = 0;
+
+      // Check all four potential neighbor positions based on grid coordinates
+      const neighborPositions = [
+        { x: piece.gridX, y: piece.gridY - 1 }, // north
+        { x: piece.gridX + 1, y: piece.gridY }, // east
+        { x: piece.gridX, y: piece.gridY + 1 }, // south
+        { x: piece.gridX - 1, y: piece.gridY }, // west
+      ];
+
+      for (const pos of neighborPositions) {
+        const key = `${pos.x},${pos.y}`;
+        if (gridMap.has(key)) {
+          neighborCount++;
+        }
+      }
+
+      // If less than 4 neighbors, it's a border piece
+      if (neighborCount < 4) {
+        this.borderPieces.add(piece);
+      }
+    }
+  }
 
   /**
    * Calculate the bounding rectangle for all pieces in this group

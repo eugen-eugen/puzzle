@@ -486,13 +486,21 @@ export function getPieceElement(id) {
 }
 
 /**
- * Apply highlight to piece
+ * Apply highlight to piece(s)
+ * @param {string|Array<string>|null} pieceId - Single piece ID, array of IDs, or null to clear
+ * @param {*} candidateData - Candidate data (for compatibility)
  */
 export function applyHighlight(pieceId, candidateData) {
   pieceElements.forEach((el) => el.classList.remove("candidate-highlight"));
   if (pieceId == null) return;
-  const el = pieceElements.get(pieceId);
-  if (el) el.classList.add("candidate-highlight");
+
+  // Handle both single ID and array of IDs
+  const pieceIds = Array.isArray(pieceId) ? pieceId : [pieceId];
+
+  pieceIds.forEach((id) => {
+    const el = pieceElements.get(id);
+    if (el) el.classList.add("candidate-highlight");
+  });
 }
 
 /**

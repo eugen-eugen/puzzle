@@ -45,7 +45,7 @@ let getPieceById = null;
 let onHighlightChange = () => {};
 let pieceElementsAccessor = null; // function(id) -> HTMLElement
 
-let currentHighlight = null; // { pieceId, sideName, mapping }
+let currentHighlight = null; // Array of { pieceId, data } or null
 
 function sideCornerKeys(side) {
   switch (side) {
@@ -261,11 +261,39 @@ function findCandidate(movingPiece) {
   return best;
 }
 
-function applyHighlight(candidate) {
-  const newId = candidate ? candidate.stationaryPieceId : null;
-  if (currentHighlight && currentHighlight.pieceId === newId) return; // unchanged
-  currentHighlight = candidate ? { pieceId: newId, data: candidate } : null;
-  onHighlightChange(newId, candidate);
+function applyHighlight(candidates) {
+  // candidates is an array of { movingPiece, candidate } or null
+  if (!candidates || candidates.length === 0) {
+    if (currentHighlight) {
+      currentHighlight = null;
+      onHighlightChange(null, null);
+    }
+    return;
+  }
+
+  // Extract unique stationary piece IDs
+  const pieceIds = [
+    ...new Set(candidates.map((c) => c.candidate.stationaryPieceId)),
+  ];
+
+  // Check if highlight changed
+  const currentIds = currentHighlight
+    ? currentHighlight
+        .map((h) => h.pieceId)
+        .sort()
+        .join(",")
+    : "";
+  const newIds = pieceIds.sort().join(",");
+
+  if (currentIds === newIds) return; // unchanged
+
+  currentHighlight = candidates.map((c) => ({
+    pieceId: c.candidate.stationaryPieceId,
+    data: c.candidate,
+  }));
+
+  // Pass array of piece IDs to highlight
+  onHighlightChange(pieceIds, candidates);
 }
 
 function clearHighlight() {
@@ -343,29 +371,63 @@ export function initConnectionManager(opts) {
 
 export function handleDragMove(movingPiece) {
   if (!movingPiece) return;
-  const candidate = findCandidate(movingPiece);
 
-  // Connection detection working normally
+  // Get all border pieces from the moving group
+  const group = groupManager.getGroup(movingPiece.groupId);
+  const borderPieces = group ? group.getBorderPieces() : [movingPiece];
 
-  applyHighlight(candidate);
+  // Find candidates for all border pieces
+  const candidates = [];
+  for (const borderPiece of borderPieces) {
+    const candidate = findCandidate(borderPiece);
+    if (candidate && candidate.stationaryPieceId != null) {
+      candidates.push({
+        movingPiece: borderPiece,
+        candidate: candidate,
+      });
+    }
+  }
+
+  applyHighlight(candidates.length > 0 ? candidates : null);
 }
 
 export function handleDragEnd(movingPiece, wasDetached = false) {
   if (!movingPiece) return;
 
-  // Handle drag end with optional detachment
+  // Get all border pieces from the moving group
+  const group = groupManager.getGroup(movingPiece.groupId);
+  const borderPieces = group ? group.getBorderPieces() : [movingPiece];
 
-  if (currentHighlight && currentHighlight.pieceId != null) {
-    // Perform connection
-    const stationaryPiece = getPieceById(currentHighlight.pieceId);
-    // Connecting pieces
-
-    if (stationaryPiece) {
-      finePlace(movingPiece, currentHighlight.data);
-      mergeGroups(movingPiece, stationaryPiece);
-      connectPieces([movingPiece.id, stationaryPiece.id]); // placeholder progress update
+  // Try to find connections for all border pieces
+  const connections = [];
+  for (const borderPiece of borderPieces) {
+    const candidate = findCandidate(borderPiece);
+    if (candidate && candidate.stationaryPieceId != null) {
+      connections.push({
+        movingPiece: borderPiece,
+        candidate: candidate,
+      });
     }
   }
+
+  // Process all found connections
+  if (connections.length > 0) {
+    // Sort by score (best connection first)
+    connections.sort((a, b) => a.candidate.score - b.candidate.score);
+
+    // Apply the best connection
+    const bestConnection = connections[0];
+    const stationaryPiece = getPieceById(
+      bestConnection.candidate.stationaryPieceId
+    );
+
+    if (stationaryPiece) {
+      finePlace(bestConnection.movingPiece, bestConnection.candidate);
+      mergeGroups(bestConnection.movingPiece, stationaryPiece);
+      connectPieces([bestConnection.movingPiece.id, stationaryPiece.id]);
+    }
+  }
+
   clearHighlight();
 }
 
