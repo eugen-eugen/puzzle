@@ -129,13 +129,11 @@ export function scatterInitialPieces(container, pieces) {
     getPieceElement: (id) => pieceElements.get(id),
   });
 
-  // Initialize interact.js for all pieces
-  // Attach spatial index directly to controller prior to enabling interactions
-  // Initialize spatial index now that elements exist & positions known
-  gameTableController.initializeSpatialIndex(areaW, areaH);
-  initializeInteractions(pieceElements);
-  // Sync controller positions after scattering
+  // Provide viewport area to controller and build spatial index implicitly via sync
+  gameTableController.setSpatialIndexArea(areaW, areaH);
   gameTableController.syncAllPositions();
+  // Initialize interact.js after controller sync
+  initializeInteractions(pieceElements);
 }
 
 // Render pieces using their saved position and rotation instead of scattering.
@@ -191,11 +189,11 @@ export function renderPiecesAtPositions(container, pieces) {
     getPieceElement: (id) => pieceElements.get(id),
   });
 
-  // Initialize interact.js for all pieces
-  gameTableController.initializeSpatialIndex(areaW, areaH);
-  initializeInteractions(pieceElements);
-  // Sync controller positions after rendering
+  // Provide viewport area and sync which will build/rebuild spatial index
+  gameTableController.setSpatialIndexArea(areaW, areaH);
   gameTableController.syncAllPositions();
+  // Initialize interactions post-sync
+  initializeInteractions(pieceElements);
 }
 
 // Event handling now managed by interact.js in interactionManager.js

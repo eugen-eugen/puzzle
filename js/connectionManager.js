@@ -218,8 +218,7 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
 }
 
 function findCandidate(movingPiece) {
-  const spatialIndex = gameTableController.spatialIndex;
-  if (!spatialIndex) return null;
+  if (!gameTableController) return null;
   const movingWD = movingPiece.worldData;
 
   // Adjust tolerance based on current zoom level to maintain consistent feel
@@ -233,7 +232,7 @@ function findCandidate(movingPiece) {
   const longestSide = Math.max(bmpW, bmpH);
   const coarseR = longestSide * COARSE_RADIUS_MULTIPLIER;
 
-  const neighborIds = spatialIndex.queryRadius(
+  const neighborIds = gameTableController.queryRadius(
     movingWD.worldCorners.nw,
     coarseR
   );

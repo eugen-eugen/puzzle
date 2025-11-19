@@ -23,11 +23,16 @@ import { SpatialIndex, chooseCellSize } from "./spatialIndex.js";
  */
 export class GameTableController {
   constructor({ spatialIndex = null, pieceElements = null } = {}) {
+    // Spatial index internal; external injection deprecated
     this.spatialIndex = spatialIndex;
     this.pieceElements = pieceElements; // Map<pieceId, HTMLElement>
 
     // Internal store – currently mirrors Piece.position (Point)
     this._piecePositions = new Map(); // id -> Point
+
+    // Cached area dimensions for spatial index initialization
+    this._indexAreaW = null;
+    this._indexAreaH = null;
 
     // Initial bootstrap (may be empty if pieces loaded later)
     this._bootstrapPositions();
@@ -60,6 +65,9 @@ export class GameTableController {
         this._piecePositions.set(p.id, p.position.clone());
       }
     });
+    // Ensure spatial index exists & rebuild with current centers
+    this._ensureSpatialIndex();
+    this._rebuildSpatialIndex();
   }
 
   // Register a single piece (called from Piece constructor)
@@ -70,34 +78,32 @@ export class GameTableController {
     this._updateSpatialIndexFor(piece.id);
   }
 
-  attachSpatialIndex(spatialIndex) {
-    this.spatialIndex = spatialIndex;
-    // Rebuild with controller stored positions
-    if (this.spatialIndex) {
-      const proxyItems = state.pieces.map((p) => ({
-        id: p.id,
-        position: this.getPiecePosition(p.id),
-      }));
-      this.spatialIndex.rebuild(proxyItems);
-    }
+  attachSpatialIndex() {
+    console.warn(
+      "GameTableController.attachSpatialIndex is deprecated – spatial index is internally managed."
+    );
   }
 
   // ----------------------------
   // Spatial Index Lifecycle (centralized)
   // ----------------------------
-  initializeSpatialIndex(areaW, areaH) {
-    // Compute average piece min dimension * scale for cell size heuristic
-    if (!state || !state.pieces || state.pieces.length === 0) return;
-    const avgSize =
-      state.pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) /
-      state.pieces.length *
-      (state.pieces[0]?.scale || 1);
-    this._createSpatialIndex(areaW, areaH, avgSize);
-    this._rebuildSpatialIndex();
+  setSpatialIndexArea(areaW, areaH) {
+    this._indexAreaW = areaW;
+    this._indexAreaH = areaH;
   }
 
-  _createSpatialIndex(areaW, areaH, avgPieceSize) {
-    this.spatialIndex = new SpatialIndex(areaW, areaH, chooseCellSize(avgPieceSize));
+  _ensureSpatialIndex() {
+    if (this.spatialIndex) return;
+    if (!state || !state.pieces || state.pieces.length === 0) return;
+    if (this._indexAreaW == null || this._indexAreaH == null) return; // area not provided yet
+    const avgSize =
+      (state.pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) /
+        state.pieces.length) * (state.pieces[0]?.scale || 1);
+    this.spatialIndex = new SpatialIndex(
+      this._indexAreaW,
+      this._indexAreaH,
+      chooseCellSize(avgSize)
+    );
   }
 
   _rebuildSpatialIndex() {
@@ -192,6 +198,14 @@ export class GameTableController {
     });
     // Optionally trigger full rebuild for better neighbor accuracy after rotation drift
     // this._rebuildSpatialIndex(); // Uncomment if rotations cause center inaccuracies
+  }
+
+  // ----------------------------
+  // Spatial Queries
+  // ----------------------------
+  queryRadius(centerPoint, radius) {
+    if (!this.spatialIndex || !centerPoint) return [];
+    return this.spatialIndex.queryRadius(centerPoint, radius);
   }
 
   rotatePieceOrGroup(pieceId, angleDegrees, getPieceElementFn) {
