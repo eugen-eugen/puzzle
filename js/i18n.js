@@ -17,7 +17,10 @@ export function t(key, params) {
 
 export async function loadLanguage(lang) {
   try {
-    const resp = await fetch(`i18n/${lang}.json`, { cache: "no-cache" });
+    const basePath = import.meta.env.BASE_URL || "/";
+    const resp = await fetch(`${basePath}i18n/${lang}.json`, {
+      cache: "no-cache",
+    });
     if (!resp.ok) throw new Error(`${resp.status} ${resp.statusText}`);
     messages = await resp.json();
     currentLanguage = lang;
