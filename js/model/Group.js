@@ -7,21 +7,28 @@ import { Point } from "../geometry/Point.js";
 import { Rectangle } from "../geometry/Rectangle.js";
 import { applyPieceTransform } from "../display.js";
 import { Graph, alg } from "graphlib";
+import { gameTableController } from "../GameTableController.js";
 
 export class Group {
-  constructor(id, initialPieces = []) {
+  /**
+   * @param {string} id
+   * @param {Array<Piece>} initialPieces
+   * @param {Object} [options]
+   * @param {boolean} [options.validateConnectivity=true] Whether to enforce connectivity on construction.
+   *        This is disabled for resume/deserialize flows to avoid false negatives caused by tiny float drift
+   *        before worldData & transforms have fully stabilized.
+   */
+  constructor(id, initialPieces = [], { validateConnectivity = true } = {}) {
     this.id = id;
     this.pieces = new Set(initialPieces);
 
-    // Initialize group properties based on initial pieces
     if (initialPieces.length > 0) {
-      // Validate connectivity of initial pieces
-      if (!Group.arePiecesConnected(initialPieces)) {
+      if (validateConnectivity && !Group.arePiecesConnected(initialPieces)) {
         throw new Error(
           `Cannot create group ${id}: initial pieces are not connected`
         );
       }
-      // Set group IDs for initial pieces
+      // Assign groupId regardless of validation outcome (if disabled we trust persisted layout)
       initialPieces.forEach((piece) => {
         if (piece) piece.groupId = this.id;
       });
@@ -211,21 +218,20 @@ export class Group {
    * @param {Point} offset - Point offset
    */
   translate(offset) {
+    // Controller is always available; delegate movement.
     this.pieces.forEach((piece) => {
-      if (piece && piece.position) {
-        piece.position = piece.position.add(offset);
-      }
+      if (piece) gameTableController.movePiece(piece.id, offset);
     });
   }
 
   /**
-   * Rotate the entire group around a pivot point
-   * @param {number} angleDegrees - Rotation angle in degrees
-   * @param {Piece} pivotPiece - Piece to use as rotation pivot
-   * @param {Function} getPieceElement - Function to get DOM element by piece ID
-   * @param {Object} spatialIndex - Spatial index for updating piece positions
+   * Rotate the entire group around a pivot point. Spatial index updates are delegated
+   * to GameTableController; this method only mutates piece models & DOM.
+   * @param {number} angleDegrees
+   * @param {Piece} pivotPiece
+   * @param {Function} getPieceElement
    */
-  rotate(angleDegrees, pivotPiece, getPieceElement, spatialIndex) {
+  rotate(angleDegrees, pivotPiece, getPieceElement) {
     if (this.isEmpty()) return;
 
     const pivotEl = getPieceElement(pivotPiece.id);
@@ -255,10 +261,6 @@ export class Group {
       // Apply transform to DOM element (position and rotation)
       applyPieceTransform(pieceEl, piece);
 
-      // Update spatial index
-      if (spatialIndex) {
-        piece.updateSpatialIndex(spatialIndex, pieceEl);
-      }
     });
   }
 
@@ -348,7 +350,11 @@ export class Group {
       const piece1 = pieces[i];
       for (let j = i + 1; j < pieces.length; j++) {
         const piece2 = pieces[j];
-        if (piece1.isAnyNeighbor(piece2)) {
+        const neighbors =
+          (gameTableController &&
+            gameTableController.arePiecesNeighbors(piece1, piece2)) ||
+          piece1.isAnyNeighbor(piece2);
+        if (neighbors) {
           g.setEdge(piece1.id, piece2.id);
         }
       }
@@ -381,7 +387,11 @@ export class Group {
       const piece1 = pieces[i];
       for (let j = i + 1; j < pieces.length; j++) {
         const piece2 = pieces[j];
-        if (piece1.isAnyNeighbor(piece2)) {
+        const neighbors =
+          (gameTableController &&
+            gameTableController.arePiecesNeighbors(piece1, piece2)) ||
+          piece1.isAnyNeighbor(piece2);
+        if (neighbors) {
           g.setEdge(piece1.id, piece2.id);
         }
       }

@@ -415,6 +415,8 @@ function reconstructPieces(data, masterImage) {
       },
     });
   });
+  // Assign semantic & mark legacy top-left positions for later conversion in renderer
+  // Legacy support removed: assume all saved positions are internal storage coordinates.
   api.setPieces(pieces);
   if (api.renderPiecesFromState) {
     api.renderPiecesFromState();

@@ -6,6 +6,7 @@
 import { Group } from "./model/Group.js";
 import { state } from "./gameEngine.js";
 import { updateProgress } from "./controlBar.js";
+import { gameTableController } from "./GameTableController.js";
 
 class GroupManager {
   constructor() {
@@ -38,7 +39,8 @@ class GroupManager {
     // Create Group instances for each group
     piecesByGroup.forEach((pieces, groupId) => {
       try {
-        const group = new Group(groupId, pieces);
+        // Skip connectivity validation during initialization to allow persisted groups with minor float offsets.
+        const group = new Group(groupId, pieces, { validateConnectivity: false });
         this.groups.set(groupId, group);
         console.log(
           `[GroupManager] Created group ${groupId} with ${pieces.length} pieces`
@@ -253,20 +255,17 @@ class GroupManager {
    * @param {number} angleDegrees - Rotation angle in degrees
    * @param {Piece} pivotPiece - Piece to use as rotation pivot
    * @param {Function} getPieceElement - Function to get DOM element by piece ID
-   * @param {Object} spatialIndex - Spatial index for updating piece positions
    */
-  rotateGroup(
-    groupId,
-    angleDegrees,
-    pivotPiece,
-    getPieceElement,
-    spatialIndex
-  ) {
+  rotateGroup(groupId, angleDegrees, pivotPiece, getPieceElement) {
     const group = this.getGroup(groupId);
     if (!group) return false;
 
     try {
-      group.rotate(angleDegrees, pivotPiece, getPieceElement, spatialIndex);
+      group.rotate(angleDegrees, pivotPiece, getPieceElement);
+      // Phase 2: sync controller positions if available
+      group.getPieces().forEach((p) => {
+        gameTableController.setPiecePosition(p.id, p.position);
+      });
       return true;
     } catch (error) {
       console.error("[GroupManager] Error rotating group:", error);

@@ -8,6 +8,7 @@ import { state, connectPieces } from "./gameEngine.js";
 import { getCurrentZoom } from "./app.js";
 import { updateProgress } from "./controlBar.js";
 import { applyPieceTransform } from "./display.js";
+import { gameTableController } from "./GameTableController.js";
 // Geometry utilities (new Point-based refactor)
 import { Point, dist2 as pointDist2 } from "./geometry/Point.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
@@ -292,14 +293,18 @@ function finePlace(movingPiece, highlightData) {
   // Get all pieces in the moving group (including the moving piece itself)
   const movingGroupPieces = getMovingGroupPieces(movingPiece); // Apply translation to all pieces in the moving group
   movingGroupPieces.forEach((piece) => {
-    // Ensure piece has position Point and update it directly
     if (!piece.position || !(piece.position instanceof Point)) {
       piece.position = new Point(0, 0);
     }
+    // Mutate then sync through controller for spatial index + cache invalidation
     piece.position.mutAdd(dx, dy);
     if (pieceElementsAccessor) {
       const el = pieceElementsAccessor(piece.id);
       if (el) applyPieceTransform(el, piece);
+    }
+    // Ensure controller & spatial index updated with new center
+    if (gameTableController) {
+      gameTableController.setPiecePosition(piece.id, piece.position);
     }
   });
 }

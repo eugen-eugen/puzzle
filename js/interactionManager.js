@@ -9,11 +9,8 @@ import {
   calculatePiecesBounds,
 } from "./app.js";
 import { groupManager } from "./GroupManager.js";
-import {
-  screenToViewport,
-  applyPiecePosition,
-  enforceInitialMargins,
-} from "./display.js";
+import { gameTableController } from "./GameTableController.js";
+import { screenToViewport, enforceInitialMargins } from "./display.js";
 import { handleDragMove, handleDragEnd } from "./connectionManager.js";
 import { state } from "./gameEngine.js";
 
@@ -25,7 +22,6 @@ const OUTSIDE_THRESHOLD_PX = 40;
 // State management
 let selectedPieceId = null;
 let onSelectionChangeCallback = null;
-let spatialIndex = null;
 let pieceElements = null;
 
 // Double-tap detection state
@@ -39,11 +35,13 @@ const activeTouchIds = new Set();
 /**
  * Initialize interact.js for puzzle pieces
  * @param {Map} pieceElementsMap - Map of piece ID to DOM element
- * @param {SpatialIndex} spatialIndexInstance - Spatial index for piece tracking
+ * (Spatial index attachment now handled in renderer; no longer passed here.)
  */
-export function initializeInteractions(pieceElementsMap, spatialIndexInstance) {
+export function initializeInteractions(pieceElementsMap) {
   pieceElements = pieceElementsMap;
-  spatialIndex = spatialIndexInstance;
+
+  // Attach piece elements to controller; spatial index is now attached outside (renderer)
+  gameTableController.attachPieceElements(pieceElementsMap);
 
   if (!window.interact) {
     console.error(
@@ -345,54 +343,26 @@ function selectPiece(id) {
  * Move a single piece
  */
 function moveSinglePiece(piece, delta) {
-  piece.move(delta);
-
-  const el = pieceElements.get(piece.id);
-  if (el) {
-    applyPiecePosition(el, piece);
-  }
-
-  if (spatialIndex) {
-    piece.updateSpatialIndex(spatialIndex, el);
-  }
+  // Delegate to controller
+  gameTableController.movePiece(piece.id, delta);
 }
 
 /**
  * Move a group of pieces
  */
 function moveGroup(draggedPiece, delta) {
-  const group = groupManager.getGroup(draggedPiece.groupId);
-  const groupPieces = group ? group.getPieces() : [draggedPiece];
-
-  groupPieces.forEach((p) => {
-    p.position.mutAdd(delta.x, delta.y);
-
-    const el = pieceElements.get(p.id);
-    if (el) {
-      applyPiecePosition(el, p);
-    }
-
-    if (spatialIndex) {
-      const scaledW = el ? el.offsetWidth : p.bitmap.width * (p.scale || 0.7);
-      const scaledH = el ? el.offsetHeight : p.bitmap.height * (p.scale || 0.7);
-      const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
-      spatialIndex.update({ id: p.id, position: centerPoint });
-    }
-  });
+  if (!draggedPiece.groupId) {
+    moveSinglePiece(draggedPiece, delta);
+    return;
+  }
+  gameTableController.moveGroup(draggedPiece.groupId, delta);
 }
 
 /**
  * Rotate piece or group
  */
 function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
-  const group = groupManager.getGroup(piece.groupId);
-  const groupPieces = group ? group.getPieces() : [piece];
-  if (groupPieces.length > 1) {
-    group.rotate(rotationDegrees, piece, getPieceElement, spatialIndex);
-  } else {
-    piece.rotate(rotationDegrees);
-    el.style.transform = `rotate(${piece.rotation}deg)`;
-  }
+  gameTableController.rotatePieceOrGroup(piece.id, rotationDegrees, getPieceElement);
   ensureRectInView(piece.position, new Point(el.offsetWidth, el.offsetHeight), {
     forceZoom: false,
   });
@@ -484,10 +454,9 @@ export function fixSelectedPieceOrientation() {
   const isMultiPieceGroup = group && group.size() > 1;
 
   if (isMultiPieceGroup) {
-    group.rotate(targetRotation, piece, getPieceElement, spatialIndex);
+    gameTableController.rotateGroup(group.id, targetRotation, piece, getPieceElement);
   } else {
-    piece.rotation = 0;
-    pieceEl.style.transform = `rotate(0deg)`;
+    gameTableController.rotatePiece(piece.id, targetRotation); // targetRotation resets orientation
   }
 
   return true;

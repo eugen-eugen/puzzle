@@ -5,9 +5,10 @@ import { state } from "./gameEngine.js";
 import { initConnectionManager } from "./connectionManager.js";
 import { updateProgress } from "./controlBar.js";
 import { Point } from "./geometry/Point.js";
-import { applyPiecePosition, applyPieceTransform } from "./display.js";
+import { applyPieceTransform } from "./display.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
 import { groupManager } from "./GroupManager.js";
+import { gameTableController } from "./GameTableController.js";
 import {
   initializeInteractions,
   getSelectedPiece,
@@ -62,7 +63,7 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
 
   if (groupPieces.length > 1) {
     const getPieceElement = (id) => pieceElements.get(id);
-    group.rotate(rotationDegrees, piece, getPieceElement, spatialIndex);
+  group.rotate(rotationDegrees, piece, getPieceElement);
   } else {
     piece.rotate(rotationDegrees);
     el.style.transform = `rotate(${piece.rotation}deg)`;
@@ -102,18 +103,19 @@ export function scatterInitialPieces(container, pieces) {
     wrapper.style.height = scaledH + "px";
     const left = Math.random() * (areaW - scaledW);
     const top = Math.random() * (areaH - scaledH);
-    // Initialize Point position then apply via helper
-    p.position = new Point(left, top);
-    ensurePiecePosition(p); // installs accessors early
-    applyPiecePosition(wrapper, p);
-    wrapper.style.transform = `rotate(${p.rotation}deg)`;
+    // Random placement uses center semantics directly
+    const centerPoint = new Point(left + scaledW / 2, top + scaledH / 2);
+  ensurePiecePosition(p); // installs accessors early
+  // Derive internal position from visual center
+  p.placeCenter(centerPoint, wrapper);
+  applyPieceTransform(wrapper, p);
     wrapper.appendChild(canvas);
     container.appendChild(wrapper);
     pieceElements.set(p.id, wrapper);
     // Position already set & applied above
     p.scale = SCALE;
-    const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
-    spatialIndex.insert({ id: p.id, position: centerPoint });
+    // Insert true visual center into spatial index
+    spatialIndex.insert({ id: p.id, position: p.getCenter(wrapper) });
   });
 
   // Initialize GroupManager with pieces
@@ -129,7 +131,11 @@ export function scatterInitialPieces(container, pieces) {
   });
 
   // Initialize interact.js for all pieces
-  initializeInteractions(pieceElements, spatialIndex);
+  // Attach spatial index directly to controller prior to enabling interactions
+  gameTableController.attachSpatialIndex(spatialIndex);
+  initializeInteractions(pieceElements);
+  // Sync controller positions after scattering
+  gameTableController.syncAllPositions();
 }
 
 // Render pieces using their saved position and rotation instead of scattering.
@@ -161,27 +167,18 @@ export function renderPiecesAtPositions(container, pieces) {
     ctx.restore();
     wrapper.style.width = scaledW + "px";
     wrapper.style.height = scaledH + "px";
-    // Use saved position; if missing, fallback to random placement
-    const left =
-      p.position instanceof Point
-        ? p.position.x
-        : Math.random() * (areaW - scaledW);
-    const top =
-      p.position instanceof Point
-        ? p.position.y
-        : Math.random() * (areaH - scaledH);
-    // Initialize Point position then apply via helper
-    p.position = new Point(left, top);
+    // Determine semantics
+    const fallbackLeft = Math.random() * (areaW - scaledW);
+    const fallbackTop = Math.random() * (areaH - scaledH);
     ensurePiecePosition(p);
-    applyPiecePosition(wrapper, p);
-    wrapper.style.transform = `rotate(${p.rotation}deg)`;
+    // All saved positions are internal; no semantic conversion.
+    applyPieceTransform(wrapper, p);
     wrapper.appendChild(canvas);
     // Position already set & applied above
     p.scale = scale;
     pieceElements.set(p.id, wrapper);
     container.appendChild(wrapper);
-    const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
-    spatialIndex.insert({ id: p.id, position: centerPoint });
+    spatialIndex.insert({ id: p.id, position: p.getCenter(wrapper) });
   });
 
   // Initialize GroupManager with pieces
@@ -196,36 +193,15 @@ export function renderPiecesAtPositions(container, pieces) {
   });
 
   // Initialize interact.js for all pieces
-  initializeInteractions(pieceElements, spatialIndex);
+  gameTableController.attachSpatialIndex(spatialIndex);
+  initializeInteractions(pieceElements);
+  // Sync controller positions after rendering
+  gameTableController.syncAllPositions();
 }
 
 // Event handling now managed by interact.js in interactionManager.js
 
-function moveGroup(draggedPiece, deltaX, deltaY) {
-  // Get all pieces in the same group as the dragged piece
-  const group = groupManager.getGroup(draggedPiece.groupId);
-  const groupPieces = group ? group.getPieces() : [draggedPiece];
-
-  groupPieces.forEach((p) => {
-    // Update piece position
-    ensurePiecePosition(p);
-    p.position.mutAdd(deltaX, deltaY);
-
-    // Update DOM element position
-    const el = pieceElements.get(p.id);
-    if (el) {
-      applyPiecePosition(el, p);
-    }
-
-    // Update spatial index
-    if (spatialIndex) {
-      const scaledW = el ? el.offsetWidth : p.bitmap.width * SCALE;
-      const scaledH = el ? el.offsetHeight : p.bitmap.height * SCALE;
-      const centerPoint = p.position.added(scaledW / 2, scaledH / 2);
-      spatialIndex.update({ id: p.id, position: centerPoint });
-    }
-  });
-}
+// Legacy moveGroup removed – group movement now handled exclusively by GameTableController via interactionManager
 
 function getGroupPieces(piece) {
   // Use GroupManager - offensive programming
@@ -278,19 +254,16 @@ function detachPieceFromGroup(piece) {
 }
 
 function moveSinglePiece(piece, delta) {
+  // Retained only for potential future direct piece animations; not used in drag path.
   const d =
     delta instanceof Point ? delta : new Point(delta.x || 0, delta.y || 0);
   piece.move(d);
-
-  // Update DOM element position
   const el = pieceElements.get(piece.id);
   if (el) {
-    applyPiecePosition(el, piece);
+    applyPieceTransform(el, piece);
   }
-
-  // Update spatial index
-  if (spatialIndex) {
-    piece.updateSpatialIndex(spatialIndex, el);
+  if (spatialIndex && el) {
+    spatialIndex.update({ id: piece.id, position: piece.getCenter(el) });
   }
 }
 

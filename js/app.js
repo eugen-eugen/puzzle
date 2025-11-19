@@ -19,6 +19,7 @@ import { Util } from "./utils/Util.js";
 import { Piece } from "./model/Piece.js";
 import { loadRemoteImageWithTimeout } from "./imageProcessor.js";
 import { groupManager } from "./GroupManager.js";
+import { gameTableController } from "./GameTableController.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
 import {
   updateViewportTransform,
@@ -461,7 +462,8 @@ async function bootstrap() {
             setCurrentImageSource(imageParam); // Store URL for persistence
             // Map piece count to slider position
             const sliderVal = pieceCountToSlider(desiredPieces);
-            pieceSlider.value = String(sliderVal);
+            // Use exported setter instead of accessing internal DOM element
+            setSliderValue(sliderVal);
             updatePieceDisplay();
             await generatePuzzle();
             // Reset deep link flag so persistence can start saving changes
@@ -520,8 +522,8 @@ async function bootstrap() {
         setPieces: (pieces) => {
           state.pieces = pieces;
           state.totalPieces = pieces.length;
-          // Initialize GroupManager with restored pieces
-          groupManager.initialize();
+          // Defer GroupManager initialization until positions are normalized in renderPiecesFromState.
+          // Controller positions will be synced after rendering.
         },
         redrawPiecesContainer: () => {
           const viewport = getViewport();
@@ -540,6 +542,8 @@ async function bootstrap() {
           }
           captureInitialMargins();
           updateProgress();
+          // Sync controller after rendering existing positions
+          gameTableController.syncAllPositions();
         },
         markDirtyHook: () => updateProgress(),
         showResumePrompt: createResumeModal,

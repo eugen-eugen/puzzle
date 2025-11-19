@@ -8,6 +8,7 @@ import { Rectangle } from "../geometry/Rectangle.js";
 import { state } from "../gameEngine.js";
 import { DEFAULT_PIECE_SCALE } from "../constants/PieceConstants.js";
 import { applyPieceTransform } from "../display.js";
+import { gameTableController } from "../GameTableController.js";
 
 /**
  * Jigsaw puzzle piece class
@@ -115,6 +116,16 @@ export class Piece {
 
     // Set up worldData cache
     this._initializeWorldDataCache();
+
+    // Register with GameTableController for position tracking
+    try {
+      if (gameTableController && gameTableController.registerPiece) {
+        gameTableController.registerPiece(this);
+      }
+    } catch (e) {
+      // Non-fatal: controller may not be initialized yet during early bootstrap
+      console.warn(`[Piece] Controller registration skipped for piece ${this.id}:`, e.message);
+    }
   }
 
   /**
@@ -680,15 +691,8 @@ export class Piece {
   // ===== Utility Methods =====
 
   /**
-   * Update spatial index with current position
-   * @param {SpatialIndex} spatialIndex - Spatial index to update
-   * @param {HTMLElement} [element] - DOM element for accurate dimensions
+   * (Removed) Spatial index updates handled exclusively by GameTableController.
    */
-  updateSpatialIndex(spatialIndex, element = null) {
-    if (!spatialIndex) return;
-    const centerPoint = this.getCenter(element);
-    spatialIndex.update({ id: this.id, position: centerPoint });
-  }
 
   /**
    * Check if this piece is correctly positioned (for puzzle completion)
@@ -708,54 +712,11 @@ export class Piece {
    * @returns {boolean} True if pieces are correctly positioned as neighbors
    */
   isNeighbor(otherPiece, direction) {
-    if (!otherPiece || !this.worldData || !otherPiece.worldData) {
-      return false;
-    }
-
-    const tolerance = 5; // Allow small positioning tolerance in pixels
-    const thisCorners = this.worldData.worldCorners;
-    const otherCorners = otherPiece.worldData.worldCorners;
-
-    switch (direction) {
-      case "north":
-        // North neighbor: this piece's NW/NE should align with other's SW/SE
-        return (
-          Math.abs(thisCorners.nw.x - otherCorners.sw.x) < tolerance &&
-          Math.abs(thisCorners.nw.y - otherCorners.sw.y) < tolerance &&
-          Math.abs(thisCorners.ne.x - otherCorners.se.x) < tolerance &&
-          Math.abs(thisCorners.ne.y - otherCorners.se.y) < tolerance
-        );
-
-      case "south":
-        // South neighbor: this piece's SW/SE should align with other's NW/NE
-        return (
-          Math.abs(thisCorners.sw.x - otherCorners.nw.x) < tolerance &&
-          Math.abs(thisCorners.sw.y - otherCorners.nw.y) < tolerance &&
-          Math.abs(thisCorners.se.x - otherCorners.ne.x) < tolerance &&
-          Math.abs(thisCorners.se.y - otherCorners.ne.y) < tolerance
-        );
-
-      case "east":
-        // East neighbor: this piece's NE/SE should align with other's NW/SW
-        return (
-          Math.abs(thisCorners.ne.x - otherCorners.nw.x) < tolerance &&
-          Math.abs(thisCorners.ne.y - otherCorners.nw.y) < tolerance &&
-          Math.abs(thisCorners.se.x - otherCorners.sw.x) < tolerance &&
-          Math.abs(thisCorners.se.y - otherCorners.sw.y) < tolerance
-        );
-
-      case "west":
-        // West neighbor: this piece's NW/SW should align with other's NE/SE
-        return (
-          Math.abs(thisCorners.nw.x - otherCorners.ne.x) < tolerance &&
-          Math.abs(thisCorners.nw.y - otherCorners.ne.y) < tolerance &&
-          Math.abs(thisCorners.sw.x - otherCorners.se.x) < tolerance &&
-          Math.abs(thisCorners.sw.y - otherCorners.se.y) < tolerance
-        );
-
-      default:
-        return false;
-    }
+    // Phase 2: Delegate to GameTableController when available
+    // Always use controller-based neighbor logic (legacy fallback removed)
+    return gameTableController.arePiecesNeighbors(this, otherPiece);
+    /* Legacy geometric code removed intentionally. Direction-specific checks
+       can be reintroduced inside controller if needed. */
   }
 
   /**
@@ -765,17 +726,8 @@ export class Piece {
    * @returns {boolean} True if pieces are neighbors in any direction
    */
   isAnyNeighbor(otherPiece) {
-    if (!otherPiece) {
-      return false;
-    }
-
-    // Check all four directions
-    return (
-      this.isNeighbor(otherPiece, "north") ||
-      this.isNeighbor(otherPiece, "south") ||
-      this.isNeighbor(otherPiece, "east") ||
-      this.isNeighbor(otherPiece, "west")
-    );
+    // Phase 2: Use controller-level neighbor logic when available
+    return gameTableController.arePiecesNeighbors(this, otherPiece);
   }
 
   /**
