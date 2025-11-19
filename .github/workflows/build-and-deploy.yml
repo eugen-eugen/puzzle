@@ -1,0 +1,54 @@
+name: Build and Deploy to Release Branch
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build application
+        run: npm run build
+
+      - name: Deploy to release branch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create or checkout release branch
+          git checkout -B release
+          
+          # Remove all files except dist and .git
+          find . -maxdepth 1 ! -name 'dist' ! -name '.git' ! -name '.' ! -name '..' -exec rm -rf {} +
+          
+          # Move dist contents to root
+          mv dist/* .
+          mv dist/.* . 2>/dev/null || true
+          rmdir dist
+          
+          # Add all changes
+          git add -A
+          
+          # Commit and push
+          git commit -m "chore: deploy build from commit ${{ github.sha }}" || echo "No changes to commit"
+          git push origin release --force
