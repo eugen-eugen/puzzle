@@ -4,10 +4,7 @@ import "../css/piece-box.css";
 import "../css/animations.css";
 
 import { renderPiecesAtPositions } from "./piece-renderer.js";
-import {
-  getPieceElement,
-  setSelectionChangeCallback,
-} from "./interaction-manager.js";
+import { setSelectionChangeCallback } from "./interaction-manager.js";
 import {
   initPersistence,
   clearSavedGame,
@@ -19,9 +16,7 @@ import { initI18n, t, applyTranslations } from "./i18n.js";
 import { Point } from "./geometry/point.js";
 import { Rectangle } from "./geometry/rectangle.js";
 import { Util } from "./utils/util.js";
-import { Piece } from "./model/piece.js";
 import { loadRemoteImageWithTimeout } from "./image-processor.js";
-import { groupManager } from "./group-manager.js";
 import { gameTableController } from "./game-table-controller.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
 import {
@@ -498,55 +493,60 @@ async function bootstrap() {
   setSelectionChangeCallback(updateOrientationTipButton);
 
   // Initialize persistence after i18n so modal is translated
-  setPersistence({ initPersistence, clearSavedGame, tryOfferResume, requestAutoSave });
+  setPersistence({
+    initPersistence,
+    clearSavedGame,
+    tryOfferResume,
+    requestAutoSave,
+  });
   initPersistence({
-        getViewportState,
-        applyViewportState,
-        getSliderValue,
-        setSliderValue,
-        getCurrentImage,
-        getCurrentImageSource,
-        getCurrentImageId,
-        setImage: setCurrentImage,
-        setImageSource: setCurrentImageSource,
-        setImageId: setCurrentImageId,
-        regenerate: generatePuzzle,
-        getState: () => state,
-        setPieces: (pieces) => {
-          state.pieces = pieces;
-          state.totalPieces = pieces.length;
-          // Defer GroupManager initialization until positions are normalized in renderPiecesFromState.
-          // Controller positions will be synced after rendering.
-        },
-        redrawPiecesContainer: () => {
-          const viewport = getViewport();
-          if (viewport) {
-            viewport.innerHTML = "";
-            scatterInitialPieces(viewport, state.pieces);
-          }
-          captureInitialMargins();
-          updateProgress();
-        },
-        renderPiecesFromState: () => {
-          const viewport = getViewport();
-          if (viewport) {
-            viewport.innerHTML = "";
-            renderPiecesAtPositions(viewport, state.pieces);
-          }
-          captureInitialMargins();
-          updateProgress();
-          // Sync controller after rendering existing positions
-          gameTableController.syncAllPositions();
-        },
-        markDirtyHook: () => updateProgress(),
-        showResumePrompt: createResumeModal,
-        afterDiscard: () => {
-          updateProgress();
-          // Immediately show file selection dialog when user selects "new session"
-          imageInput.click();
-        },
-      });
-  
+    getViewportState,
+    applyViewportState,
+    getSliderValue,
+    setSliderValue,
+    getCurrentImage,
+    getCurrentImageSource,
+    getCurrentImageId,
+    setImage: setCurrentImage,
+    setImageSource: setCurrentImageSource,
+    setImageId: setCurrentImageId,
+    regenerate: generatePuzzle,
+    getState: () => state,
+    setPieces: (pieces) => {
+      state.pieces = pieces;
+      state.totalPieces = pieces.length;
+      // Defer GroupManager initialization until positions are normalized in renderPiecesFromState.
+      // Controller positions will be synced after rendering.
+    },
+    redrawPiecesContainer: () => {
+      const viewport = getViewport();
+      if (viewport) {
+        viewport.innerHTML = "";
+        scatterInitialPieces(viewport, state.pieces);
+      }
+      captureInitialMargins();
+      updateProgress();
+    },
+    renderPiecesFromState: () => {
+      const viewport = getViewport();
+      if (viewport) {
+        viewport.innerHTML = "";
+        renderPiecesAtPositions(viewport, state.pieces);
+      }
+      captureInitialMargins();
+      updateProgress();
+      // Sync controller after rendering existing positions
+      gameTableController.syncAllPositions();
+    },
+    markDirtyHook: () => updateProgress(),
+    showResumePrompt: createResumeModal,
+    afterDiscard: () => {
+      updateProgress();
+      // Immediately show file selection dialog when user selects "new session"
+      imageInput.click();
+    },
+  });
+
   if (deepLinkActive) {
     // User requested deep link session: discard any previous save silently
     try {

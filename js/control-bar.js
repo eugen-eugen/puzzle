@@ -21,11 +21,7 @@ import {
   WHEEL_ZOOM_IN_FACTOR,
   WHEEL_ZOOM_OUT_FACTOR,
 } from "./display.js";
-import {
-  isIndexedDBSupported,
-  storeImageInDB,
-  loadImageFromDB,
-} from "./indexed-db-storage.js";
+import { isIndexedDBSupported, storeImageInDB } from "./indexed-db-storage.js";
 
 // Forward declaration for captureInitialMargins - will be set by app.js
 let captureInitialMargins = null;
