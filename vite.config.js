@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import { copyFileSync, mkdirSync } from "fs";
+import { copyFileSync, mkdirSync, readdirSync } from "fs";
 import { resolve } from "path";
 
 export default defineConfig({
@@ -16,18 +16,21 @@ export default defineConfig({
     {
       name: "copy-i18n",
       closeBundle() {
+        const srcDir = resolve(__dirname, "i18n");
         const outDir = resolve(__dirname, "dist/i18n");
         mkdirSync(outDir, { recursive: true });
-        ["en.json", "de.json", "ru.json", "ua.json"].forEach((file) => {
-          try {
-            copyFileSync(
-              resolve(__dirname, `i18n/${file}`),
-              resolve(outDir, file)
-            );
-          } catch (e) {
-            console.warn(`Could not copy i18n/${file}:`, e.message);
-          }
-        });
+
+        try {
+          const files = readdirSync(srcDir).filter((file) =>
+            file.endsWith(".json")
+          );
+          files.forEach((file) => {
+            copyFileSync(resolve(srcDir, file), resolve(outDir, file));
+          });
+          console.log(`Copied ${files.length} i18n files to dist/i18n`);
+        } catch (e) {
+          console.warn(`Could not copy i18n files:`, e.message);
+        }
       },
     },
   ],

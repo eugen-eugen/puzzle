@@ -3,6 +3,19 @@ import "../css/main.css";
 import "../css/piece-box.css";
 import "../css/animations.css";
 
+// Register service worker
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker
+      .register(new URL("../service-worker.js", import.meta.url), {
+        type: "module",
+      })
+      .catch((err) => {
+        console.warn("SW registration failed", err);
+      });
+  });
+}
+
 import { renderPiecesAtPositions } from "./piece-renderer.js";
 import { setSelectionChangeCallback } from "./interaction-manager.js";
 import {
