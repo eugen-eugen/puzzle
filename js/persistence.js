@@ -2,10 +2,10 @@
 // Avoids quota issues by default (does NOT store per-piece bitmap data URLs unless enabled).
 // Regenerates piece bitmaps from the original image + geometry on load.
 
-import { Piece } from "./model/Piece.js";
-import { Point } from "./geometry/Point.js";
-import { Rectangle } from "./geometry/Rectangle.js";
-import { Util } from "./utils/Util.js";
+import { Piece } from "./model/piece.js";
+import { Point } from "./geometry/point.js";
+import { Rectangle } from "./geometry/rectangle.js";
+import { Util } from "./utils/util.js";
 import { isIndexedDBSupported, loadImageFromDB } from "./indexedDBStorage.js";
 
 const LS_KEY = "puzzle.save.v2";

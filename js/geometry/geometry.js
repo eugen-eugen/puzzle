@@ -1,7 +1,7 @@
-// geometry/Geometry.js - Geometric calculations for jigsaw puzzle generation
+// geometry/geometry.js - Geometric calculations for jigsaw puzzle generation
 // Handles corner lattice building, side waypoint generation, and related calculations
 
-import { Point } from "./Point.js";
+import { Point } from "./point.js";
 
 // ================================
 // Geometry Constants

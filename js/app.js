@@ -3,7 +3,6 @@ import "../css/main.css";
 import "../css/piece-box.css";
 import "../css/animations.css";
 
-import { initCommChannel } from "./windowManager.js";
 import { renderPiecesAtPositions } from "./pieceRenderer.js";
 import {
   getPieceElement,
@@ -13,14 +12,14 @@ import {
 // We'll dynamically import persistence so this file can export helpers first.
 import { state } from "./gameEngine.js";
 import { initI18n, t, applyTranslations } from "./i18n.js";
-import { Point } from "./geometry/Point.js";
-import { Rectangle } from "./geometry/Rectangle.js";
-import { Util } from "./utils/Util.js";
-import { Piece } from "./model/Piece.js";
+import { Point } from "./geometry/point.js";
+import { Rectangle } from "./geometry/rectangle.js";
+import { Util } from "./utils/util.js";
+import { Piece } from "./model/piece.js";
 import { loadRemoteImageWithTimeout } from "./imageProcessor.js";
-import { groupManager } from "./GroupManager.js";
-import { gameTableController } from "./GameTableController.js";
-import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
+import { groupManager } from "./group-manager.js";
+import { gameTableController } from "./game-table-controller.js";
+import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
 import {
   updateViewportTransform,
   initViewport,
@@ -496,7 +495,6 @@ async function bootstrap() {
   } catch (err) {
     console.warn("[deep-link] Error processing deep link params", err);
   }
-  initCommChannel(updateProgress);
 
   // Set up piece selection callback for orientation tip button
   setSelectionChangeCallback(updateOrientationTipButton);

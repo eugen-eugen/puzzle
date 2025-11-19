@@ -2,11 +2,11 @@
 import { state } from "./gameEngine.js";
 import { initConnectionManager } from "./connectionManager.js";
 import { updateProgress } from "./controlBar.js";
-import { Point } from "./geometry/Point.js";
+import { Point } from "./geometry/point.js";
 import { applyPieceTransform } from "./display.js";
-import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
-import { groupManager } from "./GroupManager.js";
-import { gameTableController } from "./GameTableController.js";
+import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
+import { groupManager } from "./group-manager.js";
+import { gameTableController } from "./game-table-controller.js";
 import {
   initializeInteractions,
   getSelectedPiece,

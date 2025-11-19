@@ -350,8 +350,7 @@ puzzle/
 │   ├── jigsawGenerator.js  # Waypoint-based piece generation
 │   ├── gameEngine.js       # Core state container
 │   ├── connectionManager.js# (Planned) connection detection logic
-│   ├── pieceRenderer.js    # DOM/canvas piece rendering & interaction
-│   └── windowManager.js    # Simplified progress event dispatcher
+│   └── pieceRenderer.js    # DOM/canvas piece rendering & interaction
 ├── assets/ (optional)
 └── docs/
   ├── GAME_SPECIFICATION.md

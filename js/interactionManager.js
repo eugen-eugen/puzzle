@@ -1,6 +1,6 @@
 // interactionManager.js - interact.js integration for puzzle pieces
 
-import { Point } from "./geometry/Point.js";
+import { Point } from "./geometry/point.js";
 import {
   clearAllPieceOutlines,
   ensureRectInView,
@@ -8,8 +8,8 @@ import {
   getViewportState,
   calculatePiecesBounds,
 } from "./app.js";
-import { groupManager } from "./GroupManager.js";
-import { gameTableController } from "./GameTableController.js";
+import { groupManager } from "./group-manager.js";
+import { gameTableController } from "./game-table-controller.js";
 import { screenToViewport, enforceInitialMargins } from "./display.js";
 import { handleDragMove, handleDragEnd } from "./connectionManager.js";
 import { state } from "./gameEngine.js";

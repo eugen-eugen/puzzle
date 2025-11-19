@@ -32,7 +32,6 @@
 | `js/gameEngine.js` | Central mutable state container (pieces, totals, snap settings) |
 | `js/persistence.js` | Serialize / deserialize puzzle state into `localStorage` (light mode by default) |
 | `js/imageProcessor.js` | Image normalization & downscaling pipeline |
-| `js/windowManager.js` | Minimal event channel (legacy simplification – single window now) |
 
 > The design favors small focused modules over a monolithic engine to keep iteration fast.
 
@@ -270,7 +269,6 @@ puzzle/
     spatialIndex.js
     gameEngine.js
     imageProcessor.js
-    windowManager.js
   css/
     (stylesheets)
 ```

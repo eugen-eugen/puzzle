@@ -3,7 +3,7 @@
 // Provides rectangle operations including union, intersection, and bounds calculations.
 // Designed to work seamlessly with Point class for consistent geometry operations.
 
-import { Point } from "./Point.js";
+import { Point } from "./point.js";
 
 export class Rectangle {
   constructor(x = 0, y = 0, width = 0, height = 0) {

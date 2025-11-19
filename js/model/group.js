@@ -3,11 +3,11 @@
 // Represents a collection of connected puzzle pieces that move together.
 // Handles group membership, transformations, and group-level operations.
 
-import { Point } from "../geometry/Point.js";
-import { Rectangle } from "../geometry/Rectangle.js";
+import { Point } from "../geometry/point.js";
+import { Rectangle } from "../geometry/rectangle.js";
 import { applyPieceTransform } from "../display.js";
 import { Graph, alg } from "graphlib";
-import { gameTableController } from "../GameTableController.js";
+import { gameTableController } from "../game-table-controller.js";
 
 export class Group {
   /**

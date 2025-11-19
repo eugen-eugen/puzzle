@@ -6,9 +6,9 @@
 // Phase 2 (future): Migrate position storage entirely here & deprecate
 //                   Piece.isNeighbor / isAnyNeighbor.
 
-import { Point } from "./geometry/Point.js";
+import { Point } from "./geometry/point.js";
 import { applyPieceTransform } from "./display.js";
-import { groupManager } from "./GroupManager.js";
+import { groupManager } from "./group-manager.js";
 import { state } from "./gameEngine.js";
 // Spatial index now fully managed here
 import { SpatialIndex, chooseCellSize } from "./spatialIndex.js";

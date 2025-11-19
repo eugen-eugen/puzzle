@@ -19,7 +19,6 @@ const CORE_ASSETS = [
   "/js/spatialIndex.js",
   "/js/persistence.js",
   "/js/imageProcessor.js",
-  "/js/windowManager.js",
   "/js/i18n.js",
   "/i18n/en.json",
   "/i18n/de.json",

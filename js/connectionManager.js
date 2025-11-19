@@ -6,13 +6,11 @@
 
 import { state, connectPieces } from "./gameEngine.js";
 import { getCurrentZoom } from "./app.js";
-import { updateProgress } from "./controlBar.js";
 import { applyPieceTransform } from "./display.js";
-import { gameTableController } from "./GameTableController.js";
+import { gameTableController } from "./game-table-controller.js";
 // Geometry utilities (new Point-based refactor)
-import { Point, dist2 as pointDist2 } from "./geometry/Point.js";
-import { DEFAULT_PIECE_SCALE } from "./constants/PieceConstants.js";
-import { groupManager } from "./GroupManager.js";
+import { Point, dist2 as pointDist2 } from "./geometry/point.js";
+import { groupManager } from "./group-manager.js";
 
 // ================================
 // Module Constants

@@ -10,7 +10,6 @@
 - Initialize JS modules:
   - `app.js` (bootstrap + state init)
   - `imageProcessor.js`, `jigsawGenerator.js`, `pieceRenderer.js`, `connectionManager.js` (planned), `gameEngine.js`
-  - `windowManager.js` (now minimal progress dispatcher; may be renamed later)
 - No cross-window drag module; single DOM hierarchy simplifies events
 - Offline-friendly: pure ES modules, optional bundling deferred
 
@@ -83,7 +82,6 @@ Eliminated. All interactivity resides in one window; no synchronization layer re
 - `pieceRenderer`: DOM canvas rendering, drag, rotation
 - `connectionManager`: (Upcoming) proximity and edge compatibility evaluation
 - `gameEngine`: Central state (pieces, groups, progress)
-- `windowManager`: Minimal progress dispatcher (legacy name; no multi-window logic)
 
 ### State Model (Sketch)
 ```js

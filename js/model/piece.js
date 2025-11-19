@@ -3,12 +3,12 @@
 // Integrates with Point geometry system and provides automatic worldData caching
 // Updated: 2025-11-13 - Legacy methods removed, GroupManager enforced
 
-import { Point } from "../geometry/Point.js";
-import { Rectangle } from "../geometry/Rectangle.js";
+import { Point } from "../geometry/point.js";
+import { Rectangle } from "../geometry/rectangle.js";
 import { state } from "../gameEngine.js";
-import { DEFAULT_PIECE_SCALE } from "../constants/PieceConstants.js";
+import { DEFAULT_PIECE_SCALE } from "../constants/piece-constants.js";
 import { applyPieceTransform } from "../display.js";
-import { gameTableController } from "../GameTableController.js";
+import { gameTableController } from "../game-table-controller.js";
 
 /**
  * Jigsaw puzzle piece class
@@ -37,9 +37,9 @@ export class Piece {
           stackTrace.includes("constructor");
         const isFromGroupManager =
           stackTrace.includes("GroupManager") ||
-          stackTrace.includes("/GroupManager.js");
+          stackTrace.includes("/group-manager.js");
         const isFromGroup =
-          stackTrace.includes("/Group.js") || stackTrace.includes("Group");
+          stackTrace.includes("/group.js") || stackTrace.includes("Group");
         const isFromSerialization =
           stackTrace.includes("serialize") ||
           stackTrace.includes("deserialize") ||

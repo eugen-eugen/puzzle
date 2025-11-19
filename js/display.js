@@ -7,10 +7,10 @@
 // - Silently no-ops if arguments are missing.
 // - Returns the element for chaining.
 
-import { Point } from "./geometry/Point.js";
+import { Point } from "./geometry/point.js";
 import { getPieceElement } from "./interactionManager.js";
-import { Util } from "./utils/Util.js";
-import { groupManager } from "./GroupManager.js";
+import { Util } from "./utils/util.js";
+import { groupManager } from "./group-manager.js";
 
 // Display Constants
 const MIN_ZOOM = 0.1;

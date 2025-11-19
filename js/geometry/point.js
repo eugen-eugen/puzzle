@@ -10,7 +10,7 @@
 // - Mutating methods are prefixed with `mut` and return `this` for chaining.
 // - Static helpers accept either plain objects `{x,y}` or Point instances.
 
-import { Util } from "../utils/Util.js";
+import { Util } from "../utils/util.js";
 // All rotation methods use degrees for consistency and ease of use.
 //
 // Incremental adoption strategy:

@@ -9,9 +9,9 @@ import {
   fixSelectedPieceOrientation,
 } from "./interactionManager.js";
 import { state } from "./gameEngine.js";
-import { groupManager } from "./GroupManager.js";
+import { groupManager } from "./group-manager.js";
 import { t } from "./i18n.js";
-import { Point } from "./geometry/Point.js";
+import { Point } from "./geometry/point.js";
 import {
   getViewport,
   setZoom,
