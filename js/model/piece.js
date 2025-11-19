@@ -23,6 +23,7 @@ export class Piece {
 
     // Initialize groupId - only the constructor and GroupManager should set this
     this._groupId = data.groupId || `g${data.id}`;
+    this._allowGroupIdChange = true; // Allow changes during construction
 
     // Define groupId property with getter/setter to track modifications
     Object.defineProperty(this, "groupId", {
@@ -30,28 +31,7 @@ export class Piece {
         return this._groupId;
       },
       set(value) {
-        // Only allow setting from trusted sources
-        const stackTrace = new Error().stack || "";
-        const isFromConstructor =
-          stackTrace.includes("new Piece") ||
-          stackTrace.includes("constructor");
-        const isFromGroupManager =
-          stackTrace.includes("GroupManager") ||
-          stackTrace.includes("/group-manager.js");
-        const isFromGroup =
-          stackTrace.includes("/group.js") || stackTrace.includes("Group");
-        const isFromSerialization =
-          stackTrace.includes("serialize") ||
-          stackTrace.includes("deserialize") ||
-          stackTrace.includes("persistence");
-
-        const isTrusted =
-          isFromConstructor ||
-          isFromGroupManager ||
-          isFromGroup ||
-          isFromSerialization;
-
-        if (!isTrusted) {
+        if (!this._allowGroupIdChange) {
           const error = new Error(
             `[Piece] Direct groupId modification is not allowed for piece ${this.id}. Use GroupManager operations instead.`
           );
@@ -59,7 +39,6 @@ export class Piece {
           console.trace("Stack trace for unauthorized groupId modification:");
           throw error;
         }
-
         this._groupId = value;
       },
       enumerable: true,
@@ -129,6 +108,9 @@ export class Piece {
         e.message
       );
     }
+
+    // Lock groupId changes after construction
+    this._allowGroupIdChange = false;
   }
 
   /**
@@ -510,6 +492,17 @@ export class Piece {
   }
 
   // ===== Group Management =====
+
+  /**
+   * Internal method to change groupId - only for use by GroupManager and Group
+   * @param {string} newGroupId - New group ID
+   * @private
+   */
+  _setGroupId(newGroupId) {
+    this._allowGroupIdChange = true;
+    this.groupId = newGroupId;
+    this._allowGroupIdChange = false;
+  }
 
   // getGroupPieces() method has been removed - use GroupManager.getGroup().getPieces() instead
 

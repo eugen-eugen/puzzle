@@ -31,7 +31,7 @@ export class Group {
       }
       // Assign groupId regardless of validation outcome (if disabled we trust persisted layout)
       initialPieces.forEach((piece) => {
-        if (piece) piece.groupId = this.id;
+        if (piece) piece._setGroupId(this.id);
       });
       this._updateBorderPieces();
     }
@@ -65,7 +65,7 @@ export class Group {
     validPieces.forEach((piece) => {
       if (!this.pieces.has(piece)) {
         this.pieces.add(piece);
-        piece.groupId = this.id;
+        piece._setGroupId(this.id);
         added++;
       }
     });
@@ -90,7 +90,7 @@ export class Group {
     pieces.forEach((piece) => {
       if (piece && this.pieces.has(piece)) {
         this.pieces.delete(piece);
-        piece.groupId = null;
+        piece._setGroupId(null);
         removed++;
       }
     });
@@ -124,7 +124,7 @@ export class Group {
     this.pieces.clear();
     largestSubGroup.forEach((piece) => {
       this.pieces.add(piece);
-      piece.groupId = this.id;
+      piece._setGroupId(this.id);
     });
     this._updateBorderPieces();
 
@@ -169,7 +169,7 @@ export class Group {
    */
   clear() {
     this.pieces.forEach((piece) => {
-      piece.groupId = null;
+      piece._setGroupId(null);
     });
     this.pieces.clear();
     this.borderPieces.clear();

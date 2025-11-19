@@ -55,7 +55,7 @@ class GroupManager {
         // Fallback: create individual groups for disconnected pieces
         pieces.forEach((piece) => {
           const newGroupId = this.generateGroupId();
-          piece.groupId = newGroupId;
+          piece._setGroupId(newGroupId);
           const singleGroup = new Group(newGroupId, [piece]);
           this.groups.set(newGroupId, singleGroup);
         });
@@ -131,7 +131,7 @@ class GroupManager {
    */
   createSinglePieceGroup(piece) {
     const newGroupId = this.generateGroupId();
-    piece.groupId = newGroupId;
+    piece._setGroupId(newGroupId);
 
     const group = new Group(newGroupId, [piece]);
     this.groups.set(newGroupId, group);
