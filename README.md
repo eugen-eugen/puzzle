@@ -2,6 +2,10 @@
 
 > A lightweight, offline‑capable, single–page jigsaw puzzle app that turns any uploaded image into an interactive puzzle with drag, rotate, group merge, detach, zoom & persistent resume.
 
+## 🎮 [Play Now on GitHub Pages](https://eugen-eugen.github.io/puzzle/)
+
+Try the app directly in your browser without any installation!
+
 ---
 ## ✨ Key Features (Current)
 - Local image upload (JPEG / PNG) with automatic downscale (max side 3000px)
@@ -27,11 +31,15 @@
 | `js/app.js` | UI bootstrap, zoom/pan, progress, resume modal, orchestrates modules |
 | `js/jigsaw-generator.js` | Generates pieces via lattice + side waypoints, assigns polarity & geometry |
 | `js/piece-renderer.js` | Renders canvases inside absolutely positioned DIV wrappers and handles drag / rotate |
-| `js/connection-manager.js` | Geometric side matching (corner + sPoint waypoint checks) + group merging |
-| `js/spatial-index.js` | Uniform grid spatial index (currently) for coarse candidate lookup |
+| `js/connection-manager.js` | Geometric side matching (corner + sPoint waypoint checks) + group merging with border piece detection |
+| `js/spatial-index.js` | Uniform grid spatial index for coarse candidate lookup |
 | `js/game-engine.js` | Central mutable state container (pieces, totals, snap settings) |
+| `js/group-manager.js` | Group lifecycle management, merging, detachment, and connectivity validation |
+| `js/model/group.js` | Group data model with border piece tracking and fragmentation detection |
+| `js/model/piece.js` | Piece data model with geometry, transforms, and protected groupId property |
 | `js/persistence.js` | Serialize / deserialize puzzle state into `localStorage` (light mode by default) |
 | `js/image-processor.js` | Image normalization & downscaling pipeline |
+| `js/i18n.js` | Internationalization system with dynamic JSON locale loading |
 
 > The design favors small focused modules over a monolithic engine to keep iteration fast.
 
@@ -48,17 +56,20 @@ This avoids Bezier curves (straight segment geometry) while retaining traditiona
 
 ---
 ##  Connection Detection Summary
-A dragged piece (or group) is tested against nearby candidates:
-1. Spatial index fetches coarse candidate IDs
-2. For each side pair: ensure both are interior & polarity complementary
-3. Compare (in world space, rotation & translation applied):
+A dragged piece (or group) is tested against nearby candidates using intelligent border piece detection:
+
+1. **Border Piece Detection**: Groups track pieces with fewer than 4 neighbors (edge/corner pieces of the group)
+2. **Multi-Candidate Testing**: During drag, all border pieces simultaneously check for connections
+3. **Spatial Index Query**: Coarse candidate lookup for each border piece
+4. **Geometric Validation**: For each side pair:
+   - Both sides must be interior & polarity complementary
    - Both corner ↔ corner squared distances within tolerance
    - Side length difference within tolerance
-   - Corner→sPoint structural distances (two comparisons) within tolerance
-4. Best (lowest aggregate corner distance) candidate highlighted
-5. On release: fine translation so matched corner aligns exactly, groups merge
+   - Corner→sPoint structural distances within tolerance
+5. **Multi-Highlight System**: All matching stationary pieces are highlighted green (not just best match)
+6. **Connection on Release**: Best (lowest aggregate corner distance) candidate is connected, groups merge with exact corner alignment
 
-No multi‑tier “near/ready” states—only definitive highlight.
+This system provides better visual feedback by showing all potential connections simultaneously, making it easier to understand which pieces can connect.
 
 ---
 ##  Progress Scoring
@@ -242,10 +253,15 @@ alert(t('error.generate', { error: e.message }));
 
 ---
 ## 🧪 Development Notes
-- Pure ES modules, no bundler required
-- Keep modules small; avoid circular imports (persistence is lazy‑loaded)
+- Pure ES modules, built with Vite for production
+- Keep modules small; avoid circular imports
 - For performance profiling: add selective logging or wrap spatial queries
 - To experiment with tolerances, adjust constants in `connection-manager.js`
+
+### Recent Enhancements
+- **Border Piece Connection Detection**: Groups track "border pieces" (pieces with <4 neighbors). During drag, all border pieces check for connections simultaneously, not just the dragged piece.
+- **Multi-Highlight System**: All stationary pieces that border pieces can connect to are highlighted green during drag, providing better visual feedback.
+- **Production Build**: GitHub Actions workflow automatically builds and deploys to `release` branch with proper asset paths for GitHub Pages.
 
 ### Suggested Debug Enhancements (Not yet included)
 - Toggle overlays for world corners & sPoints

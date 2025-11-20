@@ -81,8 +81,9 @@ While a piece (or group) is being dragged, the system attempts to identify one o
 
 ##### Highlight Behavior
 - When all criteria (1.1–1.5) are satisfied for a candidate, that stationary piece (or group) enters a "candidate" highlight state (green outline/glow).
+- **Multi-Highlight System**: All stationary pieces that any border piece of the dragged group can connect to are highlighted simultaneously, not just the best match. This provides comprehensive visual feedback about all potential connection points.
 - If criteria partially satisfied (e.g., corner proximity true but distance match failing) nothing is highlighted—no multi-tier near/ready states in this revised logic.
-- Highlight persists only while the drag continues and criteria remain satisfied.
+- Highlight persists only while the drag continues and criteria remain satisfied for each highlighted piece.
 
 ##### Connection on Release
 1. User releases mouse/touch ending the drag.
@@ -90,12 +91,20 @@ While a piece (or group) is being dragged, the system attempts to identify one o
 3. Fine placement: The moving piece (or entire moving group) is translated so that one chosen corner (the first matching corner) exactly coincides with its counterpart corner on the stationary piece. Rotation is not altered (only 0°, 90°, 180°, 270° orientations are valid, preventing near-miss angle cases).
 4. Positional refinement (optional): Adjust translation minimally to reduce any residual offset between both corners (<= ALIGNMENT_TOLERANCE).
 
+##### Border Piece System
+Each group maintains a list of "border pieces" - pieces with fewer than 4 neighbors within the group. This enables intelligent connection detection:
+- **Border Detection**: Automatically identifies edge and corner pieces of each group using grid coordinate-based neighbor counting
+- **Multi-Candidate Testing**: During drag, all border pieces simultaneously check for potential connections (not just the dragged piece)
+- **Multi-Highlight Feedback**: All stationary pieces that any border piece can connect to are highlighted green during drag
+- **Performance**: Uses O(1) grid coordinate lookup via Map for efficient neighbor detection
+
 ##### Grouping Rules
 - If neither piece belongs to a group, a new group is formed containing both.
 - If the moving piece belongs to an existing group and the stationary piece does not, the stationary piece joins that group.
 - If the stationary piece belongs to a group and the moving piece does not, the moving piece (and any attached pieces if dragging a subgroup) join that stationary group.
 - If both belong to different groups, the two groups are merged into a single unified group.
 - After merging, future drags treat the entire merged group as one movable entity (shared bounding box, shared selection outline).
+- Border pieces are automatically updated when pieces are added, removed, or groups merge.
 
 ##### Data Needed per Side (for implementation reference)
 ```javascript

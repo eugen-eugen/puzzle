@@ -578,7 +578,12 @@ async function bootstrap() {
 bootstrap();
 
 // Create and show a custom modal dialog for resuming a saved game
-function createResumeModal({ onResume, onDiscard, onCancel }) {
+function createResumeModal({
+  onResume,
+  onDiscard,
+  onCancel,
+  hasResume = true,
+}) {
   // Avoid duplicate modal
   const existing = document.getElementById("resume-modal-overlay");
   if (existing) existing.remove();
@@ -610,22 +615,40 @@ function createResumeModal({ onResume, onDiscard, onCancel }) {
 
   const overlay = document.createElement("div");
   overlay.id = "resume-modal-overlay";
+
+  // Build actions HTML based on whether there's a saved game
+  const actionsHTML = hasResume
+    ? `
+    <button class="resume-primary" data-action="resume">${t(
+      "resume.resume"
+    )}</button>
+    <button class="resume-warn" data-action="cancel">${t(
+      "resume.cancel"
+    )}</button>
+    <button class="resume-danger" data-action="discard">${t(
+      "resume.discard"
+    )}</button>
+  `
+    : `
+    <button class="resume-primary" data-action="discard">${t(
+      "welcome.start"
+    )}</button>
+    <button class="resume-warn" data-action="cancel">${t(
+      "resume.cancel"
+    )}</button>
+  `;
+
   overlay.innerHTML = `
     <div class="resume-modal" role="dialog" aria-modal="true" aria-labelledby="resume-modal-title">
-      <h2 id="resume-modal-title">${t("resume.title")}</h2>
-      <p>${t("resume.message")}</p>
+      <div style="text-align: center; font-size: 4rem; margin-bottom: 12px; line-height: 1;">🧩</div>
+      <h2 id="resume-modal-title">${
+        hasResume ? t("resume.title") : t("welcome.title")
+      }</h2>
+      <p>${hasResume ? t("resume.message") : t("welcome.message")}</p>
       <div class="resume-actions">
-        <button class="resume-primary" data-action="resume">${t(
-          "resume.resume"
-        )}</button>
-        <button class="resume-warn" data-action="cancel">${t(
-          "resume.cancel"
-        )}</button>
-        <button class="resume-danger" data-action="discard">${t(
-          "resume.discard"
-        )}</button>
+        ${actionsHTML}
       </div>
-      <div class="resume-meta">${t("resume.meta")}</div>
+      ${hasResume ? `<div class="resume-meta">${t("resume.meta")}</div>` : ""}
     </div>`;
   document.body.appendChild(overlay);
 

@@ -182,18 +182,22 @@ function clearSavedGame() {
 }
 
 function tryOfferResume() {
-  if (!hasSavedGame()) return;
+  const hasGame = hasSavedGame();
   if (api && typeof api.showResumePrompt === "function") {
     api.showResumePrompt({
-      onResume: () => loadGame(),
+      onResume: hasGame ? () => loadGame() : null,
       onDiscard: () => {
-        clearSavedGame();
+        if (hasGame) clearSavedGame();
         if (api.afterDiscard) api.afterDiscard();
       },
       onCancel: () => {},
+      hasResume: hasGame,
     });
-  } else if (window.confirm("Resume previous puzzle session?")) {
+  } else if (hasGame && window.confirm("Resume previous puzzle session?")) {
     loadGame();
+  } else if (!hasGame && api.afterDiscard) {
+    // No saved game - show file picker immediately
+    api.afterDiscard();
   }
 }
 
