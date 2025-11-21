@@ -323,7 +323,9 @@ function selectPiece(id) {
   const el = pieceElements.get(numericId);
   if (el) {
     el.classList.add("selected");
-    el.style.zIndex = Date.now().toString();
+
+    // Bring selected piece and its entire group to the front
+    gameTableController.bringToFront(numericId);
   } else {
     console.warn(
       "[interactionManager] selectPiece: element not found for ID",
@@ -387,6 +389,9 @@ function detachPieceFromGroup(piece) {
     );
     return; // Exit early if detachment fails
   }
+
+  // Bring detached piece to front to ensure it's above the original group
+  gameTableController.bringToFront(piece.id);
 
   const el = pieceElements.get(piece.id);
   if (el) {

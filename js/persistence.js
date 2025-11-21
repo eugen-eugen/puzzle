@@ -402,6 +402,7 @@ function reconstructPieces(data, masterImage) {
       rotation: sp.rotation,
       position: new Point(sp.displayX || 0, sp.displayY || 0),
       groupId: sp.groupId,
+      zIndex: sp.zIndex,
       edges: sp.edges,
       sPoints: sp.sPoints,
       w: sp.w,

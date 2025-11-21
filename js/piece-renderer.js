@@ -74,6 +74,17 @@ export function scatterInitialPieces(container, pieces) {
   const avgSize =
     (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
     SCALE;
+
+  // Step 1: Apply random rotation to each piece (0°, 90°, 180°, or 270°)
+  const rotations = [0, 90, 180, 270];
+  pieces.forEach((p) => {
+    const randomRotation =
+      rotations[Math.floor(Math.random() * rotations.length)];
+    p.setRotation(randomRotation);
+  });
+
+  // Step 2: Generate initial random positions for all pieces
+  const positions = [];
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "piece";
@@ -94,14 +105,32 @@ export function scatterInitialPieces(container, pieces) {
     const left = Math.random() * (areaW - scaledW);
     const top = Math.random() * (areaH - scaledH);
     const centerPoint = new Point(left + scaledW / 2, top + scaledH / 2);
+    positions.push(centerPoint);
     ensurePiecePosition(p); // installs accessors early
-    p.placeCenter(centerPoint, wrapper);
-    applyPieceTransform(wrapper, p);
     wrapper.appendChild(canvas);
     container.appendChild(wrapper);
     pieceElements.set(p.id, wrapper);
-    // Position already set & applied above
     p.scale = SCALE;
+  });
+
+  // Step 3: Randomly exchange N pairs of positions (N = number of pieces)
+  const N = pieces.length;
+  for (let i = 0; i < N; i++) {
+    const idx1 = Math.floor(Math.random() * pieces.length);
+    const idx2 = Math.floor(Math.random() * pieces.length);
+    if (idx1 !== idx2) {
+      // Swap positions
+      const temp = positions[idx1];
+      positions[idx1] = positions[idx2];
+      positions[idx2] = temp;
+    }
+  }
+
+  // Step 4: Apply final positions and transforms
+  pieces.forEach((p, index) => {
+    const wrapper = pieceElements.get(p.id);
+    p.placeCenter(positions[index], wrapper);
+    applyPieceTransform(wrapper, p);
   });
 
   groupManager.initialize();
@@ -145,6 +174,10 @@ export function renderPiecesAtPositions(container, pieces) {
     ctx.restore();
     wrapper.style.width = scaledW + "px";
     wrapper.style.height = scaledH + "px";
+    // Apply z-index if piece has one
+    if (p.zIndex !== null && p.zIndex !== undefined) {
+      wrapper.style.zIndex = p.zIndex.toString();
+    }
     const fallbackLeft = Math.random() * (areaW - scaledW);
     const fallbackTop = Math.random() * (areaH - scaledH);
     ensurePiecePosition(p);
@@ -167,6 +200,8 @@ export function renderPiecesAtPositions(container, pieces) {
 
   gameTableController.updateViewportArea(areaW, areaH);
   gameTableController.syncAllPositions();
+  // Initialize maxZIndex from loaded pieces
+  gameTableController.initializeMaxZIndex();
   initializeInteractions(pieceElements);
 }
 

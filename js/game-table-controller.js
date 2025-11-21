@@ -7,7 +7,7 @@
 //                   Piece.isNeighbor / isAnyNeighbor.
 
 import { Point } from "./geometry/point.js";
-import { applyPieceTransform } from "./display.js";
+import { applyPieceTransform, applyPieceZIndex } from "./display.js";
 import { groupManager } from "./group-manager.js";
 import { state } from "./game-engine.js";
 // Spatial index now fully managed here
@@ -29,6 +29,9 @@ export class GameTableController {
 
     // Internal store – currently mirrors Piece.position (Point)
     this._piecePositions = new Map(); // id -> Point
+
+    // Z-index management
+    this.maxZIndex = 0;
 
     // Cached area dimensions for spatial index initialization
     this._indexAreaW = null;
@@ -86,6 +89,62 @@ export class GameTableController {
     console.warn(
       "GameTableController.attachSpatialIndex is deprecated – spatial index is internally managed."
     );
+  }
+
+  /**
+   * Bring a piece and its group to the front by assigning new z-index values
+   * @param {number} pieceId - ID of the piece to bring to front
+   */
+  bringToFront(pieceId) {
+    const piece = state.pieces?.find((p) => p.id === pieceId);
+    if (!piece) return;
+
+    const group = groupManager.getGroupForPiece(piece);
+    if (!group) return; // Should never happen - every piece belongs to a group
+
+    const piecesToUpdate = group.getPieces();
+    const isMultiPieceGroup = piecesToUpdate.length > 1;
+
+    // Find the maximum z-index in the group
+    let groupMaxZIndex = -1;
+    piecesToUpdate.forEach((p) => {
+      if (
+        p.zIndex !== null &&
+        p.zIndex !== undefined &&
+        p.zIndex > groupMaxZIndex
+      ) {
+        groupMaxZIndex = p.zIndex;
+      }
+    });
+
+    // For multi-piece groups: only update if group's max is lower than current maxZIndex
+    // For single pieces: always assign a new z-index to ensure they're on top
+    if (!isMultiPieceGroup || groupMaxZIndex < this.maxZIndex) {
+      this.maxZIndex++;
+      const newZIndex = this.maxZIndex;
+
+      piecesToUpdate.forEach((p) => {
+        p.zIndex = newZIndex;
+
+        // Update DOM element via display module
+        applyPieceZIndex(p.id, newZIndex, this.pieceElements);
+      });
+    }
+  }
+
+  /**
+   * Initialize maxZIndex from existing pieces
+   * Called when loading a saved game
+   */
+  initializeMaxZIndex() {
+    if (!state?.pieces) return;
+
+    this.maxZIndex = 0;
+    state.pieces.forEach((p) => {
+      if (p.zIndex && p.zIndex > this.maxZIndex) {
+        this.maxZIndex = p.zIndex;
+      }
+    });
   }
 
   // ----------------------------

@@ -278,7 +278,7 @@ function clearAllPieceOutlines() {
 }
 
 // Check if pieces are in correct positions
-function checkPuzzleCorrectness() {
+export function checkPuzzleCorrectness() {
   // Clear previous validation outlines
   state.pieces.forEach((piece) => {
     clearPieceOutline(piece);
@@ -382,11 +382,6 @@ function checkPuzzleCorrectness() {
     BLINK_START_DELAY_MS,
   });
 }
-
-// Handle Check button click
-checkButton.addEventListener("click", () => {
-  checkPuzzleCorrectness();
-});
 
 // Close modal with Escape key (Help modal handling is now in controlBar.js)
 document.addEventListener("keydown", (e) => {

@@ -62,6 +62,7 @@ export class Piece {
         ? data.position.clone()
         : new Point(data.displayX || 0, data.displayY || 0);
     this.rotation = data.rotation || 0;
+    this.zIndex = data.zIndex !== undefined ? data.zIndex : null; // Z-index for layering, null means not yet assigned
 
     // Calculate piece geometry if geometry data is provided
     if (data.geometryCorners && data.hSides && data.vSides && data.c_nw) {
@@ -644,6 +645,7 @@ export class Piece {
       displayX: this.position.x,
       displayY: this.position.y,
       groupId: this.groupId,
+      zIndex: this.zIndex,
       edges: this.edges,
       corners: this.corners,
       sPoints: this.sPoints,

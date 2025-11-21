@@ -98,6 +98,19 @@ export function applyPieceTransform(element, piece) {
   return element;
 }
 
+/**
+ * Apply z-index to a piece element
+ * @param {number} pieceId - The piece ID
+ * @param {number} zIndex - The z-index value to apply
+ * @param {Map<number, HTMLElement>} pieceElements - Map of piece IDs to elements
+ */
+export function applyPieceZIndex(pieceId, zIndex, pieceElements) {
+  const el = pieceElements?.get(pieceId);
+  if (el) {
+    el.style.zIndex = zIndex.toString();
+  }
+}
+
 // Zoom and pan state getters and setters
 export function getZoomLevel() {
   return zoomLevel;

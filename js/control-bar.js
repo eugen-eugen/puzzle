@@ -12,6 +12,7 @@ import { state } from "./game-engine.js";
 import { groupManager } from "./group-manager.js";
 import { t } from "./i18n.js";
 import { Point } from "./geometry/point.js";
+import { checkPuzzleCorrectness } from "./app.js";
 import {
   getViewport,
   setZoom,
@@ -39,7 +40,6 @@ const imageInput = document.getElementById("imageInput");
 const pieceSlider = document.getElementById("pieceSlider");
 const pieceDisplay = document.getElementById("pieceDisplay");
 const progressDisplay = document.getElementById("progressDisplay");
-const checkButton = document.getElementById("checkButton");
 const orientationTipButton = document.getElementById("orientationTipButton");
 const helpButton = document.getElementById("helpButton");
 const helpModal = document.getElementById("helpModal");
@@ -171,11 +171,10 @@ function updateProgress() {
     percent: percentage,
   });
 
-  // Show Check button when 100% is reached
-  if (percentage === "100.0") {
-    checkButton.style.display = "block";
-  } else {
-    checkButton.style.display = "none";
+  // Automatically check puzzle correctness when all pieces are in one group
+  if (numberOfGroups === 1 && totalPieces > 0) {
+    // Use setTimeout to avoid blocking and ensure UI updates first
+    setTimeout(() => checkPuzzleCorrectness(), 100);
   }
 
   // Trigger debounced auto-save if persistence is active
