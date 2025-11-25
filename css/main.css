@@ -278,3 +278,12 @@ input[type=range]::-moz-range-thumb:hover {
 .pieces-container::-webkit-scrollbar {width:10px;height:10px;}
 .pieces-container::-webkit-scrollbar-track {background:#1a1a1a;}
 .pieces-container::-webkit-scrollbar-thumb {background:#333;border-radius:6px;}
+
+/* Deep link mode - hide controls except logo, help, and language selector */
+.top-bar.deep-link-mode #imageInput,
+.top-bar.deep-link-mode .slider-container,
+.top-bar.deep-link-mode .zoom-controls,
+.top-bar.deep-link-mode #orientationTipButton,
+.top-bar.deep-link-mode #progressDisplay {
+  display: none;
+}

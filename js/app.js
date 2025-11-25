@@ -17,7 +17,7 @@ if ("serviceWorker" in navigator) {
 }
 
 import { renderPiecesAtPositions } from "./piece-renderer.js";
-import { setSelectionChangeCallback } from "./interaction-manager.js";
+import { setSelectionChangeCallback } from "./interaction/interaction-manager.js";
 import {
   initPersistence,
   clearSavedGame,
@@ -83,6 +83,7 @@ const BLINK_START_DELAY_MS = 100; // Delay before starting blink effect
 // DOM elements for puzzle-specific functionality
 const piecesContainer = document.getElementById("piecesContainer");
 const checkButton = document.getElementById("checkButton");
+const topBar = document.querySelector(".top-bar");
 
 let deepLinkActive = false; // true when URL provides image & pieces params
 
@@ -451,6 +452,7 @@ async function bootstrap() {
       const desiredPieces = parseInt(piecesParam, 10);
       if (Util.isPositiveNumber(desiredPieces)) {
         deepLinkActive = true; // mark so persistence skip resume
+        if (topBar) topBar.classList.add("deep-link-mode"); // Hide controls in deep link mode
         console.info(
           "[deep-link] Loading image:",
           imageParam,
@@ -473,17 +475,16 @@ async function bootstrap() {
             await generatePuzzle();
             // Reset deep link flag so persistence can start saving changes
             deepLinkActive = false;
-            console.info(
-              "[deep-link] Deep link initialization complete, persistence enabled"
-            );
           },
           onTimeout: () => {
             deepLinkActive = false;
+            if (topBar) topBar.classList.remove("deep-link-mode"); // Restore controls on timeout
             tryOfferResume();
           },
           onError: () => {
             // Reset deep link flag and try normal resume flow
             deepLinkActive = false;
+            if (topBar) topBar.classList.remove("deep-link-mode"); // Restore controls on error
             tryOfferResume();
           },
         }).catch(() => {
