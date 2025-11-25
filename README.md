@@ -13,7 +13,7 @@ Try the app directly in your browser without any installation!
 - Up to 1000 pieces (logarithmic slider selection)
 - Random scatter + random orientation (0°, 90°, 180°, 270°)
 - Grouping through geometric connection detection (corner + side waypoint matching)
-- Single‑piece detachment: Shift + Drag (desktop) or two‑finger drag (touch)
+- Single‑piece detachment: Shuffle/shake gesture (rapid back-and-forth motion) while dragging, Shift + Drag (desktop), two‑finger drag (touch), or long-press before drag (1 second)
 - Rotation: Double‑click (desktop), R / Shift+R (CW / CCW), Double‑tap (touch)
 - Intelligent zoom & pan (cursor wheel, buttons) + automatic global fit when a piece leaves the viewport
 - Spatial indexing for fast neighbor queries
@@ -148,7 +148,7 @@ Behavior:
 | Pan workspace | Middle mouse drag or Ctrl+Left drag on empty space | Two‑finger drag / standard scroll (browser) |
 | Zoom | Mouse wheel (cursor‑centric), buttons, + / - / 0 (reset) | Pinch (browser), buttons |
 | Rotate piece / group | Double‑click, R (90° CW), Shift+R (90° CCW) | Double‑tap (90° CW) |
-| Detach single piece | Shift + Drag piece | Start drag with two fingers on the piece |
+| Detach single piece | Shift + Drag piece, or shuffle/shake while dragging | Shuffle/shake gesture while dragging, start drag with two fingers, or long-press (1s) before drag |
 | Select piece | Click | Tap |
 | Global auto‑fit | Drag a piece beyond viewport bounds | Same |
 | Resume previous game | Accept modal prompt | Accept modal prompt |

@@ -7,7 +7,7 @@ import { scatterInitialPieces } from "./piece-renderer.js";
 import {
   getSelectedPiece,
   fixSelectedPieceOrientation,
-} from "./interaction-manager.js";
+} from "./interaction/interaction-manager.js";
 import { state } from "./game-engine.js";
 import { groupManager } from "./group-manager.js";
 import { t } from "./i18n.js";

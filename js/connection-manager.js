@@ -245,14 +245,6 @@ function findCandidate(movingPiece) {
     const movingGroup = groupManager.getGroupForPiece(movingPiece);
     if (candidateGroup && movingGroup && candidateGroup === movingGroup) return;
 
-    // Debug: Log each candidate evaluation for NW corner
-    if (movingPiece.gridX === 0 && movingPiece.gridY === 0) {
-      console.log("[findCandidate] Evaluating candidate:", {
-        candidateId: id,
-        candidateGrid: { x: candidate.gridX, y: candidate.gridY },
-      });
-    }
-
     const candidateWD = candidate.worldData;
     const match = matchSides(movingPiece, candidate, movingWD, candidateWD);
 

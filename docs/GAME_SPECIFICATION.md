@@ -161,20 +161,37 @@ If multiple candidates pass: choose the minimal `dist2(M.cornerA, S.cornerA) + d
 5. On drag end: connect if highlight exists; perform group merge rules.
 
 ##### Group Detachment System
-The system supports advanced piece detachment from connected groups using keyboard modifiers:
+The system supports multiple methods for detaching a single piece from connected groups:
 
-**Shift+Drag Detachment**:
-- Hold Shift key before starting a drag operation on any piece within a connected group
+**Shuffle/Shake Gesture Detachment** (Primary Method):
+- During drag, rapidly move the pointer back and forth (shuffle motion)
+- System detects high path curvature (path length / direct displacement ratio > 3.5)
+- When curvature threshold is exceeded, the dragged piece detaches from its group
+- Works on all devices (desktop, touch, trackpad) without modifier keys
+- Most intuitive method: natural gesture matches intent to "shake loose" a piece
+
+**Alternative Detachment Methods**:
+- **Shift+Drag**: Hold Shift key before starting a drag operation (desktop)
+- **Two-Finger Drag**: Start drag with two fingers on the piece (touch devices)
+- **Long-Press**: Touch and hold for 1 second before starting drag (touch devices)
+- Visual feedback: Orange pulse animation during long-press detection
+
+**Common Behavior**:
 - The selected piece detaches from its group and can be moved independently
 - Visual feedback: Red dashed outline appears around the detached piece during drag
 - Animation: Brief red flash effect when detachment occurs
 - The detached piece receives a new unique group ID, separating it from the original group
 - Remaining pieces in the original group maintain their connections and shared group ID
 - Detached pieces can be reconnected to any compatible group using normal drag-and-release mechanics
+- Detachment only works on multi-piece groups (pieces already alone cannot be detached)
 
 **Implementation Details**:
-- Detachment occurs on pointerdown when Shift key is pressed
+- Curvature calculation: tracks last 10 pointer positions in sliding window
+- Curvature = sum(distances between consecutive positions) / straight-line displacement
+- Threshold of 3.5 balances sensitivity (avoids false triggers on curves, detects clear shuffling)
+- Device-independent: works across different screen resolutions and pixel densities
 - CSS class `.detached-piece` provides visual styling (red dashed border, animation)
+- CSS class `.long-press-active` provides orange pulse feedback during long-press
 - Group management handles ID reassignment and spatial index updates
 - Compatible with existing connection detection system for re-attachment
 

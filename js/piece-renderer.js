@@ -14,7 +14,7 @@ import {
   setSelectionChangeCallback,
   getPieceElement,
   applyHighlight,
-} from "./interaction-manager.js";
+} from "./interaction/interaction-manager.js";
 
 const pieceElements = new Map(); // id -> DOM element
 
