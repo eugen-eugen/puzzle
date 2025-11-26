@@ -7,29 +7,59 @@ const DEFAULT_PIECES = 20;
 let availablePictures = null;
 
 /**
- * Load the list of available pictures from pictures.json
+ * Load the list of available local and remote pictures
  */
 async function loadAvailablePictures() {
   if (availablePictures !== null) {
     return availablePictures;
   }
 
+  const allPictures = [];
+
+  // Load local pictures
   try {
     const response = await fetch(`${PICTURES_PATH}pictures.json`);
-    if (!response.ok) {
-      throw new Error(`Failed to load pictures.json: ${response.status}`);
+    if (response.ok) {
+      const data = await response.json();
+      const localPictures = (data.pictures || []).map((filename) => ({
+        type: "local",
+        filename,
+        url: `${PICTURES_PATH}${filename}`,
+        title: filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, ""),
+      }));
+      allPictures.push(...localPictures);
+      console.log(
+        `[picture-gallery] Loaded ${localPictures.length} local pictures`
+      );
     }
-    const data = await response.json();
-    availablePictures = data.pictures || [];
-    console.log(
-      `[picture-gallery] Loaded ${availablePictures.length} pictures`
-    );
-    return availablePictures;
   } catch (error) {
-    console.error("[picture-gallery] Error loading pictures:", error);
-    availablePictures = [];
-    return availablePictures;
+    console.error("[picture-gallery] Error loading local pictures:", error);
   }
+
+  // Load remote pictures
+  try {
+    const response = await fetch(`${PICTURES_PATH}remote-pictures.json`);
+    if (response.ok) {
+      const data = await response.json();
+      const remotePictures = (data.pictures || []).map((item) => ({
+        type: "remote",
+        url: item.url,
+        title: item.title || "Remote Image",
+      }));
+      allPictures.push(...remotePictures);
+      console.log(
+        `[picture-gallery] Loaded ${remotePictures.length} remote pictures`
+      );
+    }
+  } catch (error) {
+    console.error("[picture-gallery] Error loading remote pictures:", error);
+  }
+
+  availablePictures = allPictures;
+  console.log(
+    `[picture-gallery] Total ${availablePictures.length} pictures available`
+  );
+  return availablePictures;
 }
 
 /**
@@ -67,21 +97,20 @@ export async function showPictureGallery(onSelect, onClose) {
     noPicturesMsg.style.padding = "20px";
     gallery.appendChild(noPicturesMsg);
   } else {
-    pictures.forEach((filename) => {
+    pictures.forEach((picture) => {
       const item = document.createElement("a");
       item.className = "picture-gallery-item";
 
-      // Use relative paths for host/port-agnostic links
-      const imageUrl = `${PICTURES_PATH}${filename}`;
       const deepLinkUrl = `?image=${encodeURIComponent(
-        imageUrl
+        picture.url
       )}&pieces=${DEFAULT_PIECES}&norotate=y`;
 
       item.href = deepLinkUrl;
-      item.title = `Start puzzle with ${DEFAULT_PIECES} pieces`;
+      item.title = `${picture.title} - Start puzzle with ${DEFAULT_PIECES} pieces`;
+
       const img = document.createElement("img");
-      img.src = imageUrl;
-      img.alt = filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, "");
+      img.src = picture.url;
+      img.alt = picture.title;
       img.loading = "lazy";
 
       item.appendChild(img);

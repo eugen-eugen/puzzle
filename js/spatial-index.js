@@ -3,7 +3,7 @@
 // Refactored to interoperate with Point objects while retaining backward
 // compatibility with plain {x, y} inputs.
 
-import { Point } from "../geometry/point.js";
+import { Point } from "./geometry/point.js";
 
 // ================================
 // Module Constants

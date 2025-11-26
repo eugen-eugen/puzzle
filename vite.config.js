@@ -55,6 +55,18 @@ export default defineConfig({
             JSON.stringify(picturesJson, null, 2)
           );
 
+          // Copy remote-pictures.json if it exists
+          const remotePicturesPath = resolve(srcDir, "remote-pictures.json");
+          try {
+            copyFileSync(
+              remotePicturesPath,
+              resolve(outDir, "remote-pictures.json")
+            );
+            console.log(`Copied remote-pictures.json to dist/pictures`);
+          } catch (e) {
+            console.warn(`Could not copy remote-pictures.json:`, e.message);
+          }
+
           console.log(`Copied ${files.length} picture files to dist/pictures`);
           console.log(`Generated pictures.json with ${files.length} entries`);
         } catch (e) {
