@@ -1,7 +1,6 @@
 // picture-gallery.js - Picture selection gallery for game start
 import { t } from "./i18n.js";
 
-const BASE_URL = "https://eugen-eugen.github.io/puzzle/";
 const PICTURES_PATH = "pictures/";
 const DEFAULT_PIECES = 20;
 
@@ -14,7 +13,7 @@ async function loadAvailablePictures() {
   if (availablePictures !== null) {
     return availablePictures;
   }
-  
+
   try {
     const response = await fetch(`${PICTURES_PATH}pictures.json`);
     if (!response.ok) {
@@ -22,7 +21,9 @@ async function loadAvailablePictures() {
     }
     const data = await response.json();
     availablePictures = data.pictures || [];
-    console.log(`[picture-gallery] Loaded ${availablePictures.length} pictures`);
+    console.log(
+      `[picture-gallery] Loaded ${availablePictures.length} pictures`
+    );
     return availablePictures;
   } catch (error) {
     console.error("[picture-gallery] Error loading pictures:", error);
@@ -57,10 +58,11 @@ export async function showPictureGallery(onSelect, onClose) {
 
   // Load available pictures
   const pictures = await loadAvailablePictures();
-  
+
   if (pictures.length === 0) {
     const noPicturesMsg = document.createElement("p");
-    noPicturesMsg.textContent = "No pictures available. Please add images to the pictures folder.";
+    noPicturesMsg.textContent =
+      "No pictures available. Please add images to the pictures folder.";
     noPicturesMsg.style.textAlign = "center";
     noPicturesMsg.style.padding = "20px";
     gallery.appendChild(noPicturesMsg);
@@ -69,8 +71,9 @@ export async function showPictureGallery(onSelect, onClose) {
       const item = document.createElement("a");
       item.className = "picture-gallery-item";
 
-      const imageUrl = `${BASE_URL}${PICTURES_PATH}${filename}`;
-      const deepLinkUrl = `${BASE_URL}?image=${encodeURIComponent(
+      // Use relative paths for host/port-agnostic links
+      const imageUrl = `${PICTURES_PATH}${filename}`;
+      const deepLinkUrl = `?image=${encodeURIComponent(
         imageUrl
       )}&pieces=${DEFAULT_PIECES}&norotate=y`;
 

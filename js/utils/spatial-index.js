@@ -3,7 +3,7 @@
 // Refactored to interoperate with Point objects while retaining backward
 // compatibility with plain {x, y} inputs.
 
-import { Point } from "./geometry/point.js";
+import { Point } from "../geometry/point.js";
 
 // ================================
 // Module Constants
@@ -35,14 +35,76 @@ export class SpatialIndex {
       y = x.y;
       x = x.x;
     }
-    const col = Math.min(
-      this.cols - 1,
-      Math.max(0, Math.floor(x / this.cellSize))
-    );
-    const row = Math.min(
-      this.rows - 1,
-      Math.max(0, Math.floor(y / this.cellSize))
-    );
+    const col = Math.floor(x / this.cellSize);
+    const row = Math.floor(y / this.cellSize);
+    return { col, row };
+  }
+
+  _ensureCell(col, row) {
+    // Dynamically expand grid if necessary
+    // Both functions are safe to call unconditionally - they guard internally
+    ({ col, row } = this._expandGridForNegative(col, row));
+    ({ col, row } = this._expandGridForPositive(col, row));
+    return { col, row };
+  }
+
+  _expandGridForNegative(col, row) {
+    const colShift = col < 0 ? -col : 0;
+    const rowShift = row < 0 ? -row : 0;
+    
+    if (colShift === 0 && rowShift === 0) {
+      return { col, row };
+    }
+
+    const newCols = this.cols + colShift;
+    const newRows = this.rows + rowShift;
+    const newGrid = new Array(newCols * newRows).fill(null).map(() => new Set());
+
+    // Copy existing cells to new positions
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const oldIdx = this._index(c, r);
+        const newIdx = (r + rowShift) * newCols + (c + colShift);
+        newGrid[newIdx] = this.grid[oldIdx];
+      }
+    }
+
+    // Update itemMap positions
+    this.itemMap.forEach((cell, id) => {
+      cell.col += colShift;
+      cell.row += rowShift;
+    });
+
+    this.grid = newGrid;
+    this.cols = newCols;
+    this.rows = newRows;
+
+    return { col: col + colShift, row: row + rowShift };
+  }
+
+  _expandGridForPositive(col, row) {
+    const newCols = Math.max(this.cols, col + 1);
+    const newRows = Math.max(this.rows, row + 1);
+    
+    if (newCols === this.cols && newRows === this.rows) {
+      return { col, row };
+    }
+
+    const newGrid = new Array(newCols * newRows).fill(null).map(() => new Set());
+
+    // Copy existing cells
+    for (let r = 0; r < this.rows; r++) {
+      for (let c = 0; c < this.cols; c++) {
+        const oldIdx = this._index(c, r);
+        const newIdx = r * newCols + c;
+        newGrid[newIdx] = this.grid[oldIdx];
+      }
+    }
+
+    this.grid = newGrid;
+    this.cols = newCols;
+    this.rows = newRows;
+
     return { col, row };
   }
 
@@ -57,7 +119,8 @@ export class SpatialIndex {
     // Mirror numeric x,y for legacy consumers (not strictly stored but convenient)
     item.x = point.x; // eslint-disable-line no-param-reassign
     item.y = point.y; // eslint-disable-line no-param-reassign
-    const { col, row } = this._cellFor(point);
+    let { col, row } = this._cellFor(point);
+    ({ col, row } = this._ensureCell(col, row));
     this.grid[this._index(col, row)].add(item.id);
     this.itemMap.set(item.id, { col, row, point });
   }
@@ -72,7 +135,8 @@ export class SpatialIndex {
     item.x = point.x; // keep numeric mirror
     item.y = point.y;
     const oldCell = this.itemMap.get(item.id);
-    const { col: newCol, row: newRow } = this._cellFor(point);
+    let { col: newCol, row: newRow } = this._cellFor(point);
+    ({ col: newCol, row: newRow } = this._ensureCell(newCol, newRow));
     if (!oldCell || oldCell.col !== newCol || oldCell.row !== newRow) {
       if (oldCell) {
         this.grid[this._index(oldCell.col, oldCell.row)].delete(item.id);
@@ -98,20 +162,18 @@ export class SpatialIndex {
       y = pt.y;
     }
     const results = new Set();
-    const minCol = Math.max(0, Math.floor((x - radius) / this.cellSize));
-    const maxCol = Math.min(
-      this.cols - 1,
-      Math.floor((x + radius) / this.cellSize)
-    );
-    const minRow = Math.max(0, Math.floor((y - radius) / this.cellSize));
-    const maxRow = Math.min(
-      this.rows - 1,
-      Math.floor((y + radius) / this.cellSize)
-    );
-    for (let r = minRow; r <= maxRow; r++) {
-      for (let c = minCol; c <= maxCol; c++) {
+    const minCol = Math.floor((x - radius) / this.cellSize);
+    const maxCol = Math.floor((x + radius) / this.cellSize);
+    const minRow = Math.floor((y - radius) / this.cellSize);
+    const maxRow = Math.floor((y + radius) / this.cellSize);
+    
+    // Only query cells that exist in the grid
+    for (let r = Math.max(0, minRow); r <= Math.min(this.rows - 1, maxRow); r++) {
+      for (let c = Math.max(0, minCol); c <= Math.min(this.cols - 1, maxCol); c++) {
         const bucket = this.grid[this._index(c, r)];
-        bucket.forEach((id) => results.add(id));
+        if (bucket) {
+          bucket.forEach((id) => results.add(id));
+        }
       }
     }
     return Array.from(results);

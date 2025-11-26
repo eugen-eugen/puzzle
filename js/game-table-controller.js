@@ -11,7 +11,7 @@ import { applyPieceTransform, applyPieceZIndex } from "./display.js";
 import { groupManager } from "./group-manager.js";
 import { state } from "./game-engine.js";
 // Spatial index now fully managed here
-import { SpatialIndex, chooseCellSize } from "./spatial-index.js";
+import { SpatialIndex, chooseCellSize } from "./utils/spatial-index.js";
 
 /**
  * Contract (Phase 1)

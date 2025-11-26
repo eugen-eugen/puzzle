@@ -47,14 +47,14 @@ export default defineConfig({
           files.forEach((file) => {
             copyFileSync(resolve(srcDir, file), resolve(outDir, file));
           });
-          
+
           // Generate pictures.json with list of all available pictures
           const picturesJson = { pictures: files };
           writeFileSync(
             resolve(outDir, "pictures.json"),
             JSON.stringify(picturesJson, null, 2)
           );
-          
+
           console.log(`Copied ${files.length} picture files to dist/pictures`);
           console.log(`Generated pictures.json with ${files.length} entries`);
         } catch (e) {
@@ -68,19 +68,21 @@ export default defineConfig({
         // Generate pictures.json in dev mode
         const srcDir = resolve(__dirname, "pictures");
         const picturesDir = resolve(__dirname, "pictures");
-        
+
         try {
           const files = readdirSync(srcDir).filter((file) =>
             /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(file)
           );
-          
+
           const picturesJson = { pictures: files };
           writeFileSync(
             resolve(picturesDir, "pictures.json"),
             JSON.stringify(picturesJson, null, 2)
           );
-          
-          console.log(`Generated pictures.json for dev with ${files.length} entries`);
+
+          console.log(
+            `Generated pictures.json for dev with ${files.length} entries`
+          );
         } catch (e) {
           console.warn(`Could not generate pictures.json:`, e.message);
         }
