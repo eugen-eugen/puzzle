@@ -451,11 +451,22 @@ async function bootstrap() {
     const imageParam = params.get("image");
     const piecesParam = params.get("pieces");
     const noRotateParam = params.get("norotate");
-    console.log("[deep-link] URL params:", { imageParam, piecesParam, noRotateParam });
+    console.log("[deep-link] URL params:", {
+      imageParam,
+      piecesParam,
+      noRotateParam,
+    });
     if (imageParam && piecesParam) {
       const desiredPieces = parseInt(piecesParam, 10);
-      const noRotate = noRotateParam === "y" || noRotateParam === "yes" || noRotateParam === "true";
-      console.log("[deep-link] Parsed values:", { desiredPieces, noRotate, noRotateParam });
+      const noRotate =
+        noRotateParam === "y" ||
+        noRotateParam === "yes" ||
+        noRotateParam === "true";
+      console.log("[deep-link] Parsed values:", {
+        desiredPieces,
+        noRotate,
+        noRotateParam,
+      });
       if (Util.isPositiveNumber(desiredPieces)) {
         deepLinkActive = true; // mark so persistence skip resume
         if (topBar) topBar.classList.add("deep-link-mode"); // Hide controls in deep link mode

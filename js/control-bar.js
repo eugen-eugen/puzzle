@@ -190,7 +190,7 @@ function updateProgress() {
 // Generate puzzle with current slider value
 async function generatePuzzle(noRotate = false) {
   if (!currentImage || isGenerating) return;
-  
+
   console.log("[control-bar] generatePuzzle called with noRotate:", noRotate);
 
   const pieceCount = sliderToPieceCount(parseInt(pieceSlider.value));

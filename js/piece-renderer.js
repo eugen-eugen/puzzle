@@ -69,7 +69,12 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
 export function scatterInitialPieces(container, pieces, noRotate = false) {
   const areaW = container.clientWidth || 800; // fallback if no size
   const areaH = container.clientHeight || 600;
-  console.debug("[pieceRenderer] scatterInitialPieces count", pieces.length, "noRotate:", noRotate);
+  console.debug(
+    "[pieceRenderer] scatterInitialPieces count",
+    pieces.length,
+    "noRotate:",
+    noRotate
+  );
   pieceElements.clear();
   const avgSize =
     (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
