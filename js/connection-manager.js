@@ -231,7 +231,7 @@ function findCandidate(movingPiece) {
 
   const neighborIds = gameTableController.queryRadius(
     movingWD.worldCorners.nw,
-    coarseR
+    coarseR * 10
   );
 
   let best = null;

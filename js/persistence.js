@@ -196,7 +196,7 @@ function tryOfferResume() {
   } else if (hasGame && window.confirm("Resume previous puzzle session?")) {
     loadGame();
   } else if (!hasGame && api.afterDiscard) {
-    // No saved game - show file picker immediately
+    // No saved game - show picture gallery or file picker
     api.afterDiscard();
   }
 }

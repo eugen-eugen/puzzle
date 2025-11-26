@@ -33,6 +33,26 @@ export default defineConfig({
         }
       },
     },
+    {
+      name: "copy-pictures",
+      closeBundle() {
+        const srcDir = resolve(__dirname, "pictures");
+        const outDir = resolve(__dirname, "dist/pictures");
+        mkdirSync(outDir, { recursive: true });
+
+        try {
+          const files = readdirSync(srcDir).filter((file) =>
+            /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(file)
+          );
+          files.forEach((file) => {
+            copyFileSync(resolve(srcDir, file), resolve(outDir, file));
+          });
+          console.log(`Copied ${files.length} picture files to dist/pictures`);
+        } catch (e) {
+          console.warn(`Could not copy pictures:`, e.message);
+        }
+      },
+    },
   ],
   server: {
     port: 3000,

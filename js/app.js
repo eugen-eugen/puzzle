@@ -2,6 +2,7 @@
 import "../css/main.css";
 import "../css/piece-box.css";
 import "../css/animations.css";
+import "../css/picture-gallery.css";
 
 // Register service worker
 if ("serviceWorker" in navigator) {
@@ -71,6 +72,7 @@ import {
   updatePieceDisplay,
   imageInput,
 } from "./control-bar.js";
+import { showPictureGallery, hidePictureGallery } from "./picture-gallery.js";
 
 // ================================
 // Module Constants (replacing magic numbers)
@@ -475,6 +477,8 @@ async function bootstrap() {
             await generatePuzzle();
             // Reset deep link flag so persistence can start saving changes
             deepLinkActive = false;
+            // Hide gallery if it was shown
+            hidePictureGallery();
           },
           onTimeout: () => {
             deepLinkActive = false;
@@ -551,8 +555,19 @@ async function bootstrap() {
     showResumePrompt: createResumeModal,
     afterDiscard: () => {
       updateProgress();
-      // Immediately show file selection dialog when user selects "new session"
-      imageInput.click();
+      // Show picture gallery when user selects "new session" (unless in deep link mode)
+      if (!deepLinkActive) {
+        showPictureGallery(
+          (deepLinkUrl) => {
+            // User selected a picture - navigate to deep link
+            window.location.href = deepLinkUrl;
+          },
+          () => {
+            // User closed gallery - show file picker
+            imageInput.click();
+          }
+        );
+      }
     },
   });
 
