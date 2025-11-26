@@ -11,6 +11,7 @@ import { Point } from "./geometry/point.js";
 import { getPieceElement } from "./interaction/interaction-manager.js";
 import { Util } from "./utils/util.js";
 import { groupManager } from "./group-manager.js";
+import { state } from "./game-engine.js";
 
 // Display Constants
 const MIN_ZOOM = 0.1;
@@ -304,10 +305,11 @@ export function updateOrientationTipButton(selectedPiece) {
   const orientationTipButton = document.getElementById("orientationTipButton");
   if (!orientationTipButton) return;
 
-  if (selectedPiece) {
-    orientationTipButton.style.display = "block";
-  } else {
+  // Hide button if rotation is disabled or no piece is selected
+  if (state.noRotate || !selectedPiece) {
     orientationTipButton.style.display = "none";
+  } else if (selectedPiece) {
+    orientationTipButton.style.display = "block";
   }
 }
 

@@ -18,7 +18,8 @@ Try the app directly in your browser without any installation!
 - Intelligent zoom & pan (cursor wheel, buttons) + automatic global fit when a piece leaves the viewport
 - Spatial indexing for fast neighbor queries
 - Auto‑save & resume (debounced lightweight persistence)
-- Deep link start via URL parameters (`?image=<url>&pieces=<n>`) that bypasses resume and starts immediately
+- Deep link start via URL parameters (`?image=<url>&pieces=<n>&norotate=<y|n>`) that bypasses resume and starts immediately
+- Picture gallery with pre-selected puzzles on game start
 - Internationalization (English / Deutsch) with dynamic JSON loading
 - Clean resume modal (Resume / Start New / Cancel)
 - Progress scoring based on connected group consolidation

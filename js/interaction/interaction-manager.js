@@ -395,6 +395,12 @@ function onDoubleTap(event) {
 
   if (!piece) return;
 
+  // Check if rotation is disabled
+  if (state.noRotate) {
+    console.log("[interaction] Rotation disabled (noRotate mode)");
+    return;
+  }
+
   // Clear long press timer and visual feedback on double tap
   element.classList.remove("long-press-active");
   clearLongPressTimer();
@@ -678,6 +684,11 @@ function installKeyboardListeners() {
     if (!piece) return;
 
     if (e.key === "r" || e.key === "R") {
+      // Check if rotation is disabled
+      if (state.noRotate) {
+        console.log("[interaction] Rotation disabled (noRotate mode)");
+        return;
+      }
       const rotationAmount = e.shiftKey ? 270 : 90; // Shift+R = counter-clockwise
       rotatePieceOrGroup(piece, pieceEl, rotationAmount);
     }

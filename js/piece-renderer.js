@@ -66,22 +66,30 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
   });
 }
 
-export function scatterInitialPieces(container, pieces) {
+export function scatterInitialPieces(container, pieces, noRotate = false) {
   const areaW = container.clientWidth || 800; // fallback if no size
   const areaH = container.clientHeight || 600;
-  console.debug("[pieceRenderer] scatterInitialPieces count", pieces.length);
+  console.debug("[pieceRenderer] scatterInitialPieces count", pieces.length, "noRotate:", noRotate);
   pieceElements.clear();
   const avgSize =
     (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
     SCALE;
 
   // Step 1: Apply random rotation to each piece (0°, 90°, 180°, or 270°)
-  const rotations = [0, 90, 180, 270];
-  pieces.forEach((p) => {
-    const randomRotation =
-      rotations[Math.floor(Math.random() * rotations.length)];
-    p.setRotation(randomRotation);
-  });
+  // Skip rotation if noRotate is true
+  if (!noRotate) {
+    const rotations = [0, 90, 180, 270];
+    pieces.forEach((p) => {
+      const randomRotation =
+        rotations[Math.floor(Math.random() * rotations.length)];
+      p.setRotation(randomRotation);
+    });
+  } else {
+    // Set all pieces to 0° rotation
+    pieces.forEach((p) => {
+      p.setRotation(0);
+    });
+  }
 
   // Step 2: Generate initial random positions for all pieces
   const positions = [];

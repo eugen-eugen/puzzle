@@ -10,6 +10,7 @@ export const state = {
   totalPieces: 0,
   groups: [],
   settings: { snapNearPx: SNAP_NEAR_PX, snapReadyPx: SNAP_READY_PX },
+  noRotate: false, // When true, rotation is disabled for all pieces
 };
 
 export function connectPieces(ids) {

@@ -188,8 +188,10 @@ function updateProgress() {
 // ================================
 
 // Generate puzzle with current slider value
-async function generatePuzzle() {
+async function generatePuzzle(noRotate = false) {
   if (!currentImage || isGenerating) return;
+  
+  console.log("[control-bar] generatePuzzle called with noRotate:", noRotate);
 
   const pieceCount = sliderToPieceCount(parseInt(pieceSlider.value));
 
@@ -225,13 +227,15 @@ async function generatePuzzle() {
     );
     state.pieces = pieces;
     state.totalPieces = pieces.length;
+    state.noRotate = noRotate; // Store noRotate flag in game state
+    console.log("[control-bar] Set state.noRotate to:", state.noRotate);
 
     // Initialize GroupManager with new pieces BEFORE scattering
     groupManager.initialize();
 
     const viewport = getViewport();
     if (viewport) {
-      scatterInitialPieces(viewport, pieces);
+      scatterInitialPieces(viewport, pieces, noRotate);
     }
     if (captureInitialMargins) {
       captureInitialMargins();
@@ -320,6 +324,11 @@ function handleSliderChange() {
 
 // Handle orientation tip button click
 function handleOrientationTip() {
+  // Check if rotation is disabled
+  if (state.noRotate) {
+    console.log("[control-bar] Rotation disabled (noRotate mode)");
+    return;
+  }
   const selectedPiece = getSelectedPiece();
   if (selectedPiece) {
     fixSelectedPieceOrientation();

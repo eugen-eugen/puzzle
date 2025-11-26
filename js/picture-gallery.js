@@ -39,12 +39,10 @@ export function showPictureGallery(onSelect, onClose) {
     const imageUrl = `${BASE_URL}${PICTURES_PATH}${filename}`;
     const deepLinkUrl = `${BASE_URL}?image=${encodeURIComponent(
       imageUrl
-    )}&pieces=${DEFAULT_PIECES}`;
+    )}&pieces=${DEFAULT_PIECES}&norotate=y`;
     
     item.href = deepLinkUrl;
-    item.title = `Start puzzle with ${DEFAULT_PIECES} pieces`;
-
-    const img = document.createElement("img");
+    item.title = `Start puzzle with ${DEFAULT_PIECES} pieces`;    const img = document.createElement("img");
     img.src = imageUrl;
     img.alt = filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, "");
     img.loading = "lazy";

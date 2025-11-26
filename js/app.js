@@ -445,13 +445,17 @@ async function bootstrap() {
 
   // Set up cross-module function references
   setCaptureInitialMargins(captureInitialMargins);
-  // Deep link mode: ?image=<url>&pieces=<n>
+  // Deep link mode: ?image=<url>&pieces=<n>&norotate=<y|n>
   try {
     const params = new URLSearchParams(window.location.search);
     const imageParam = params.get("image");
     const piecesParam = params.get("pieces");
+    const noRotateParam = params.get("norotate");
+    console.log("[deep-link] URL params:", { imageParam, piecesParam, noRotateParam });
     if (imageParam && piecesParam) {
       const desiredPieces = parseInt(piecesParam, 10);
+      const noRotate = noRotateParam === "y" || noRotateParam === "yes" || noRotateParam === "true";
+      console.log("[deep-link] Parsed values:", { desiredPieces, noRotate, noRotateParam });
       if (Util.isPositiveNumber(desiredPieces)) {
         deepLinkActive = true; // mark so persistence skip resume
         if (topBar) topBar.classList.add("deep-link-mode"); // Hide controls in deep link mode
@@ -460,7 +464,8 @@ async function bootstrap() {
           imageParam,
           "with",
           desiredPieces,
-          "pieces"
+          "pieces",
+          noRotate ? "(no rotation)" : ""
         );
 
         // Load remote image with timeout
@@ -474,7 +479,7 @@ async function bootstrap() {
             // Use exported setter instead of accessing internal DOM element
             setSliderValue(sliderVal);
             updatePieceDisplay();
-            await generatePuzzle();
+            await generatePuzzle(noRotate);
             // Reset deep link flag so persistence can start saving changes
             deepLinkActive = false;
             // Hide gallery if it was shown

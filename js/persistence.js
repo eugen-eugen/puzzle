@@ -423,6 +423,13 @@ function reconstructPieces(data, masterImage) {
   // Assign semantic & mark legacy top-left positions for later conversion in renderer
   // Legacy support removed: assume all saved positions are internal storage coordinates.
   api.setPieces(pieces);
+  
+  // Reset noRotate flag when loading saved game (rotation should be allowed in resumed games)
+  const s = api.getState();
+  if (s) {
+    s.noRotate = false;
+  }
+  
   if (api.renderPiecesFromState) {
     api.renderPiecesFromState();
   } else {
