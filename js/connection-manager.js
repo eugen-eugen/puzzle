@@ -229,10 +229,10 @@ function findCandidate(movingPiece) {
   const longestSide = Math.max(bmpW, bmpH);
   const coarseR = longestSide * COARSE_RADIUS_MULTIPLIER;
 
-  const neighborIds = gameTableController.queryRadius(
-    movingWD.worldCorners.nw,
-    coarseR
-  );
+  // Use piece center for spatial query (consistent with how pieces are stored in index)
+  const movingCenter = movingPiece.getCenter();
+
+  const neighborIds = gameTableController.queryRadius(movingCenter, coarseR);
 
   let best = null;
   neighborIds.forEach((id) => {
