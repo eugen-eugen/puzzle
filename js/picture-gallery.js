@@ -1,7 +1,8 @@
 // picture-gallery.js - Picture selection gallery for game start
 import { t } from "./i18n.js";
 
-const PICTURES_PATH = "pictures/";
+const PWA_BASE = "/puzzle/";
+const PICTURES_PATH = `${PWA_BASE}pictures/`;
 const DEFAULT_PIECES = 20;
 
 let availablePictures = null;
@@ -37,7 +38,9 @@ async function loadAvailablePictures() {
           type: "local",
           filename: pic.filename,
           url: `${PICTURES_PATH}${pic.filename}`,
-          title: pic.title || pic.filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, ""),
+          title:
+            pic.title ||
+            pic.filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, ""),
           pieces: pic.pieces || DEFAULT_PIECES,
         };
       });
@@ -137,15 +140,24 @@ export async function showPictureGallery(onSelect, onClose) {
     grid.innerHTML = "";
     let filtered = pictures;
     // Highlight selected filter
-    [babyBtn, studentBtn, masterBtn].forEach(btn => btn.classList.remove("selected"));
+    [babyBtn, studentBtn, masterBtn].forEach((btn) =>
+      btn.classList.remove("selected")
+    );
     if (filter === "baby") {
-      filtered = pictures.filter(p => (p.pieces || DEFAULT_PIECES) >= 4 && (p.pieces || DEFAULT_PIECES) <= 8);
+      filtered = pictures.filter(
+        (p) =>
+          (p.pieces || DEFAULT_PIECES) >= 4 && (p.pieces || DEFAULT_PIECES) <= 8
+      );
       babyBtn.classList.add("selected");
     } else if (filter === "student") {
-      filtered = pictures.filter(p => (p.pieces || DEFAULT_PIECES) >= 10 && (p.pieces || DEFAULT_PIECES) <= 100);
+      filtered = pictures.filter(
+        (p) =>
+          (p.pieces || DEFAULT_PIECES) >= 10 &&
+          (p.pieces || DEFAULT_PIECES) <= 100
+      );
       studentBtn.classList.add("selected");
     } else if (filter === "master") {
-      filtered = pictures.filter(p => (p.pieces || DEFAULT_PIECES) > 100);
+      filtered = pictures.filter((p) => (p.pieces || DEFAULT_PIECES) > 100);
       masterBtn.classList.add("selected");
     }
     if (!filter) {
@@ -164,7 +176,9 @@ export async function showPictureGallery(onSelect, onClose) {
       const item = document.createElement("a");
       item.className = "picture-gallery-item";
       const numPieces = picture.pieces || DEFAULT_PIECES;
-      const deepLinkUrl = `?image=${encodeURIComponent(picture.url)}&pieces=${numPieces}&norotate=y`;
+      const deepLinkUrl = `?image=${encodeURIComponent(
+        picture.url
+      )}&pieces=${numPieces}&norotate=y`;
       item.href = deepLinkUrl;
       item.title = `${picture.title} - Start puzzle with ${numPieces} pieces`;
       const img = document.createElement("img");

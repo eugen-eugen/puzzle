@@ -2,32 +2,42 @@
 /* eslint-disable no-restricted-globals */
 const SW_VERSION = "v1.1.0"; // bumped for i18n assets
 const STATIC_CACHE = `puzzle-static-${SW_VERSION}`;
+const BASE = "/puzzle";
 const CORE_ASSETS = [
-  "/",
-  "/index.html",
-  "/manifest.json",
-  "/css/main.css",
-  "/css/piece-box.css",
-  "/css/animations.css",
-  "/css/game-table.css",
-  "/js/app.js",
-  "/js/game-engine.js",
-  "/js/jigsaw-generator.js",
-  "/js/piece-renderer.js",
-  "/js/connection-manager.js",
-  "/js/spatial-index.js",
-  "/js/persistence.js",
-  "/js/image-processor.js",
-  "/js/i18n.js",
-  "/i18n/en.json",
-  "/i18n/de.json",
+  `${BASE}/`,
+  `${BASE}/index.html`,
+  `${BASE}/manifest.json`,
+  `${BASE}/css/main.css`,
+  `${BASE}/css/piece-box.css`,
+  `${BASE}/css/animations.css`,
+  `${BASE}/css/game-table.css`,
+  `${BASE}/js/app.js`,
+  `${BASE}/js/game-engine.js`,
+  `${BASE}/js/jigsaw-generator.js`,
+  `${BASE}/js/piece-renderer.js`,
+  `${BASE}/js/connection-manager.js`,
+  `${BASE}/js/spatial-index.js`,
+  `${BASE}/js/persistence.js`,
+  `${BASE}/js/image-processor.js`,
+  `${BASE}/js/i18n.js`,
+  `${BASE}/i18n/en.json`,
+  `${BASE}/i18n/de.json`,
+  // Pictures folder assets
+  `${BASE}/pictures/A320.jpg`,
+  `${BASE}/pictures/kleidung.png`,
+  `${BASE}/pictures/pictures.json`,
+  `${BASE}/pictures/remote-pictures.json`,
+  `${BASE}/pictures/icon-192.png`,
+  `${BASE}/pictures/icon-512.png`,
 ];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(STATIC_CACHE)
-      .then((cache) => cache.addAll(CORE_ASSETS))
+      .then((cache) => {
+        cache.addAll(CORE_ASSETS);
+      })
       .then(() => self.skipWaiting())
   );
 });
