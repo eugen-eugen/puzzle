@@ -1,3 +1,20 @@
+// Logo click opens gallery
+document.addEventListener("DOMContentLoaded", () => {
+  const logo = document.getElementById("logo");
+  if (logo) {
+    logo.style.cursor = "pointer";
+    logo.addEventListener("click", () => {
+      showPictureGallery(
+        (deepLinkUrl) => {
+          window.location.href = deepLinkUrl;
+        },
+        () => {
+          imageInput.click();
+        }
+      );
+    });
+  }
+});
 // app.js - bootstrap for piece box window
 import "../css/main.css";
 import "../css/piece-box.css";

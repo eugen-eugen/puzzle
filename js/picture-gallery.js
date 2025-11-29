@@ -21,12 +21,26 @@ async function loadAvailablePictures() {
     const response = await fetch(`${PICTURES_PATH}pictures.json`);
     if (response.ok) {
       const data = await response.json();
-      const localPictures = (data.pictures || []).map((filename) => ({
-        type: "local",
-        filename,
-        url: `${PICTURES_PATH}${filename}`,
-        title: filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, ""),
-      }));
+      const localPictures = (data.pictures || []).map((pic) => {
+        // If pic is a string, treat as filename only
+        if (typeof pic === "string") {
+          return {
+            type: "local",
+            filename: pic,
+            url: `${PICTURES_PATH}${pic}`,
+            title: pic.replace(/\.(png|jpg|jpeg|gif|webp)$/i, ""),
+            pieces: DEFAULT_PIECES,
+          };
+        }
+        // If pic is an object, allow pieces property
+        return {
+          type: "local",
+          filename: pic.filename,
+          url: `${PICTURES_PATH}${pic.filename}`,
+          title: pic.title || pic.filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, ""),
+          pieces: pic.pieces || DEFAULT_PIECES,
+        };
+      });
       allPictures.push(...localPictures);
       console.log(
         `[picture-gallery] Loaded ${localPictures.length} local pictures`
@@ -45,6 +59,7 @@ async function loadAvailablePictures() {
         type: "remote",
         url: item.url,
         title: item.title || "Remote Image",
+        pieces: item.pieces || DEFAULT_PIECES,
       }));
       allPictures.push(...remotePictures);
       console.log(
@@ -83,48 +98,128 @@ export async function showPictureGallery(onSelect, onClose) {
   title.textContent = "🧩 Choose a Puzzle";
   gallery.appendChild(title);
 
+  // --- Filter Buttons (icons only) ---
+  const filterBar = document.createElement("div");
+  filterBar.className = "picture-gallery-filter-bar";
+
+  const babyBtn = document.createElement("button");
+  babyBtn.className = "picture-gallery-filter-btn";
+  babyBtn.innerHTML = "🍼";
+  babyBtn.title = "Baby (4-8 pieces)";
+
+  const studentBtn = document.createElement("button");
+  studentBtn.className = "picture-gallery-filter-btn";
+  studentBtn.innerHTML = "🎓";
+  studentBtn.title = "Student (10-100 pieces)";
+
+  const masterBtn = document.createElement("button");
+  masterBtn.className = "picture-gallery-filter-btn";
+  masterBtn.innerHTML = "🧙‍♂️";
+  masterBtn.title = "Master (>100 pieces)";
+
+  filterBar.appendChild(babyBtn);
+  filterBar.appendChild(studentBtn);
+  filterBar.appendChild(masterBtn);
+  gallery.appendChild(filterBar);
+
+  // --- Selected filter state ---
+  let selectedFilter = null;
+
+  // --- Gallery Grid ---
   const grid = document.createElement("div");
   grid.className = "picture-gallery-grid";
+  gallery.appendChild(grid);
 
   // Load available pictures
   const pictures = await loadAvailablePictures();
 
-  if (pictures.length === 0) {
-    const noPicturesMsg = document.createElement("p");
-    noPicturesMsg.textContent =
-      "No pictures available. Please add images to the pictures folder.";
-    noPicturesMsg.style.textAlign = "center";
-    noPicturesMsg.style.padding = "20px";
-    gallery.appendChild(noPicturesMsg);
-  } else {
-    pictures.forEach((picture) => {
+  function renderGallery(filter) {
+    grid.innerHTML = "";
+    let filtered = pictures;
+    // Highlight selected filter
+    [babyBtn, studentBtn, masterBtn].forEach(btn => btn.classList.remove("selected"));
+    if (filter === "baby") {
+      filtered = pictures.filter(p => (p.pieces || DEFAULT_PIECES) >= 4 && (p.pieces || DEFAULT_PIECES) <= 8);
+      babyBtn.classList.add("selected");
+    } else if (filter === "student") {
+      filtered = pictures.filter(p => (p.pieces || DEFAULT_PIECES) >= 10 && (p.pieces || DEFAULT_PIECES) <= 100);
+      studentBtn.classList.add("selected");
+    } else if (filter === "master") {
+      filtered = pictures.filter(p => (p.pieces || DEFAULT_PIECES) > 100);
+      masterBtn.classList.add("selected");
+    }
+    if (!filter) {
+      // Show all, no highlight
+      filtered = pictures;
+    }
+    if (filtered.length === 0) {
+      const noPicturesMsg = document.createElement("p");
+      noPicturesMsg.textContent = "No pictures available for this filter.";
+      noPicturesMsg.style.textAlign = "center";
+      noPicturesMsg.style.padding = "20px";
+      grid.appendChild(noPicturesMsg);
+      return;
+    }
+    filtered.forEach((picture) => {
       const item = document.createElement("a");
       item.className = "picture-gallery-item";
-
-      const deepLinkUrl = `?image=${encodeURIComponent(
-        picture.url
-      )}&pieces=${DEFAULT_PIECES}&norotate=y`;
-
+      const numPieces = picture.pieces || DEFAULT_PIECES;
+      const deepLinkUrl = `?image=${encodeURIComponent(picture.url)}&pieces=${numPieces}&norotate=y`;
       item.href = deepLinkUrl;
-      item.title = `${picture.title} - Start puzzle with ${DEFAULT_PIECES} pieces`;
-
+      item.title = `${picture.title} - Start puzzle with ${numPieces} pieces`;
       const img = document.createElement("img");
       img.src = picture.url;
       img.alt = picture.title;
       img.loading = "lazy";
-
       item.appendChild(img);
-
       item.addEventListener("click", (e) => {
         e.preventDefault();
         hidePictureGallery();
         if (onSelect) onSelect(deepLinkUrl);
       });
-
       grid.appendChild(item);
     });
+  }
 
-    gallery.appendChild(grid);
+  // Initial render: show all
+  renderGallery();
+
+  // Filter button handlers (toggle)
+  babyBtn.addEventListener("click", () => {
+    if (selectedFilter === "baby") {
+      selectedFilter = null;
+      renderGallery();
+    } else {
+      selectedFilter = "baby";
+      renderGallery("baby");
+    }
+  });
+  studentBtn.addEventListener("click", () => {
+    if (selectedFilter === "student") {
+      selectedFilter = null;
+      renderGallery();
+    } else {
+      selectedFilter = "student";
+      renderGallery("student");
+    }
+  });
+  masterBtn.addEventListener("click", () => {
+    if (selectedFilter === "master") {
+      selectedFilter = null;
+      renderGallery();
+    } else {
+      selectedFilter = "master";
+      renderGallery("master");
+    }
+  });
+
+  // --- Logo click opens gallery ---
+  const logo = document.getElementById("logo");
+  if (logo) {
+    logo.style.cursor = "pointer";
+    logo.addEventListener("click", () => {
+      showPictureGallery(onSelect, onClose);
+    });
   }
 
   const closeContainer = document.createElement("div");
