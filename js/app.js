@@ -24,8 +24,9 @@ import "../css/picture-gallery.css";
 // Register service worker
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
+    const base = import.meta.env.BASE_URL;
     navigator.serviceWorker
-      .register(new URL("../service-worker.js", import.meta.url), {
+      .register(`${base}service-worker.js`, {
         type: "module",
       })
       .catch((err) => {

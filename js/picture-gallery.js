@@ -1,8 +1,7 @@
 // picture-gallery.js - Picture selection gallery for game start
 import { t } from "./i18n.js";
 
-const PWA_BASE = "/puzzle/";
-const PICTURES_PATH = `${PWA_BASE}pictures/`;
+const PICTURES_PATH = "pictures/";
 const DEFAULT_PIECES = 20;
 
 let availablePictures = null;
