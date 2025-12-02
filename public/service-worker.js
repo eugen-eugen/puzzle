@@ -113,37 +113,40 @@ self.addEventListener("fetch", function (event) {
   // Only handle GET
   if (request.method !== "GET") return;
 
+  // Create URL without query parameters for cache matching
+  const urlWithoutParams = url.origin + url.pathname;
+
   // Special handling for index.html: always try network first, cache as fallback
   if (url.pathname === BASE || url.pathname === `${BASE}index.html`) {
     event.respondWith(
       fetch(request)
         .then(function (resp) {
-          // Update cache with fresh version
+          // Update cache with fresh version (without params)
           const copy = resp.clone();
           caches.open(STATIC_CACHE).then(function (cache) {
-            cache.put(request, copy);
+            cache.put(urlWithoutParams, copy);
           });
           return resp;
         })
         .catch(function () {
-          return caches.match(request);
+          return caches.match(urlWithoutParams);
         })
     );
     return;
   }
 
-  // Cache-first strategy for all same-origin assets
+  // Cache-first strategy for all same-origin assets (ignore URL parameters)
   if (url.origin === location.origin) {
     event.respondWith(
-      caches.match(request).then(function (cached) {
+      caches.match(urlWithoutParams, { ignoreSearch: true }).then(function (cached) {
         return (
           cached ||
           fetch(request).then(function (resp) {
-            // Cache dynamically if successful
+            // Cache dynamically if successful (without params)
             if (resp.status === 200) {
               const copy = resp.clone();
               caches.open(STATIC_CACHE).then(function (cache) {
-                cache.put(request, copy);
+                cache.put(urlWithoutParams, copy);
               });
             }
             return resp;
