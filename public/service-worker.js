@@ -138,21 +138,23 @@ self.addEventListener("fetch", function (event) {
   // Cache-first strategy for all same-origin assets (ignore URL parameters)
   if (url.origin === location.origin) {
     event.respondWith(
-      caches.match(urlWithoutParams, { ignoreSearch: true }).then(function (cached) {
-        return (
-          cached ||
-          fetch(request).then(function (resp) {
-            // Cache dynamically if successful (without params)
-            if (resp.status === 200) {
-              const copy = resp.clone();
-              caches.open(STATIC_CACHE).then(function (cache) {
-                cache.put(urlWithoutParams, copy);
-              });
-            }
-            return resp;
-          })
-        );
-      })
+      caches
+        .match(urlWithoutParams, { ignoreSearch: true })
+        .then(function (cached) {
+          return (
+            cached ||
+            fetch(request).then(function (resp) {
+              // Cache dynamically if successful (without params)
+              if (resp.status === 200) {
+                const copy = resp.clone();
+                caches.open(STATIC_CACHE).then(function (cache) {
+                  cache.put(urlWithoutParams, copy);
+                });
+              }
+              return resp;
+            })
+          );
+        })
     );
     return;
   }

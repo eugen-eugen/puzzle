@@ -93,6 +93,7 @@ export class GameTableController {
 
   /**
    * Bring a piece and its group to the front by assigning new z-index values
+   * All pieces in the group get the same new maximum z-index
    * @param {number} pieceId - ID of the piece to bring to front
    */
   bringToFront(pieceId) {
@@ -103,33 +104,18 @@ export class GameTableController {
     if (!group) return; // Should never happen - every piece belongs to a group
 
     const piecesToUpdate = group.getPieces();
-    const isMultiPieceGroup = piecesToUpdate.length > 1;
 
-    // Find the maximum z-index in the group
-    let groupMaxZIndex = -1;
-    piecesToUpdate.forEach((p) => {
-      if (
-        p.zIndex !== null &&
-        p.zIndex !== undefined &&
-        p.zIndex > groupMaxZIndex
-      ) {
-        groupMaxZIndex = p.zIndex;
-      }
-    });
+    // Increment maxZIndex to get a new layer on top
+    this.maxZIndex++;
+    const newZIndex = this.maxZIndex;
 
-    // For multi-piece groups: only update if group's max is lower than current maxZIndex
-    // For single pieces: always assign a new z-index to ensure they're on top
-    if (!isMultiPieceGroup || groupMaxZIndex < this.maxZIndex) {
-      this.maxZIndex++;
-      const newZIndex = this.maxZIndex;
+    // Assign the same new z-index to all pieces in the group
+    piecesToUpdate.forEach(function (p) {
+      p.zIndex = newZIndex;
 
-      piecesToUpdate.forEach((p) => {
-        p.zIndex = newZIndex;
-
-        // Update DOM element via display module
-        applyPieceZIndex(p.id, newZIndex, this.pieceElements);
-      });
-    }
+      // Update DOM element via display module
+      applyPieceZIndex(p.id, newZIndex, this.pieceElements);
+    }, this);
   }
 
   /**
