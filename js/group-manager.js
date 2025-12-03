@@ -44,9 +44,6 @@ class GroupManager {
           validateConnectivity: false,
         });
         this.groups.set(groupId, group);
-        console.log(
-          `[GroupManager] Created group ${groupId} with ${pieces.length} pieces`
-        );
       } catch (error) {
         console.warn(
           `[GroupManager] Failed to create group ${groupId}:`,

@@ -1,17 +1,17 @@
-// geometry/geometry.js - Geometric calculations for jigsaw puzzle generation
+// geometry/lattice.js - Corner lattice and side waypoint generation for jigsaw puzzles
 // Handles corner lattice building, side waypoint generation, and related calculations
 
 import { Point } from "./point.js";
 
 // ================================
-// Geometry Constants
+// Lattice Constants
 // ================================
 const WAYPOINT_OFFSET_RANGE = 0.25; // Waypoint offset range (both directions)
 const CAVITY_DEPTH_CAP_RELATIVE_TO_MIN = 0.25; // Clamp depth to this * min(w,h)
 const CAVITY_DEPTH_CAP_EDGE_FRACTION = 0.5; // Clamp depth to this fraction of edge length
 const CUT_RANDOMNESS_FACTOR = 0.3; // randomness for cut line positions
 
-export class Geometry {
+export class Lattice {
   constructor(
     rows,
     cols,

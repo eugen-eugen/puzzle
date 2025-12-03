@@ -8,7 +8,7 @@
 // -1 = dent (cavity inward), 0 = flat (outer border).
 
 import { Piece } from "./model/piece.js";
-import { Geometry } from "./geometry/geometry.js";
+import { Lattice } from "./geometry/lattice.js";
 import { Point } from "./geometry/point.js";
 
 // ================================
@@ -44,8 +44,8 @@ export function generateJigsawPieces(img, targetCount) {
   const maxDepth = MAX_DEPTH_FACTOR * Math.min(pieceW, pieceH); // base amplitude cap
   const minDepth = MIN_DEPTH_FACTOR * Math.min(pieceW, pieceH);
 
-  // 2. Create geometry with all calculations performed automatically
-  const geometry = new Geometry(
+  // 2. Create lattice with all calculations performed automatically
+  const geometry = new Lattice(
     rows,
     cols,
     pieceW,
@@ -98,7 +98,7 @@ export function generateJigsawPieces(img, targetCount) {
       const actualPieceW = boundingFrame.width;
       const actualPieceH = boundingFrame.height;
 
-      const path = Geometry.createPiecePath(
+      const path = Lattice.createPiecePath(
         r,
         c,
         tempPiece.corners,
