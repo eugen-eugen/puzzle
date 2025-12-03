@@ -280,7 +280,6 @@ input[type=range]::-moz-range-thumb:hover {
 .pieces-container::-webkit-scrollbar-thumb {background:#333;border-radius:6px;}
 
 /* Deep link mode - hide controls except logo, help, and language selector */
-.top-bar.deep-link-mode #imageInput,
 .top-bar.deep-link-mode .slider-container,
 .top-bar.deep-link-mode .zoom-controls,
 .top-bar.deep-link-mode #orientationTipButton,

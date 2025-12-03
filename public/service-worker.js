@@ -2,16 +2,85 @@
 /* eslint-disable no-restricted-globals */
 const SW_VERSION = "v1.2.0"; // bumped for dynamic asset loading
 const STATIC_CACHE = `puzzle-static-${SW_VERSION}`;
+const MANIFEST_CACHE = `puzzle-manifest-${SW_VERSION}`;
 
 // BASE will be set dynamically from asset-manifest.json (always ends with /)
 let BASE = "/puzzle/";
 
+// Check and update manifest with version comparison
+async function checkAndUpdateManifest() {
+  try {
+    // Step 1: Get cached manifest version
+    const cache = await caches.open(MANIFEST_CACHE);
+    const cachedResponse = await cache.match('asset-manifest.json');
+    let cachedVersion = null;
+    
+    if (cachedResponse) {
+      const cachedManifest = await cachedResponse.json();
+      cachedVersion = cachedManifest.version;
+      console.log('[SW] Cached manifest version:', cachedVersion);
+    }
+
+    // Step 2: Fetch new manifest from network (network-first)
+    const response = await fetch('asset-manifest.json', { cache: 'no-cache' });
+    const newManifest = await response.json();
+    const newVersion = newManifest.version;
+    
+    console.log('[SW] New manifest version:', newVersion);
+
+    // Step 3: Compare versions and invalidate cache if needed
+    const shouldInvalidate = 
+      cachedVersion !== newVersion || 
+      newVersion === 'dev';
+
+    if (shouldInvalidate) {
+      console.log('[SW] Version changed or dev mode detected - invalidating cache');
+      
+      // Delete all caches
+      const cacheNames = await caches.keys();
+      await Promise.all(
+        cacheNames
+          .filter(name => name.startsWith('puzzle-'))
+          .map(name => {
+            console.log('[SW] Deleting cache:', name);
+            return caches.delete(name);
+          })
+      );
+      
+      // Recreate manifest cache with new version
+      const newCache = await caches.open(MANIFEST_CACHE);
+      await newCache.put('asset-manifest.json', new Response(JSON.stringify(newManifest)));
+      
+      console.log('[SW] Cache invalidated, new manifest cached');
+    } else {
+      console.log('[SW] Version unchanged - keeping existing cache');
+      
+      // Update manifest cache even if version is same (might have other changes)
+      await cache.put('asset-manifest.json', new Response(JSON.stringify(newManifest)));
+    }
+
+    return { manifest: newManifest, cacheInvalidated: shouldInvalidate };
+  } catch (error) {
+    console.warn('[SW] Failed to check manifest version:', error);
+    
+    // Try to load from cache as fallback
+    const cache = await caches.open(MANIFEST_CACHE);
+    const cachedResponse = await cache.match('asset-manifest.json');
+    
+    if (cachedResponse) {
+      const manifest = await cachedResponse.json();
+      return { manifest, cacheInvalidated: false };
+    }
+    
+    throw error;
+  }
+}
+
 // Load manifest and get base path + hashed assets
 async function loadAssetManifest() {
   try {
-    // Try to fetch from current base first
-    const response = await fetch(`asset-manifest.json`);
-    const manifest = await response.json();
+    // Check version and get manifest
+    const { manifest, cacheInvalidated } = await checkAndUpdateManifest();
 
     // Update BASE from manifest (already has trailing slash)
     if (manifest.base) {
@@ -93,16 +162,25 @@ self.addEventListener("install", function (event) {
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(
-    caches
-      .keys()
-      .then((keys) =>
-        Promise.all(
-          keys
-            .filter((k) => k.startsWith("puzzle-static-") && k !== STATIC_CACHE)
-            .map((k) => caches.delete(k))
+    Promise.all([
+      // Check for manifest updates and invalidate cache if needed
+      checkAndUpdateManifest().catch(err => {
+        console.warn('[SW] Failed to check manifest on activate:', err);
+      }),
+      // Clean up old static caches
+      caches
+        .keys()
+        .then((keys) =>
+          Promise.all(
+            keys
+              .filter((k) => k.startsWith("puzzle-static-") && k !== STATIC_CACHE)
+              .map((k) => {
+                console.log('[SW] Removing old static cache:', k);
+                return caches.delete(k);
+              })
+          )
         )
-      )
-      .then(() => self.clients.claim())
+    ]).then(() => self.clients.claim())
   );
 });
 
@@ -116,10 +194,33 @@ self.addEventListener("fetch", function (event) {
   // Create URL without query parameters for cache matching
   const urlWithoutParams = url.origin + url.pathname;
 
-  // Special handling for index.html: always try network first, cache as fallback
+  // Special handling for asset-manifest.json: network-first with version checking
+  if (url.pathname.endsWith('/asset-manifest.json') || url.pathname === `${BASE}asset-manifest.json`) {
+    event.respondWith(
+      checkAndUpdateManifest()
+        .then(({ manifest }) => {
+          return new Response(JSON.stringify(manifest), {
+            headers: { 'Content-Type': 'application/json' }
+          });
+        })
+        .catch(function (err) {
+          console.error('[SW] Failed to fetch manifest:', err);
+          // Fallback to cached version
+          return caches.match('asset-manifest.json', { cacheName: MANIFEST_CACHE });
+        })
+    );
+    return;
+  }
+
+  // Special handling for index.html: check manifest version, then try network first, cache as fallback
   if (url.pathname === BASE || url.pathname === `${BASE}index.html`) {
     event.respondWith(
-      fetch(request)
+      // Check manifest version before serving index.html
+      checkAndUpdateManifest()
+        .then(function () {
+          // After version check, fetch fresh index.html
+          return fetch(request);
+        })
         .then(function (resp) {
           // Update cache with fresh version (without params)
           const copy = resp.clone();
@@ -128,7 +229,8 @@ self.addEventListener("fetch", function (event) {
           });
           return resp;
         })
-        .catch(function () {
+        .catch(function (err) {
+          console.warn('[SW] Failed to fetch index.html, using cache:', err);
           return caches.match(urlWithoutParams);
         })
     );

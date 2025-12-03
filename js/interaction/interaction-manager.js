@@ -68,8 +68,10 @@ export function initializeInteractions(pieceElementsMap) {
   try {
     // Configure interact.js for each piece individually
     pieceElementsMap.forEach((element, pieceId) => {
-      const interactable = window.interact(element);
-
+      // Unset existing interactable to avoid duplicate listeners
+      var interactable = window.interact(element);
+      interactable.unset();
+      interactable = window.interact(element);
       interactable
         .draggable({
           listeners: {
@@ -94,17 +96,18 @@ export function initializeInteractions(pieceElementsMap) {
       }
     });
 
-    // Configure global container interactions
-    window.interact("#piecesContainer").on("tap", onContainerTap);
+    // Configure global container interactions (unset first to avoid duplicates)
+    var containerInteractable = window.interact("#piecesContainer");
+    containerInteractable.unset();
+
+    containerInteractable = window.interact("#piecesContainer");
+    containerInteractable.on("tap", onContainerTap);
 
     console.log("[interactionManager] interact.js configured successfully");
   } catch (error) {
     console.error("[interactionManager] Error configuring interact.js:", error);
     throw error; // Re-throw to make the error visible
   }
-
-  // Set up keyboard event handling
-  installKeyboardListeners();
 
   // Register curvature callback for shuffle-based detachment
   const curvatureThreshold = 8;
@@ -673,24 +676,22 @@ function clearDragPauseTimer() {
 }
 
 /**
- * Install keyboard event listeners for piece rotation
+ * Install keyboard event listeners for piece rotation (called once at module load)
  */
-function installKeyboardListeners() {
-  window.addEventListener("keydown", (e) => {
-    if (!selectedPieceId) return;
-    const pieceEl = pieceElements.get(selectedPieceId);
-    if (!pieceEl) return;
-    const piece = findPiece(selectedPieceId);
-    if (!piece) return;
+window.addEventListener("keydown", (e) => {
+  if (!selectedPieceId) return;
+  const pieceEl = pieceElements.get(selectedPieceId);
+  if (!pieceEl) return;
+  const piece = findPiece(selectedPieceId);
+  if (!piece) return;
 
-    if (e.key === "r" || e.key === "R") {
-      // Check if rotation is disabled
-      if (state.noRotate) {
-        console.log("[interaction] Rotation disabled (noRotate mode)");
-        return;
-      }
-      const rotationAmount = e.shiftKey ? 270 : 90; // Shift+R = counter-clockwise
-      rotatePieceOrGroup(piece, pieceEl, rotationAmount);
+  if (e.key === "r" || e.key === "R") {
+    // Check if rotation is disabled
+    if (state.noRotate) {
+      console.log("[interaction] Rotation disabled (noRotate mode)");
+      return;
     }
-  });
-}
+    const rotationAmount = e.shiftKey ? 270 : 90; // Shift+R = counter-clockwise
+    rotatePieceOrGroup(piece, pieceEl, rotationAmount);
+  }
+});
