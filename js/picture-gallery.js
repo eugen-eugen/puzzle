@@ -239,7 +239,7 @@ export async function showPictureGallery(onSelect, onClose) {
   closeContainer.className = "picture-gallery-close";
 
   const closeButton = document.createElement("button");
-  closeButton.textContent = "Upload Your Own Image!";
+  closeButton.textContent = t("gallery.uploadOwn");
   closeButton.addEventListener("click", () => {
     hidePictureGallery();
     if (onClose) onClose();
