@@ -184,6 +184,13 @@ export async function showPictureGallery(onSelect, onClose) {
       img.src = picture.url;
       img.alt = picture.title;
       img.loading = "lazy";
+      
+      // Hide item if image fails to load
+      img.addEventListener("error", () => {
+        item.style.display = "none";
+        console.warn(`[picture-gallery] Failed to load image: ${picture.url}`);
+      });
+      
       item.appendChild(img);
       item.addEventListener("click", (e) => {
         e.preventDefault();
