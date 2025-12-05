@@ -2,13 +2,16 @@
   "name": "Puzzle Lab",
   "short_name": "Puzzle",
   "description": "Offline-capable procedural jigsaw puzzle from any image.",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/puzzle/",
+  "scope": "/puzzle/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#121212",
   "theme_color": "#222a36",
-  "categories": ["games", "puzzle"],
+  "categories": [
+    "games",
+    "puzzle"
+  ],
   "icons": [
     {
       "src": "icons/icon-192.png",
