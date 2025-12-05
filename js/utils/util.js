@@ -53,4 +53,14 @@ export class Util {
   static isPositiveNumber(value) {
     return typeof value === "number" && !isNaN(value) && value > 0;
   }
+
+  /**
+   * Generate a symmetric random deviation within a range.
+   * Returns a value between -maxDeviation and +maxDeviation.
+   * @param {number} maxDeviation - Maximum deviation in either direction
+   * @returns {number} Random value in range [-maxDeviation, +maxDeviation]
+   */
+  static symmetricRandomDeviation(maxDeviation) {
+    return (Math.random() - 0.5) * 2 * maxDeviation;
+  }
 }

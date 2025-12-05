@@ -48,8 +48,6 @@ export function generateJigsawPieces(img, targetCount) {
   const geometry = new Lattice(
     rows,
     cols,
-    pieceW,
-    pieceH,
     img.width,
     img.height,
     minDepth,
