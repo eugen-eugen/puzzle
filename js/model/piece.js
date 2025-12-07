@@ -120,10 +120,10 @@ export class Piece {
    */
   _ensureCornersArePoints(corners) {
     return {
-      nw: Point.from(corners.nw),
-      ne: Point.from(corners.ne),
-      se: Point.from(corners.se),
-      sw: Point.from(corners.sw),
+      nw: new Point(corners.nw.x, corners.nw.y),
+      ne: new Point(corners.ne.x, corners.ne.y),
+      se: new Point(corners.se.x, corners.se.y),
+      sw: new Point(corners.sw.x, corners.sw.y),
     };
   }
 
@@ -133,10 +133,10 @@ export class Piece {
    */
   _ensureSidePointsArePoints(sPoints) {
     return {
-      north: sPoints.north ? Point.from(sPoints.north) : null,
-      east: sPoints.east ? Point.from(sPoints.east) : null,
-      south: sPoints.south ? Point.from(sPoints.south) : null,
-      west: sPoints.west ? Point.from(sPoints.west) : null,
+      north: sPoints.north ? new Point(sPoints.north.x, sPoints.north.y) : null,
+      east: sPoints.east ? new Point(sPoints.east.x, sPoints.east.y) : null,
+      south: sPoints.south ? new Point(sPoints.south.x, sPoints.south.y) : null,
+      west: sPoints.west ? new Point(sPoints.west.x, sPoints.west.y) : null,
     };
   }
 
@@ -163,15 +163,21 @@ export class Piece {
     const c = this.gridX;
 
     return {
-      north: r > 0 ? Point.from(hSides[r - 1][c]).sub(c_nw) : null,
+      north:
+        r > 0
+          ? new Point(hSides[r - 1][c].x, hSides[r - 1][c].y).sub(c_nw)
+          : null,
       east:
         c < cols - 1 && vSides[r][c]
-          ? Point.from(vSides[r][c]).sub(c_nw)
+          ? new Point(vSides[r][c].x, vSides[r][c].y).sub(c_nw)
           : null,
-      south: r < rows - 1 ? Point.from(hSides[r][c]).sub(c_nw) : null,
+      south:
+        r < rows - 1
+          ? new Point(hSides[r][c].x, hSides[r][c].y).sub(c_nw)
+          : null,
       west:
         c > 0 && vSides[r][c - 1]
-          ? Point.from(vSides[r][c - 1]).sub(c_nw)
+          ? new Point(vSides[r][c - 1].x, vSides[r][c - 1].y).sub(c_nw)
           : null,
     };
   }
@@ -206,10 +212,9 @@ export class Piece {
         // Ensure piece has position Point before computing world data
         if (
           !this.position ||
-          !(this.position instanceof Point) ||
-          !this.position.isValid()
+          !(this.position instanceof Point)
         ) {
-          // Initialize position if missing or invalid (fallback for pieces not yet processed)
+          // Initialize position if missing (fallback for pieces not yet processed)
           this.position = new Point(0, 0);
         }
 
@@ -279,7 +284,7 @@ export class Piece {
     const pivot = this.getCenter();
 
     const toCanvasLocalPoint = (pt) =>
-      pt.subtract(boundingFrame.topLeft).scaled(scale);
+      pt.sub(boundingFrame.topLeft).scaled(scale);
 
     // Corners
     const c = this.corners;
@@ -293,9 +298,9 @@ export class Piece {
     const worldCorners = {};
     for (const [key, pLocal] of Object.entries(cornersLocal)) {
       // Translate to canvas position, then rotate around visual center
-      const translated = pLocal.addPoint(canvasTopLeft);
+      const translated = pLocal.add(canvasTopLeft);
       const rotated = translated.rotatedAroundDeg(pivot, this.rotation);
-      worldCorners[key] = rotated.toObject(); // Convert Point to plain object
+      worldCorners[key] = rotated;
     }
 
     // Side points
@@ -308,9 +313,9 @@ export class Piece {
         return;
       }
       const local = toCanvasLocalPoint(p);
-      const translated = local.addPoint(canvasTopLeft);
+      const translated = local.add(canvasTopLeft);
       const rotated = translated.rotatedAroundDeg(pivot, this.rotation);
-      worldSPoints[side] = rotated.toObject(); // Convert Point to plain object
+      worldSPoints[side] = rotated;
     });
 
     return { worldCorners, worldSPoints };
@@ -320,15 +325,10 @@ export class Piece {
 
   /**
    * Set absolute position
-   * @param {number|Point} x - X coordinate or Point instance
-   * @param {number} [y] - Y coordinate (if x is number)
+   * @param {Point} point - Point instance
    */
-  setPosition(x, y) {
-    if (x instanceof Point) {
-      this.position.mutCopy(x);
-    } else {
-      this.position.mutSet(x, y);
-    }
+  setPosition(point) {
+    this.position = point;
   }
 
   /**
@@ -364,9 +364,9 @@ export class Piece {
    */
   move(deltaX, deltaY) {
     if (deltaX instanceof Point) {
-      this.position.mutAdd(deltaX.x, deltaX.y);
+      this.position.mutAdd(deltaX);
     } else {
-      this.position.mutAdd(deltaX, deltaY);
+      this.position.mutAdd(new Point(deltaX, deltaY));
     }
   }
 

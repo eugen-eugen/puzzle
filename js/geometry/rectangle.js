@@ -19,9 +19,7 @@ export class Rectangle {
   }
 
   static fromPoints(topLeft, bottomRight) {
-    const tl = Point.from(topLeft);
-    const br = Point.from(bottomRight);
-    return new Rectangle(tl.x, tl.y, br.x - tl.x, br.y - tl.y);
+    return new Rectangle(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
   }
 
   static empty() {
@@ -141,9 +139,8 @@ export class Rectangle {
   static fromBoundingFrameAtPosition(boundingFrame, position) {
     if (!boundingFrame || !position) return Rectangle.empty();
 
-    const pos = Point.from(position);
-    const worldMin = pos.add(boundingFrame.topLeft);
-    const worldMax = pos.add(boundingFrame.bottomRight);
+    const worldMin = position.add(boundingFrame.topLeft);
+    const worldMax = position.add(boundingFrame.bottomRight);
 
     return Rectangle.fromPoints(worldMin, worldMax);
   }

@@ -126,7 +126,7 @@ export function getPanOffset() {
 }
 
 export function setPanOffset(newPanOffset) {
-  panOffset = Point.from(newPanOffset);
+  panOffset = newPanOffset;
 }
 
 export function getIsPanning() {
@@ -142,7 +142,7 @@ export function getLastPanPosition() {
 }
 
 export function setLastPanPosition(position) {
-  lastPanPosition = Point.from(position);
+  lastPanPosition = position;
 }
 
 // Zoom function with optional center point
@@ -155,12 +155,12 @@ export function setZoom(newZoomLevel, center = null) {
   if (center && piecesContainer) {
     const containerRect = piecesContainer.getBoundingClientRect();
     const containerOffset = new Point(containerRect.left, containerRect.top);
-    const viewportCenter = center.subtract(containerOffset);
+    const viewportCenter = center.sub(containerOffset);
 
     // Adjust pan to keep the zoom center point in the same position
     const zoomRatio = clampedZoom / oldZoom;
-    const panDelta = viewportCenter.subtract(panOffset).scaled(zoomRatio);
-    panOffset = viewportCenter.subtract(panDelta);
+    const panDelta = viewportCenter.sub(panOffset).scaled(zoomRatio);
+    panOffset = viewportCenter.sub(panDelta);
   }
 
   updateViewportTransform();
@@ -177,7 +177,7 @@ export function updateViewportTransform(
   const currentZoomLevel = zoomLevelParam !== null ? zoomLevelParam : zoomLevel;
 
   // Update internal state if parameters were provided
-  if (panOffsetParam) panOffset = Point.from(panOffsetParam);
+  if (panOffsetParam) panOffset = panOffsetParam;
   if (zoomLevelParam !== null) zoomLevel = zoomLevelParam;
 
   if (!Util.isElementValid(piecesViewport) || !currentPanOffset) return;

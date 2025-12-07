@@ -211,8 +211,8 @@ export class GameTableController {
     this._piecePositions.set(pieceId, position.clone());
     // Mirror back to Piece for compatibility (Phase 1)
     const piece = this._findPiece(pieceId);
-    if (piece && piece.position instanceof Point) {
-      piece.position.mutCopy(position);
+    if (piece) {
+      piece.position = position;
     }
     this._updateSpatialIndexFor(pieceId);
     this._applyDomPosition(pieceId);

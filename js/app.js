@@ -133,7 +133,7 @@ function calculatePiecesBounds(pieces) {
       piece.position
     );
 
-    if (pieceRect.isValid() && !pieceRect.isEmpty()) {
+    if (!pieceRect.isEmpty()) {
       bounds = bounds.plus(pieceRect);
     }
   }
@@ -210,12 +210,12 @@ function ensureRectInView(position, size, options = {}) {
       }
     }
     // After potential zoom, clamp pan to fit the rectangle fully.
-    if (r.topLeft.x < 0) setPanOffset(getPanOffset().add(-r.topLeft.x, 0));
-    if (r.topLeft.y < 0) setPanOffset(getPanOffset().add(0, -r.topLeft.y));
+    if (r.topLeft.x < 0) setPanOffset(getPanOffset().add(new Point(-r.topLeft.x, 0)));
+    if (r.topLeft.y < 0) setPanOffset(getPanOffset().add(new Point(0, -r.topLeft.y)));
     if (r.bottomRight.x > contW)
-      setPanOffset(getPanOffset().subtract(r.bottomRight.x - contW, 0));
+      setPanOffset(getPanOffset().sub(new Point(r.bottomRight.x - contW, 0)));
     if (r.bottomRight.y > contH)
-      setPanOffset(getPanOffset().subtract(0, r.bottomRight.y - contH));
+      setPanOffset(getPanOffset().sub(new Point(0, r.bottomRight.y - contH)));
     updateViewportTransform();
     return; // Done for forceZoom path
   }
@@ -223,19 +223,19 @@ function ensureRectInView(position, size, options = {}) {
   // Normal path (not forceZoom): try panning first, then fallback to simple zoom-fit only if still overflowing.
   let panAdjusted = false;
   if (r.topLeft.x < 0) {
-    setPanOffset(getPanOffset().add(-r.topLeft.x, 0));
+    setPanOffset(getPanOffset().add(new Point(-r.topLeft.x, 0)));
     panAdjusted = true;
   }
   if (r.topLeft.y < 0) {
-    setPanOffset(getPanOffset().add(0, -r.topLeft.y));
+    setPanOffset(getPanOffset().add(new Point(0, -r.topLeft.y)));
     panAdjusted = true;
   }
   if (r.bottomRight.x > contW) {
-    setPanOffset(getPanOffset().subtract(r.bottomRight.x - contW, 0));
+    setPanOffset(getPanOffset().sub(new Point(r.bottomRight.x - contW, 0)));
     panAdjusted = true;
   }
   if (r.bottomRight.y > contH) {
-    setPanOffset(getPanOffset().subtract(0, r.bottomRight.y - contH));
+    setPanOffset(getPanOffset().sub(new Point(0, r.bottomRight.y - contH)));
     panAdjusted = true;
   }
   if (panAdjusted) {
@@ -256,12 +256,12 @@ function ensureRectInView(position, size, options = {}) {
       setZoomLevel(Math.max(MIN_ZOOM, targetZoom));
       updateViewportTransform();
       r = rectOnScreen();
-      if (r.topLeft.x < 0) setPanOffset(getPanOffset().add(-r.topLeft.x, 0));
-      if (r.topLeft.y < 0) setPanOffset(getPanOffset().add(0, -r.topLeft.y));
+      if (r.topLeft.x < 0) setPanOffset(getPanOffset().add(new Point(-r.topLeft.x, 0)));
+      if (r.topLeft.y < 0) setPanOffset(getPanOffset().add(new Point(0, -r.topLeft.y)));
       if (r.bottomRight.x > contW)
-        setPanOffset(getPanOffset().subtract(r.bottomRight.x - contW, 0));
+        setPanOffset(getPanOffset().sub(new Point(r.bottomRight.x - contW, 0)));
       if (r.bottomRight.y > contH)
-        setPanOffset(getPanOffset().subtract(0, r.bottomRight.y - contH));
+        setPanOffset(getPanOffset().sub(new Point(0, r.bottomRight.y - contH)));
       updateViewportTransform();
       updateZoomDisplay();
     } else if (panAdjusted) {
@@ -433,7 +433,7 @@ document.addEventListener("mousemove", (e) => {
   if (getIsPanning()) {
     e.preventDefault();
     const currentPosition = new Point(e.clientX, e.clientY);
-    const delta = currentPosition.subtract(getLastPanPosition());
+    const delta = currentPosition.sub(getLastPanPosition());
     setPanOffset(getPanOffset().add(delta));
     setLastPanPosition(currentPosition);
     updateViewportTransform();

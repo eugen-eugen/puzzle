@@ -254,7 +254,7 @@ export class Group {
         piece.position
       );
 
-      if (pieceRect.isValid() && !pieceRect.isEmpty()) {
+      if (!pieceRect.isEmpty()) {
         bounds = bounds.plus(pieceRect);
       }
     }

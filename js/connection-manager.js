@@ -304,8 +304,7 @@ function finePlace(movingPiece, highlightData) {
   const mWorldCorner = movingWD.worldCorners[movingCornerKey];
   const sWorldCorner = stationaryWD.worldCorners[stationaryCornerKey];
 
-  const dx = sWorldCorner.x - mWorldCorner.x;
-  const dy = sWorldCorner.y - mWorldCorner.y;
+  const delta = sWorldCorner.sub(mWorldCorner);
 
   // Get all pieces in the moving group (including the moving piece itself)
   const movingGroupPieces = getMovingGroupPieces(movingPiece); // Apply translation to all pieces in the moving group
@@ -314,7 +313,7 @@ function finePlace(movingPiece, highlightData) {
       piece.position = new Point(0, 0);
     }
     // Mutate then sync through controller for spatial index + cache invalidation
-    piece.position.mutAdd(dx, dy);
+    piece.position.mutAdd(delta);
     if (pieceElementsAccessor) {
       const el = pieceElementsAccessor(piece.id);
       if (el) applyPieceTransform(el, piece);

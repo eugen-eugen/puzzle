@@ -101,19 +101,12 @@ export class SpatialIndex {
     }
   }
 
-  queryRadius(x, y, radius) {
-    if (typeof x === "object" && x !== null) {
-      radius = y;
-      const pt = x instanceof Point ? x : Point.from(x);
-      x = pt.x;
-      y = pt.y;
-    }
-
+  queryRadius(point, radius) {
     const results = new Set();
-    const minCol = Math.floor((x - radius) / this.cellSize);
-    const maxCol = Math.floor((x + radius) / this.cellSize);
-    const minRow = Math.floor((y - radius) / this.cellSize);
-    const maxRow = Math.floor((y + radius) / this.cellSize);
+    const minCol = Math.floor((point.x - radius) / this.cellSize);
+    const maxCol = Math.floor((point.x + radius) / this.cellSize);
+    const minRow = Math.floor((point.y - radius) / this.cellSize);
+    const maxRow = Math.floor((point.y + radius) / this.cellSize);
 
     // Query all cells in range (SparseGrid handles missing cells)
     for (let row = minRow; row <= maxRow; row++) {
