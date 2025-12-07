@@ -581,10 +581,10 @@ export class Piece {
 
     // Handle edge case where no valid points found
     if (!isFinite(minX)) {
-      return Rectangle.fromMinMax(0, 0, this.w || 0, this.h || 0);
+      return Rectangle.fromPoints(new Point(0, 0), new Point(this.w || 0, this.h || 0));
     }
 
-    return Rectangle.fromMinMax(minX, minY, maxX, maxY);
+    return Rectangle.fromPoints(new Point(minX, minY), new Point(maxX, maxY));
   }
 
   /**

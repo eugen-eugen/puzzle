@@ -119,19 +119,18 @@ let deepLinkActive = false; // true when URL provides image & pieces params
 function calculatePiecesBounds(pieces) {
   if (Util.isArrayEmpty(pieces)) return null;
 
-  let bounds = Rectangle.empty();
+  let bounds = new Rectangle();
 
   for (const piece of pieces) {
-    if (!piece || !piece.calculateBoundingFrame) continue;
+    if (!piece) continue;
 
     const boundingFrame = piece.calculateBoundingFrame();
     if (!boundingFrame) continue;
 
     // Create rectangle from bounding frame at piece position
-    const pieceRect = Rectangle.fromBoundingFrameAtPosition(
-      boundingFrame,
-      piece.position
-    );
+    const worldMin = piece.position.add(boundingFrame.topLeft);
+    const worldMax = piece.position.add(boundingFrame.bottomRight);
+    const pieceRect = Rectangle.fromPoints(worldMin, worldMax);
 
     if (!pieceRect.isEmpty()) {
       bounds = bounds.plus(pieceRect);
@@ -210,8 +209,10 @@ function ensureRectInView(position, size, options = {}) {
       }
     }
     // After potential zoom, clamp pan to fit the rectangle fully.
-    if (r.topLeft.x < 0) setPanOffset(getPanOffset().add(new Point(-r.topLeft.x, 0)));
-    if (r.topLeft.y < 0) setPanOffset(getPanOffset().add(new Point(0, -r.topLeft.y)));
+    if (r.topLeft.x < 0)
+      setPanOffset(getPanOffset().add(new Point(-r.topLeft.x, 0)));
+    if (r.topLeft.y < 0)
+      setPanOffset(getPanOffset().add(new Point(0, -r.topLeft.y)));
     if (r.bottomRight.x > contW)
       setPanOffset(getPanOffset().sub(new Point(r.bottomRight.x - contW, 0)));
     if (r.bottomRight.y > contH)
@@ -256,8 +257,10 @@ function ensureRectInView(position, size, options = {}) {
       setZoomLevel(Math.max(MIN_ZOOM, targetZoom));
       updateViewportTransform();
       r = rectOnScreen();
-      if (r.topLeft.x < 0) setPanOffset(getPanOffset().add(new Point(-r.topLeft.x, 0)));
-      if (r.topLeft.y < 0) setPanOffset(getPanOffset().add(new Point(0, -r.topLeft.y)));
+      if (r.topLeft.x < 0)
+        setPanOffset(getPanOffset().add(new Point(-r.topLeft.x, 0)));
+      if (r.topLeft.y < 0)
+        setPanOffset(getPanOffset().add(new Point(0, -r.topLeft.y)));
       if (r.bottomRight.x > contW)
         setPanOffset(getPanOffset().sub(new Point(r.bottomRight.x - contW, 0)));
       if (r.bottomRight.y > contH)

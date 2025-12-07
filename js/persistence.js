@@ -361,15 +361,15 @@ function reconstructPieces(data, masterImage) {
       const imgPoint = new Point(imgX, imgY);
       const min = boundingFrame.topLeft.add(imgPoint);
       const max = boundingFrame.bottomRight.add(imgPoint);
-      const srcRect = new Rectangle(min.x, min.y, max.x - min.x, max.y - min.y);
+      const srcRect = new Rectangle(min, max.x - min.x, max.y - min.y);
 
       let srcW = max.x - min.x;
       let srcH = max.y - min.y;
 
       const imgW = masterImage.naturalWidth || masterImage.width;
       const imgH = masterImage.naturalHeight || masterImage.height;
-      const clipX = Math.max(0, srcRect.x);
-      const clipY = Math.max(0, srcRect.y);
+      const clipX = Math.max(0, srcRect.position.x);
+      const clipY = Math.max(0, srcRect.position.y);
       const clipW = Math.min(srcW, imgW - clipX);
       const clipH = Math.min(srcH, imgH - clipY);
 

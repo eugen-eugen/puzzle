@@ -6,42 +6,79 @@
 import { Point } from "./point.js";
 
 export class Rectangle {
-  constructor(x = 0, y = 0, width = 0, height = 0) {
-    this.x = x;
-    this.y = y;
+  /**
+   * Create a new Rectangle
+   * @param {Point|null} position - Top-left corner position (cloned internally), defaults to Point(0,0) if null
+   * @param {number} width - Rectangle width
+   * @param {number} height - Rectangle height
+   */
+  constructor(position = null, width = 0, height = 0) {
+    this._position = position instanceof Point ? position.clone() : new Point();
     this.width = width;
     this.height = height;
   }
 
+  /**
+   * Get the top-left position of the rectangle
+   * @returns {Point} The position Point
+   */
+  get position() {
+    return this._position;
+  }
+
   // ---------------- Factory / Conversion ----------------
-  static fromMinMax(minX, minY, maxX, maxY) {
-    return new Rectangle(minX, minY, maxX - minX, maxY - minY);
-  }
-
+  /**
+   * Create a rectangle from two corner points
+   * @param {Point} topLeft - Top-left corner
+   * @param {Point} bottomRight - Bottom-right corner
+   * @returns {Rectangle} New rectangle spanning from topLeft to bottomRight
+   */
   static fromPoints(topLeft, bottomRight) {
-    return new Rectangle(topLeft.x, topLeft.y, bottomRight.x - topLeft.x, bottomRight.y - topLeft.y);
+    return new Rectangle(
+      topLeft,
+      bottomRight.x - topLeft.x,
+      bottomRight.y - topLeft.y
+    );
   }
 
-  static empty() {
-    return new Rectangle(0, 0, 0, 0);
-  }
-
+  /**
+   * Create a deep copy of this rectangle
+   * @returns {Rectangle} Independent copy of the rectangle
+   */
   clone() {
-    return new Rectangle(this.x, this.y, this.width, this.height);
+    return new Rectangle(this.position, this.width, this.height);
   }
 
   // ---------------- Properties ----------------
 
+  /**
+   * Get the top-left corner position
+   * @returns {Point} Clone of the position
+   */
   get topLeft() {
-    return new Point(this.x, this.y);
+    return this.position.clone();
   }
 
+  /**
+   * Get the bottom-right corner position
+   * @returns {Point} Bottom-right corner (position + width/height)
+   */
   get bottomRight() {
-    return new Point(this.x + this.width, this.y + this.height);
+    return new Point(
+      this.position.x + this.width,
+      this.position.y + this.height
+    );
   }
 
+  /**
+   * Get the center point of the rectangle
+   * @returns {Point} Center point
+   */
   get center() {
-    return new Point(this.x + this.width / 2, this.y + this.height / 2);
+    return new Point(
+      this.position.x + this.width / 2,
+      this.position.y + this.height / 2
+    );
   }
 
   /**
@@ -53,23 +90,12 @@ export class Rectangle {
   }
 
   // ---------------- Validation ----------------
+  /**
+   * Check if the rectangle has zero or negative area
+   * @returns {boolean} True if width or height is <= 0
+   */
   isEmpty() {
     return this.width <= 0 || this.height <= 0;
-  }
-
-  isValid() {
-    return (
-      typeof this.x === "number" &&
-      typeof this.y === "number" &&
-      typeof this.width === "number" &&
-      typeof this.height === "number" &&
-      isFinite(this.x) &&
-      isFinite(this.y) &&
-      isFinite(this.width) &&
-      isFinite(this.height) &&
-      this.width >= 0 &&
-      this.height >= 0
-    );
   }
 
   // ---------------- Core Operations ----------------
@@ -83,12 +109,15 @@ export class Rectangle {
     if (this.isEmpty()) return r.clone();
     if (r.isEmpty()) return this.clone();
 
-    return Rectangle.fromMinMax(
+    const minPoint = new Point(
       Math.min(this.topLeft.x, r.topLeft.x),
-      Math.min(this.topLeft.y, r.topLeft.y),
+      Math.min(this.topLeft.y, r.topLeft.y)
+    );
+    const maxPoint = new Point(
       Math.max(this.bottomRight.x, r.bottomRight.x),
       Math.max(this.bottomRight.y, r.bottomRight.y)
     );
+    return Rectangle.fromPoints(minPoint, maxPoint);
   }
 
   /**
@@ -98,50 +127,20 @@ export class Rectangle {
    */
   scaled(factor) {
     return new Rectangle(
-      this.x * factor,
-      this.y * factor,
+      this.position.scaled(factor),
       this.width * factor,
       this.height * factor
     );
   }
 
   // ---------------- Utility ----------------
-  equals(r) {
-    return (
-      this.x === r.x &&
-      this.y === r.y &&
-      this.width === r.width &&
-      this.height === r.height
-    );
-  }
-
-  toString() {
-    return `Rectangle(${this.x}, ${this.y}, ${this.width}, ${this.height})`;
-  }
-
-  toJSON() {
-    return {
-      x: this.x,
-      y: this.y,
-      width: this.width,
-      height: this.height,
-    };
-  }
-
-  // ---------------- Static Utilities ----------------
 
   /**
-   * Create a rectangle from a bounding frame object with position offset
-   * @param {Object} boundingFrame - Object with minX, minY, maxX, maxY
-   * @param {Point} position - Position to offset the bounding frame
-   * @returns {Rectangle} Rectangle in world coordinates
+   * Convert rectangle to string representation
+   * @returns {string} String format: "Rectangle(x, y, width, height)"
    */
-  static fromBoundingFrameAtPosition(boundingFrame, position) {
-    if (!boundingFrame || !position) return Rectangle.empty();
-
-    const worldMin = position.add(boundingFrame.topLeft);
-    const worldMax = position.add(boundingFrame.bottomRight);
-
-    return Rectangle.fromPoints(worldMin, worldMax);
+  toString() {
+    return `Rectangle(${this.position.x}, ${this.position.y}, ${this.width}, ${this.height})`;
   }
+
 }

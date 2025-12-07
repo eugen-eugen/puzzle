@@ -240,7 +240,7 @@ export class Group {
   calculateBounds() {
     if (this.isEmpty()) return null;
 
-    let bounds = Rectangle.empty();
+    let bounds = new Rectangle();
 
     for (const piece of this.pieces) {
       if (!piece || !piece.calculateBoundingFrame) continue;
@@ -249,10 +249,9 @@ export class Group {
       if (!boundingFrame) continue;
 
       // Create rectangle from bounding frame at piece position
-      const pieceRect = Rectangle.fromBoundingFrameAtPosition(
-        boundingFrame,
-        piece.position
-      );
+      const worldMin = piece.position.add(boundingFrame.topLeft);
+      const worldMax = piece.position.add(boundingFrame.bottomRight);
+      const pieceRect = Rectangle.fromPoints(worldMin, worldMax);
 
       if (!pieceRect.isEmpty()) {
         bounds = bounds.plus(pieceRect);
