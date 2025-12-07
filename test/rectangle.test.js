@@ -1,6 +1,6 @@
 // rectangle.test.js - Unit tests for Rectangle class
 import { describe, it, expect } from "vitest";
-import { Rectangle } from "../js/geometry/Rectangle.js";
+import { Rectangle } from "../js/geometry/rectangle.js";
 import { Point } from "../js/geometry/point.js";
 
 describe("Rectangle", () => {
