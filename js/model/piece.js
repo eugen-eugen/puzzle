@@ -210,10 +210,7 @@ export class Piece {
     Object.defineProperty(this, "worldData", {
       get() {
         // Ensure piece has position Point before computing world data
-        if (
-          !this.position ||
-          !(this.position instanceof Point)
-        ) {
+        if (!this.position || !(this.position instanceof Point)) {
           // Initialize position if missing (fallback for pieces not yet processed)
           this.position = new Point(0, 0);
         }
@@ -581,7 +578,10 @@ export class Piece {
 
     // Handle edge case where no valid points found
     if (!isFinite(minX)) {
-      return Rectangle.fromPoints(new Point(0, 0), new Point(this.w || 0, this.h || 0));
+      return Rectangle.fromPoints(
+        new Point(0, 0),
+        new Point(this.w || 0, this.h || 0)
+      );
     }
 
     return Rectangle.fromPoints(new Point(minX, minY), new Point(maxX, maxY));

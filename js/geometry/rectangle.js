@@ -142,5 +142,4 @@ export class Rectangle {
   toString() {
     return `Rectangle(${this.position.x}, ${this.position.y}, ${this.width}, ${this.height})`;
   }
-
 }
