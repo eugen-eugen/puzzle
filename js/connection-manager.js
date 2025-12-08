@@ -6,7 +6,7 @@
 
 import { state, connectPieces } from "./game-engine.js";
 import { getCurrentZoom } from "./app.js";
-import { applyPieceTransform } from "./display.js";
+import { applyPieceTransform } from "./ui/display.js";
 import { gameTableController } from "./game-table-controller.js";
 // Geometry utilities (new Point-based refactor)
 import { Point, dist2 as pointDist2 } from "./geometry/point.js";

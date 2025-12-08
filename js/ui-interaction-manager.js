@@ -1,21 +1,14 @@
 // ui-interaction-manager.js - GUI interaction handler for puzzle pieces
 // Handles browser events, gesture detection, and visual feedback
 
-import { Point } from "../geometry/point.js";
-import {
-  clearAllPieceOutlines,
-  getViewportState,
-  ensureRectInView,
-} from "../app.js";
-import {
-  screenToViewport,
-  applyHighlight as displayApplyHighlight,
-} from "./display.js";
-import { handleDragMove } from "../connection-manager.js";
-import { state } from "../game-engine.js";
-import { dragMonitor } from "../interaction/drag.js";
-import { groupManager } from "../group-manager.js";
-import * as hlHandler from "../interaction/hl-interaction-handler.js";
+import { Point } from "./geometry/point.js";
+import { clearAllPieceOutlines, getViewportState } from "./app.js";
+import { screenToViewport } from "./ui/display.js";
+import { handleDragMove } from "./connection-manager.js";
+import { state } from "./game-engine.js";
+import { dragMonitor } from "./interaction/drag.js";
+import { groupManager } from "./group-manager.js";
+import * as hlHandler from "./interaction/hl-interaction-handler.js";
 
 // Constants for interaction behavior
 const OUTSIDE_THRESHOLD_PX = 40;
@@ -50,7 +43,7 @@ export function initializeInteractions(pieceElementsMap) {
   pieceElements = pieceElementsMap;
 
   // Initialize high-level handler with listeners for visual feedback
-  hlHandler.initialize({
+  hlHandler.initialize(pieceElementsMap, {
     onPieceSelectedVisual: (pieceId, prevPieceId) => {
       // Remove selection from previous piece
       if (prevPieceId != null) {
@@ -70,17 +63,6 @@ export function initializeInteractions(pieceElementsMap) {
       if (el) {
         el.classList.add("detached-piece");
         setTimeout(() => el.classList.remove("detached-piece"), 1000);
-      }
-    },
-    onEnsurePieceInView: (pieceId) => {
-      const piece = state.pieces.find((p) => p.id === pieceId);
-      const el = pieceElements.get(pieceId);
-      if (piece && el) {
-        ensureRectInView(
-          piece.position,
-          new Point(el.offsetWidth, el.offsetHeight),
-          { forceZoom: false }
-        );
       }
     },
   });
@@ -477,12 +459,12 @@ export function getPieceElement(id) {
 }
 
 /**
- * Apply highlight to piece(s)
+ * Apply highlight to piece(s) - delegates to high-level handler
  * @param {string|Array<string>|null} pieceId - Single piece ID, array of IDs, or null to clear
  * @param {*} candidateData - Candidate data (for compatibility)
  */
 export function applyHighlight(pieceId, candidateData) {
-  displayApplyHighlight(pieceElements, pieceId, candidateData);
+  hlHandler.applyHighlight(pieceId, candidateData);
 }
 
 /**

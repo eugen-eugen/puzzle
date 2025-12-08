@@ -3,7 +3,7 @@ import { state } from "./game-engine.js";
 import { initConnectionManager } from "./connection-manager.js";
 import { updateProgress } from "./control-bar.js";
 import { Point } from "./geometry/point.js";
-import { applyPieceTransform } from "./display.js";
+import { applyPieceTransform } from "./ui/display.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
 import { groupManager } from "./group-manager.js";
 import { gameTableController } from "./game-table-controller.js";
@@ -13,7 +13,7 @@ import {
   fixSelectedPieceOrientation,
   getPieceElement,
   applyHighlight,
-} from "./interaction/interaction-manager.js";
+} from "./ui/ui-interaction-manager.js";
 
 const pieceElements = new Map(); // id -> DOM element
 

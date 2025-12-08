@@ -5,7 +5,7 @@
 
 import { Point } from "../geometry/point.js";
 import { Rectangle } from "../geometry/rectangle.js";
-import { applyPieceTransform } from "../display.js";
+import { applyPieceTransform } from "../ui/display.js";
 import { Graph, alg } from "graphlib";
 import { gameTableController } from "../game-table-controller.js";
 

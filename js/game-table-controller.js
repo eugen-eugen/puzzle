@@ -7,7 +7,7 @@
 //                   Piece.isNeighbor / isAnyNeighbor.
 
 import { Point } from "./geometry/point.js";
-import { applyPieceTransform, applyPieceZIndex } from "./display.js";
+import { applyPieceTransform, applyPieceZIndex } from "./ui/display.js";
 import { groupManager } from "./group-manager.js";
 import { state } from "./game-engine.js";
 // Spatial index now fully managed here

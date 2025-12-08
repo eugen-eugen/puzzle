@@ -7,11 +7,11 @@
 // - Silently no-ops if arguments are missing.
 // - Returns the element for chaining.
 
-import { Point } from "./geometry/point.js";
-import { getPieceElement } from "./interaction/interaction-manager.js";
-import { Util } from "./utils/util.js";
-import { groupManager } from "./group-manager.js";
-import { state } from "./game-engine.js";
+import { Point } from "../geometry/point.js";
+import { getPieceElement } from "./ui-interaction-manager.js";
+import { Util } from "../utils/util.js";
+import { groupManager } from "../group-manager.js";
+import { state } from "../game-engine.js";
 
 // Display Constants
 const MIN_ZOOM = 0.1;
@@ -471,6 +471,27 @@ export {
   WHEEL_ZOOM_IN_FACTOR,
   WHEEL_ZOOM_OUT_FACTOR,
 };
+
+/**
+ * Apply highlight to piece(s)
+ * @param {Map} pieceElementsMap - Map of piece ID to DOM element
+ * @param {string|Array<string>|null} pieceId - Single piece ID, array of IDs, or null to clear
+ * @param {*} candidateData - Candidate data (for compatibility)
+ */
+export function applyHighlight(pieceElementsMap, pieceId, candidateData) {
+  if (!pieceElementsMap) return;
+
+  pieceElementsMap.forEach((el) => el.classList.remove("candidate-highlight"));
+  if (pieceId == null) return;
+
+  // Handle both single ID and array of IDs
+  const pieceIds = Array.isArray(pieceId) ? pieceId : [pieceId];
+
+  pieceIds.forEach((id) => {
+    const el = pieceElementsMap.get(id);
+    if (el) el.classList.add("candidate-highlight");
+  });
+}
 
 // Optional future ideas:
 // - applyPieceTransform(el, piece) to handle rotation + position via CSS translate/rotate.
