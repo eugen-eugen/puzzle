@@ -18,7 +18,11 @@ function createMockPiece(id, gridX, gridY, neighbors = {}) {
     gridX,
     gridY,
     groupId: null,
-    position: { x: gridX * 100, y: gridY * 100, clone: () => ({ x: gridX * 100, y: gridY * 100 }) },
+    position: {
+      x: gridX * 100,
+      y: gridY * 100,
+      clone: () => ({ x: gridX * 100, y: gridY * 100 }),
+    },
     rotation: 0,
     _setGroupId(newId) {
       this.groupId = newId;
@@ -61,14 +65,18 @@ describe("Group", () => {
 
       expect(() => {
         new Group("group-1", [piece1, piece2]);
-      }).toThrow("Cannot create group group-1: initial pieces are not connected");
+      }).toThrow(
+        "Cannot create group group-1: initial pieces are not connected"
+      );
     });
 
     it("should allow disconnected pieces when validateConnectivity is false", () => {
       const piece1 = createMockPiece("p1", 0, 0);
       const piece2 = createMockPiece("p2", 5, 5); // Not adjacent
 
-      const group = new Group("group-1", [piece1, piece2], { validateConnectivity: false });
+      const group = new Group("group-1", [piece1, piece2], {
+        validateConnectivity: false,
+      });
       expect(group.size()).toBe(2);
       expect(piece1.groupId).toBe("group-1");
       expect(piece2.groupId).toBe("group-1");
@@ -117,7 +125,9 @@ describe("Group", () => {
       const disconnectedPiece = createMockPiece("p4", 10, 10);
       expect(() => {
         group.addPieces([disconnectedPiece]);
-      }).toThrow("Cannot add pieces to group group-1: resulting group would not be connected");
+      }).toThrow(
+        "Cannot add pieces to group group-1: resulting group would not be connected"
+      );
     });
 
     it("should not add pieces that are already in the group", () => {
@@ -176,12 +186,14 @@ describe("Group", () => {
       const piece4 = createMockPiece("p4", 0, 1);
       const piece5 = createMockPiece("p5", 5, 5);
       const piece6 = createMockPiece("p6", 6, 5);
-      
-      const fragGroup = new Group("frag-1", [piece4, piece5, piece6], { validateConnectivity: false });
-      
+
+      const fragGroup = new Group("frag-1", [piece4, piece5, piece6], {
+        validateConnectivity: false,
+      });
+
       // Remove piece4, leaving two disconnected components
       const newGroups = fragGroup.removePieces([piece4]);
-      
+
       // Since pieces are disconnected, behavior depends on implementation
       // At minimum, group should handle the removal
       expect(fragGroup.allPieces).not.toContain(piece4);
@@ -393,7 +405,12 @@ describe("Group", () => {
       const piece3 = createMockPiece("p3", 5, 5);
       const piece4 = createMockPiece("p4", 6, 5);
 
-      const components = Group._findConnectedComponents([piece1, piece2, piece3, piece4]);
+      const components = Group._findConnectedComponents([
+        piece1,
+        piece2,
+        piece3,
+        piece4,
+      ]);
       expect(components.length).toBe(2);
     });
   });
@@ -420,7 +437,9 @@ describe("Group", () => {
     it("should return false for disconnected group", () => {
       const piece1 = createMockPiece("p1", 0, 0);
       const piece2 = createMockPiece("p2", 5, 5);
-      const group = new Group("group-1", [piece1, piece2], { validateConnectivity: false });
+      const group = new Group("group-1", [piece1, piece2], {
+        validateConnectivity: false,
+      });
       expect(group.isConnected()).toBe(false);
     });
   });
@@ -446,7 +465,7 @@ describe("Group", () => {
 
       const originalPieces = group.pieces;
       group.addPieces([piece2]);
-      
+
       // pieces array should be replaced, not mutated
       expect(group.pieces).not.toBe(originalPieces);
       expect(originalPieces.length).toBe(1);
@@ -460,7 +479,7 @@ describe("Group", () => {
 
       const originalPieces = group.pieces;
       group.removePieces([piece2]);
-      
+
       // pieces array should be replaced, not mutated
       expect(group.pieces).not.toBe(originalPieces);
       expect(originalPieces.length).toBe(2);

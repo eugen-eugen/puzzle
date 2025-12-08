@@ -502,7 +502,7 @@ export class Piece {
     this._allowGroupIdChange = false;
   }
 
-  // getGroupPieces() method has been removed - use GroupManager.getGroup().getPieces() instead
+  // getGroupPieces() method has been removed - use GroupManager.getGroup().allPieces instead
 
   /**
    * Detach this piece from its current group (create new group)
@@ -735,7 +735,7 @@ export class Piece {
   isProperlyGrouped() {
     if (typeof window !== "undefined" && window.groupManager) {
       const group = window.groupManager.getGroup(this.groupId);
-      return group && group.getPieces().includes(this);
+      return group && group.allPieces.includes(this);
     }
     return false; // Cannot verify without GroupManager
   }

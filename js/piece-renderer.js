@@ -51,11 +51,16 @@ function elementSizePoint(el) {
 
 function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
   const group = groupManager.getGroup(piece.groupId);
-  const groupPieces = group ? group.getPieces() : [piece];
+  const groupPieces = group ? group.allPieces : [piece];
 
   if (groupPieces.length > 1) {
     const getPieceElement = (id) => pieceElements.get(id);
-    group.rotate(rotationDegrees, piece, getPieceElement);
+    groupManager.rotateGroup(
+      piece.groupId,
+      rotationDegrees,
+      piece,
+      getPieceElement
+    );
   } else {
     piece.rotate(rotationDegrees);
     el.style.transform = `rotate(${piece.rotation}deg)`;
@@ -222,7 +227,7 @@ export function renderPiecesAtPositions(container, pieces) {
 function getGroupPieces(piece) {
   // Use GroupManager - offensive programming
   const group = groupManager.getGroup(piece.groupId);
-  return group ? group.getPieces() : [piece];
+  return group ? group.allPieces : [piece];
 }
 
 function detachPieceFromGroup(piece) {

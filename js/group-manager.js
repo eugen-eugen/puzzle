@@ -161,7 +161,7 @@ class GroupManager {
 
     try {
       // Check connectivity before merging
-      const allPieces = [...groupA.getPieces(), ...groupB.getPieces()];
+      const allPieces = [...groupA.allPieces, ...groupB.allPieces];
       if (!Group.arePiecesConnected(allPieces)) {
         console.warn(
           "[GroupManager] Cannot merge - would create disconnected group"
@@ -174,7 +174,7 @@ class GroupManager {
         groupA.size() >= groupB.size() ? [groupA, groupB] : [groupB, groupA];
 
       // Add all pieces from merge group to keep group
-      const piecesToMove = mergeGroup.getPieces();
+      const piecesToMove = mergeGroup.allPieces;
       keepGroup.addPieces(piecesToMove);
 
       // Remove the merged group
@@ -240,7 +240,7 @@ class GroupManager {
     if (!group) return false;
 
     try {
-      group.translate(offset);
+      gameTableController.moveGroup(groupId, offset);
       return true;
     } catch (error) {
       console.error("[GroupManager] Error moving group:", error);
@@ -260,11 +260,12 @@ class GroupManager {
     if (!group) return false;
 
     try {
-      group.rotate(angleDegrees, pivotPiece, getPieceElement);
-      // Phase 2: sync controller positions if available
-      group.getPieces().forEach((p) => {
-        gameTableController.setPiecePosition(p.id, p.position);
-      });
+      gameTableController.rotateGroup(
+        groupId,
+        angleDegrees,
+        pivotPiece,
+        getPieceElement
+      );
       return true;
     } catch (error) {
       console.error("[GroupManager] Error rotating group:", error);
@@ -337,15 +338,6 @@ class GroupManager {
     });
 
     return issues;
-  }
-
-  /**
-   * Repair all groups with integrity issues
-   */
-  repairAllGroups() {
-    this.groups.forEach((group) => {
-      group.repair();
-    });
   }
 
   /**

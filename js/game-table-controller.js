@@ -117,7 +117,7 @@ export class GameTableController {
     const group = groupManager.getGroupForPiece(piece);
     if (!group) return; // Should never happen - every piece belongs to a group
 
-    const piecesToUpdate = group.getPieces();
+    const piecesToUpdate = group.allPieces;
 
     // Increment maxZIndex to get a new layer on top
     this.maxZIndex++;
@@ -240,7 +240,7 @@ export class GameTableController {
   moveGroup(groupId, delta) {
     const group = groupManager.getGroup(groupId);
     if (!group) return;
-    group.getPieces().forEach((p) => this.movePiece(p.id, delta));
+    group.allPieces.forEach((p) => this.movePiece(p.id, delta));
   }
 
   // High-level drag orchestration
@@ -269,20 +269,40 @@ export class GameTableController {
 
   rotateGroup(groupId, angleDegrees, pivotPiece, getPieceElementFn) {
     const group = groupManager.getGroup(groupId);
-    if (!group) return;
-    // Delegate to Group.rotate (still responsible for rotation math)
-    group.rotate(
-      angleDegrees,
-      pivotPiece,
-      getPieceElementFn || ((id) => this._getElement(id))
-    );
-    // After rotation, refresh controller positions from Piece objects
-    group.getPieces().forEach((p) => {
-      this._piecePositions.set(p.id, p.position.clone());
-      this._updateSpatialIndexFor(p.id);
+    if (!group || group.isEmpty()) return;
+
+    const getPieceElement = getPieceElementFn || ((id) => this._getElement(id));
+    const pivotEl = getPieceElement(pivotPiece.id);
+    if (!pivotEl) return;
+
+    // Use the pivot piece's visual center as the rotation point
+    const pivot = pivotPiece.getCenter(pivotEl);
+
+    group.allPieces.forEach((piece) => {
+      if (!piece) return;
+
+      const pieceEl = getPieceElement(piece.id);
+      if (!pieceEl) return;
+
+      // Rotate the piece itself
+      piece.rotate(angleDegrees);
+
+      // Get the current visual center of the piece
+      const preCenter = piece.getCenter(pieceEl);
+
+      // Rotate the center around the pivot
+      const rotatedCenter = preCenter.rotatedAroundDeg(pivot, angleDegrees);
+
+      // Update piece position to the new center
+      piece.placeCenter(rotatedCenter, pieceEl);
+
+      // Apply transform to DOM element (position and rotation)
+      applyPieceTransform(pieceEl, piece);
+
+      // Sync controller position and spatial index
+      this._piecePositions.set(piece.id, piece.position.clone());
+      this._updateSpatialIndexFor(piece.id);
     });
-    // Optionally trigger full rebuild for better neighbor accuracy after rotation drift
-    // this._rebuildSpatialIndex(); // Uncomment if rotations cause center inaccuracies
   }
 
   // ----------------------------

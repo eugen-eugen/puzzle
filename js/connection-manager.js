@@ -328,7 +328,7 @@ function finePlace(movingPiece, highlightData) {
 function getMovingGroupPieces(movingPiece) {
   // Use GroupManager - offensive programming
   const group = groupManager.getGroup(movingPiece.groupId);
-  return group ? group.getPieces() : [movingPiece];
+  return group ? group.allPieces : [movingPiece];
 }
 
 function mergeGroups(pieceA, pieceB) {
@@ -365,7 +365,7 @@ export function handleDragMove(movingPiece) {
 
   // Get all border pieces from the moving group
   const group = groupManager.getGroup(movingPiece.groupId);
-  const borderPieces = group ? group.getBorderPieces() : [movingPiece];
+  const borderPieces = group ? group.allBorderPieces : [movingPiece];
 
   // Find candidates for all border pieces
   const candidates = [];
@@ -387,7 +387,7 @@ export function handleDragEnd(movingPiece, wasDetached = false) {
 
   // Get all border pieces from the moving group
   const group = groupManager.getGroup(movingPiece.groupId);
-  const borderPieces = group ? group.getBorderPieces() : [movingPiece];
+  const borderPieces = group ? group.allBorderPieces : [movingPiece];
 
   // Try to find connections for all border pieces
   const connections = [];
