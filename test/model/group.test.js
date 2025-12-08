@@ -1,6 +1,6 @@
 // group.test.js - Unit tests for Group model
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { Group } from "@/js/model/Group.js";
+import { Group } from "@/js/model/group.js";
 
 // Mock dependencies
 vi.mock("@/js/game-table-controller.js", () => ({
