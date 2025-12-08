@@ -11,7 +11,6 @@ import {
   initializeInteractions,
   getSelectedPiece,
   fixSelectedPieceOrientation,
-  setSelectionChangeCallback,
   getPieceElement,
   applyHighlight,
 } from "./interaction/interaction-manager.js";
@@ -157,6 +156,7 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
 
   gameTableController.updateViewportArea(areaW, areaH);
   gameTableController.syncAllPositions();
+  gameTableController.attachPieceElements(pieceElements);
   initializeInteractions(pieceElements);
 }
 
@@ -215,6 +215,7 @@ export function renderPiecesAtPositions(container, pieces) {
   gameTableController.syncAllPositions();
   // Initialize maxZIndex from loaded pieces
   gameTableController.initializeMaxZIndex();
+  gameTableController.attachPieceElements(pieceElements);
   initializeInteractions(pieceElements);
 }
 

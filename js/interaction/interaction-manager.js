@@ -16,8 +16,6 @@ import { state } from "../game-engine.js";
 import { dragMonitor } from "./drag.js";
 
 // Constants for interaction behavior
-const DOUBLE_TAP_MAX_DELAY_MS = 320;
-const DOUBLE_TAP_MAX_DIST_SQ = 26 * 26;
 const OUTSIDE_THRESHOLD_PX = 40;
 const LONG_PRESS_DURATION_MS = 1000; // Duration for long press to trigger detach
 
@@ -27,9 +25,6 @@ let onSelectionChangeCallback = null;
 let pieceElements = null;
 
 // Double-tap detection state
-let lastTapTime = 0;
-let lastTapPieceId = null;
-let lastTapPos = new Point(0, 0);
 
 // Multi-touch state
 const activeTouchIds = new Set();
@@ -41,7 +36,6 @@ let longPressPieceId = null;
 
 // Drag pause detection state (for detachment during drag)
 let dragPauseTimer = null;
-let dragPauseStartTime = null;
 let isDragging = false;
 
 // High curvature detach state
@@ -54,9 +48,6 @@ let highCurvatureDetach = false;
  */
 export function initializeInteractions(pieceElementsMap) {
   pieceElements = pieceElementsMap;
-
-  // Attach piece elements to controller; spatial index is now attached outside (renderer)
-  gameTableController.attachPieceElements(pieceElementsMap);
 
   if (!window.interact) {
     console.error(
@@ -182,7 +173,6 @@ function onDragStart(event) {
   // Mark as dragging and clear drag pause state
   isDragging = true;
   clearDragPauseTimer();
-  dragPauseStartTime = null;
 
   // Check for detach conditions
   const isShiftPressed = event.shiftKey;
@@ -313,7 +303,6 @@ function onDragEnd(event) {
   // Clear dragging state and drag pause timer
   isDragging = false;
   clearDragPauseTimer();
-  dragPauseStartTime = null;
   element.classList.remove("long-press-active");
   highCurvatureDetach = false;
 
@@ -415,10 +404,6 @@ function onDoubleTap(event) {
   event.stopPropagation();
 
   rotatePieceOrGroup(piece, element, 90);
-
-  // Reset double-tap state to prevent chaining
-  lastTapTime = 0;
-  lastTapPieceId = null;
 }
 
 /**
