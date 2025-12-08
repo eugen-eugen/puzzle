@@ -36,7 +36,7 @@ if ("serviceWorker" in navigator) {
 }
 
 import { renderPiecesAtPositions } from "./piece-renderer.js";
-import { setSelectionChangeCallback } from "./interaction/interaction-manager.js";
+import { setSelectionChangeCallback } from "./interaction/hl-interaction-handler.js";
 import {
   initPersistence,
   clearSavedGame,
@@ -71,7 +71,7 @@ import {
   updateZoomDisplay,
   MIN_ZOOM,
   MAX_ZOOM,
-} from "./display.js";
+} from "./ui/display.js";
 import {
   initControlBar,
   updateProgress,

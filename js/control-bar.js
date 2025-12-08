@@ -7,7 +7,7 @@ import { scatterInitialPieces } from "./piece-renderer.js";
 import {
   getSelectedPiece,
   fixSelectedPieceOrientation,
-} from "./interaction/interaction-manager.js";
+} from "./ui/ui-interaction-manager.js";
 import { state } from "./game-engine.js";
 import { groupManager } from "./group-manager.js";
 import { t } from "./i18n.js";
@@ -21,7 +21,7 @@ import {
   ZOOM_STEP_FACTOR,
   WHEEL_ZOOM_IN_FACTOR,
   WHEEL_ZOOM_OUT_FACTOR,
-} from "./display.js";
+} from "./ui/display.js";
 import { isIndexedDBSupported, storeImageInDB } from "./indexed-db-storage.js";
 
 // Forward declaration for captureInitialMargins - will be set by app.js
