@@ -79,7 +79,7 @@ describe("hl-interaction-handler", () => {
     state.noRotate = false;
 
     // Initialize the handler
-    hlHandler.initialize(null, visualListeners);
+    hlHandler.initialize(visualListeners);
 
     // Clear any previously selected piece and callback
     hlHandler.onPieceDeselected();
@@ -90,7 +90,7 @@ describe("hl-interaction-handler", () => {
     it("should initialize with visual listeners", () => {
       const newListeners = { onPieceSelectedVisual: vi.fn() };
 
-      hlHandler.initialize(null, newListeners);
+      hlHandler.initialize(newListeners);
 
       // Should not throw and should be ready to use
       expect(() => hlHandler.getSelectedPiece()).not.toThrow();
@@ -401,14 +401,14 @@ describe("hl-interaction-handler", () => {
 
   describe("edge cases", () => {
     it("should handle selecting piece without visual listeners", () => {
-      hlHandler.initialize(null, null);
+      hlHandler.initialize(null);
 
       expect(() => hlHandler.onPieceSelected(1)).not.toThrow();
       expect(hlHandler.getSelectedPiece()).toEqual(mockPieces[0]);
     });
 
     it("should handle deselecting piece without visual listeners", () => {
-      hlHandler.initialize(null, null);
+      hlHandler.initialize(null);
       hlHandler.onPieceSelected(1);
 
       expect(() => hlHandler.onPieceDeselected()).not.toThrow();

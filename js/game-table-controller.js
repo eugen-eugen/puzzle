@@ -7,7 +7,11 @@
 //                   Piece.isNeighbor / isAnyNeighbor.
 
 import { Point } from "./geometry/point.js";
-import { applyPieceTransform, applyPieceZIndex } from "./ui/display.js";
+import {
+  applyPieceTransform,
+  applyPieceZIndex,
+  setPieceElements,
+} from "./ui/display.js";
 import { groupManager } from "./group-manager.js";
 import { state } from "./game-engine.js";
 // Spatial index now fully managed here
@@ -92,6 +96,16 @@ export class GameTableController {
   }
 
   /**
+   * Attach piece elements and register with display module
+   * @param {Map<number, HTMLElement>} pieceElements - Map of piece IDs to elements
+   */
+  attachPieceElements(pieceElements) {
+    this.pieceElements = pieceElements;
+    // Register with display module for z-index management
+    setPieceElements(pieceElements);
+  }
+
+  /**
    * Bring a piece and its group to the front by assigning new z-index values
    * All pieces in the group get the same new maximum z-index
    * @param {number} pieceId - ID of the piece to bring to front
@@ -110,12 +124,11 @@ export class GameTableController {
     const newZIndex = this.maxZIndex;
 
     // Assign the same new z-index to all pieces in the group
-    piecesToUpdate.forEach(function (p) {
+    // Update both model and DOM via display module
+    piecesToUpdate.forEach((p) => {
       p.zIndex = newZIndex;
-
-      // Update DOM element via display module
-      applyPieceZIndex(p.id, newZIndex, this.pieceElements);
-    }, this);
+      applyPieceZIndex(p.id, newZIndex);
+    });
   }
 
   /**
@@ -191,10 +204,6 @@ export class GameTableController {
       if (center) items.push({ id: p.id, position: center });
     });
     this.spatialIndex.rebuild(items);
-  }
-
-  attachPieceElements(pieceElements) {
-    this.pieceElements = pieceElements;
   }
 
   // ----------------------------

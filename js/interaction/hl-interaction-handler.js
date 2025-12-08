@@ -18,7 +18,7 @@ let visualListeners = null;
  * Initialize the high-level interaction handler
  * @param {Object} listeners - Visual feedback listeners
  */
-export function initialize(pieceElementsMap, listeners) {
+export function initialize(listeners) {
   visualListeners = listeners;
 }
 

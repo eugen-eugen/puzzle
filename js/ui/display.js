@@ -33,6 +33,9 @@ let lastPanPosition = new Point(0, 0);
 // Margin enforcement state
 let initialMargins = null;
 
+// Piece elements reference for z-index management
+let pieceElementsMap = null;
+
 // Initialize the viewport element reference
 export function initViewport(
   viewportElementId = "piecesViewport",
@@ -100,13 +103,20 @@ export function applyPieceTransform(element, piece) {
 }
 
 /**
+ * Set the piece elements map for z-index management
+ * @param {Map<number, HTMLElement>} pieceElements - Map of piece IDs to elements
+ */
+export function setPieceElements(pieceElements) {
+  pieceElementsMap = pieceElements;
+}
+
+/**
  * Apply z-index to a piece element
  * @param {number} pieceId - The piece ID
  * @param {number} zIndex - The z-index value to apply
- * @param {Map<number, HTMLElement>} pieceElements - Map of piece IDs to elements
  */
-export function applyPieceZIndex(pieceId, zIndex, pieceElements) {
-  const el = pieceElements?.get(pieceId);
+export function applyPieceZIndex(pieceId, zIndex) {
+  const el = pieceElementsMap?.get(pieceId);
   if (el) {
     el.style.zIndex = zIndex.toString();
   }

@@ -196,6 +196,9 @@ function onDragStart(event) {
   const pieceId = element.dataset.id;
   const numericId = parseInt(pieceId, 10);
 
+  // Select the piece being dragged (brings it to front)
+  hlHandler.onPieceSelected(numericId);
+
   // Track touch IDs for multi-touch detection
   if (event.interaction.pointerType === "touch") {
     activeTouchIds.add(event.interaction.id);
@@ -473,7 +476,7 @@ export function fixSelectedPieceOrientation() {
  * Get piece element by ID - delegates to high-level handler
  */
 export function getPieceElement(id) {
-  return hlHandler.getPieceElement(id);
+  return pieceElements.get(id);
 }
 
 /**
