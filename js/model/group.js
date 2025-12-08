@@ -5,7 +5,6 @@
 
 import { Point } from "../geometry/point.js";
 import { Rectangle } from "../geometry/rectangle.js";
-import { applyPieceTransform } from "../ui/display.js";
 import { Graph, alg } from "graphlib";
 import { gameTableController } from "../game-table-controller.js";
 
@@ -20,7 +19,7 @@ export class Group {
    */
   constructor(id, initialPieces = [], { validateConnectivity = true } = {}) {
     this.id = id;
-    this.pieces = new Set(initialPieces);
+    this.pieces = [...initialPieces];
     this.borderPieces = new Set();
 
     if (initialPieces.length > 0) {
@@ -47,28 +46,31 @@ export class Group {
    * @throws {Error} If adding the pieces would violate connectivity constraint
    */
   addPieces(pieces) {
-    if (!Array.isArray(pieces)) return 0;
-
     // Filter out null/undefined pieces
     const validPieces = pieces.filter((p) => p !== null && p !== undefined);
     if (validPieces.length === 0) return 0;
 
     // First validate that all pieces together with existing pieces form a connected set
-    const allPieces = [...Array.from(this.pieces), ...validPieces];
+    const allPieces = [...this.pieces, ...validPieces];
     if (!Group.arePiecesConnected(allPieces)) {
       throw new Error(
         `Cannot add pieces to group ${this.id}: resulting group would not be connected`
       );
     }
 
-    let added = 0;
-    validPieces.forEach((piece) => {
-      if (!this.pieces.has(piece)) {
-        this.pieces.add(piece);
+    // Filter out pieces that are already in the group
+    const piecesToAdd = validPieces.filter(
+      (piece) => !this.pieces.includes(piece)
+    );
+    const added = piecesToAdd.length;
+
+    if (added > 0) {
+      // Create new immutable array with added pieces
+      this.pieces = [...this.pieces, ...piecesToAdd];
+      piecesToAdd.forEach((piece) => {
         piece._setGroupId(this.id);
-        added++;
-      }
-    });
+      });
+    }
 
     if (added > 0) {
       this._updateBorderPieces();
@@ -83,32 +85,36 @@ export class Group {
    * @returns {Array<Group>} Array of groups created from fragmentation (may be empty)
    */
   removePieces(pieces) {
-    if (!Array.isArray(pieces)) return [];
+    // Remove all pieces and create new array
+    const piecesToRemove = new Set(
+      pieces.filter((p) => p && this.pieces.includes(p))
+    );
 
-    // Remove all pieces first
-    let removed = 0;
-    pieces.forEach((piece) => {
-      if (piece && this.pieces.has(piece)) {
-        this.pieces.delete(piece);
-        piece._setGroupId(null);
-        removed++;
-      }
+    if (piecesToRemove.size === 0) return [];
+
+    // Create new immutable array without removed pieces
+    const remainingPieces = this.pieces.filter(
+      (piece) => !piecesToRemove.has(piece)
+    );
+
+    // Update groupId for removed pieces
+    piecesToRemove.forEach((piece) => {
+      piece._setGroupId(null);
     });
 
-    if (removed === 0) return [];
-
-    // Check for fragmentation after all removals
-    const remainingPieces = Array.from(this.pieces);
     if (remainingPieces.length === 0) {
       // Group is now empty
+      this.pieces = [];
       return [];
     }
 
     // Find connected components in the remaining pieces
-    const connectedSubGroups = this._findConnectedComponents(remainingPieces);
+    const connectedSubGroups = Group._findConnectedComponents(remainingPieces);
 
-    if (connectedSubGroups.length <= 1) {
-      // No fragmentation occurred
+    if ((connectedSubGroups.length = 1)) {
+      // No fragmentation occurred - update pieces with remaining
+      this.pieces = remainingPieces;
+      this._updateBorderPieces();
       return [];
     }
 
@@ -120,10 +126,9 @@ export class Group {
       current.length > largest.length ? current : largest
     );
 
-    // Clear current group and rebuild with largest component
-    this.pieces.clear();
+    // Replace current group with largest component (immutable update)
+    this.pieces = [...largestSubGroup];
     largestSubGroup.forEach((piece) => {
-      this.pieces.add(piece);
       piece._setGroupId(this.id);
     });
     this._updateBorderPieces();
@@ -144,8 +149,8 @@ export class Group {
    * Get all pieces in this group as an array
    * @returns {Array<Piece>}
    */
-  getPieces() {
-    return Array.from(this.pieces);
+  get allPieces() {
+    return this.pieces;
   }
 
   /**
@@ -153,7 +158,7 @@ export class Group {
    * @returns {number}
    */
   size() {
-    return this.pieces.size;
+    return this.pieces.length;
   }
 
   /**
@@ -161,7 +166,7 @@ export class Group {
    * @returns {boolean}
    */
   isEmpty() {
-    return this.pieces.size === 0;
+    return this.pieces.length === 0;
   }
 
   /**
@@ -171,7 +176,7 @@ export class Group {
     this.pieces.forEach((piece) => {
       piece._setGroupId(null);
     });
-    this.pieces.clear();
+    this.pieces = [];
     this.borderPieces.clear();
   }
 
@@ -183,7 +188,7 @@ export class Group {
    * Get all border pieces (pieces with less than 4 neighbors within this group)
    * @returns {Array<Piece>}
    */
-  getBorderPieces() {
+  get allBorderPieces() {
     return Array.from(this.borderPieces);
   }
 
@@ -195,7 +200,7 @@ export class Group {
   _updateBorderPieces() {
     this.borderPieces.clear();
 
-    if (this.pieces.size === 0) return;
+    if (this.pieces.length === 0) return;
 
     // Build a map of grid positions for quick lookup
     const gridMap = new Map();
@@ -271,60 +276,6 @@ export class Group {
   }
 
   // ================================
-  // Group Transformations
-  // ================================
-
-  /**
-   * Move the entire group by an offset
-   * @param {Point} offset - Point offset
-   */
-  translate(offset) {
-    // Controller is always available; delegate movement.
-    this.pieces.forEach((piece) => {
-      if (piece) gameTableController.movePiece(piece.id, offset);
-    });
-  }
-
-  /**
-   * Rotate the entire group around a pivot point. Spatial index updates are delegated
-   * to GameTableController; this method only mutates piece models & DOM.
-   * @param {number} angleDegrees
-   * @param {Piece} pivotPiece
-   * @param {Function} getPieceElement
-   */
-  rotate(angleDegrees, pivotPiece, getPieceElement) {
-    if (this.isEmpty()) return;
-
-    const pivotEl = getPieceElement(pivotPiece.id);
-    if (!pivotEl) return;
-
-    // Use the pivot piece's visual center as the rotation point
-    const pivot = pivotPiece.getCenter(pivotEl);
-
-    this.pieces.forEach((piece) => {
-      if (!piece) return;
-
-      const pieceEl = getPieceElement(piece.id);
-      if (!pieceEl) return;
-
-      // Rotate the piece itself
-      piece.rotate(angleDegrees);
-
-      // Get the current visual center of the piece
-      const preCenter = piece.getCenter(pieceEl);
-
-      // Rotate the center around the pivot
-      const rotatedCenter = preCenter.rotatedAroundDeg(pivot, angleDegrees);
-
-      // Update piece position to the new center
-      piece.placeCenter(rotatedCenter, pieceEl);
-
-      // Apply transform to DOM element (position and rotation)
-      applyPieceTransform(pieceEl, piece);
-    });
-  }
-
-  // ================================
   // Group Merging & Splitting
   // ================================
 
@@ -336,7 +287,7 @@ export class Group {
   merge(otherGroup) {
     if (!otherGroup || otherGroup === this) return false;
 
-    const piecesToMerge = otherGroup.getPieces();
+    const piecesToMerge = otherGroup.allPieces;
     this.addPieces(piecesToMerge);
     otherGroup.clear();
 
@@ -358,17 +309,6 @@ export class Group {
       }
     }
     return true;
-  }
-
-  /**
-   * Repair group integrity (fix piece groupId references)
-   */
-  repair() {
-    this.pieces.forEach((piece) => {
-      if (piece) {
-        piece.groupId = this.id;
-      }
-    });
   }
 
   /**
@@ -396,33 +336,8 @@ export class Group {
    * @private
    */
   static arePiecesConnected(pieces) {
-    if (!pieces || pieces.length === 0) return true;
-    if (pieces.length === 1) return true;
-
-    // Build undirected graph using graphlib
-    const g = new Graph({ directed: false });
-
-    // Add nodes
-    pieces.forEach((piece) => g.setNode(piece.id, piece));
-
-    // Add edges between neighboring pieces
-    for (let i = 0; i < pieces.length; i++) {
-      const piece1 = pieces[i];
-      for (let j = i + 1; j < pieces.length; j++) {
-        const piece2 = pieces[j];
-        const neighbors =
-          (gameTableController &&
-            gameTableController.arePiecesNeighbors(piece1, piece2)) ||
-          piece1.isAnyNeighbor(piece2);
-        if (neighbors) {
-          g.setEdge(piece1.id, piece2.id);
-        }
-      }
-    }
-
-    // Check if graph is connected (single component)
-    const components = alg.components(g);
-    return components.length === 1;
+    if (pieces.length < 2) return true;
+    return Group._findConnectedComponents(pieces).length === 1;
   }
 
   /**
@@ -431,8 +346,8 @@ export class Group {
    * @returns {Array<Array<Piece>>} Array of connected components
    * @private
    */
-  _findConnectedComponents(pieces) {
-    if (!pieces || pieces.length === 0) return [];
+  static _findConnectedComponents(pieces) {
+    if (pieces.length === 0) return [];
 
     // Build undirected graph using graphlib
     const g = new Graph({ directed: false });
@@ -474,8 +389,7 @@ export class Group {
     // Exception: single piece or empty group is always connected
     if (this.size() <= 1) return true;
 
-    const pieces = Array.from(this.pieces);
-    return Group.arePiecesConnected(pieces);
+    return Group.arePiecesConnected(this.pieces);
   }
 
   /**
