@@ -198,6 +198,57 @@ describe("Group", () => {
       // At minimum, group should handle the removal
       expect(fragGroup.allPieces).not.toContain(piece4);
     });
+
+    it("should create two new groups when a bridge piece is removed", () => {
+      // Create a bridge scenario:
+      // Group A: piece1(0,0) - piece2(1,0) [2 pieces]
+      // Bridge: piece3(2,0)
+      // Group B: piece4(3,0) - piece5(4,0) [2 pieces]
+      //
+      // When piece3 (the bridge) is removed, we get 2 disconnected subgroups
+      const piece1 = createMockPiece("p1", 0, 0);
+      const piece2 = createMockPiece("p2", 1, 0);
+      const piece3 = createMockPiece("p3", 2, 0); // Bridge piece
+      const piece4 = createMockPiece("p4", 3, 0);
+      const piece5 = createMockPiece("p5", 4, 0);
+
+      const bridgeGroup = new Group("bridge-1", [
+        piece1,
+        piece2,
+        piece3,
+        piece4,
+        piece5,
+      ]);
+
+      // Verify initial state
+      expect(bridgeGroup.size()).toBe(5);
+      expect(bridgeGroup.isConnected()).toBe(true);
+
+      // Remove the bridge piece
+      const newGroups = bridgeGroup.removePieces([piece3]);
+
+      // Should create 1 new subgroup (fragmentation into 2 groups)
+      expect(newGroups).toHaveLength(1);
+      expect(newGroups[0]).toBeInstanceOf(Group);
+
+      // Original group should keep one component (p1, p2)
+      expect(bridgeGroup.allPieces).not.toContain(piece3);
+      expect(bridgeGroup.size()).toBe(2); // p1 and p2
+
+      // New group should have the other component (p4, p5)
+      expect(newGroups[0].size()).toBe(2); // p4 and p5
+
+      // Verify groupIds are correctly set
+      expect(piece3.groupId).toBeNull(); // Removed piece
+      expect(bridgeGroup.allPieces).toContain(piece1);
+      expect(bridgeGroup.allPieces).toContain(piece2);
+      expect(bridgeGroup.allPieces).not.toContain(piece4);
+      expect(bridgeGroup.allPieces).not.toContain(piece5);
+
+      // New group should have p4 and p5
+      expect(newGroups[0].allPieces).toContain(piece4);
+      expect(newGroups[0].allPieces).toContain(piece5);
+    });
   });
 
   describe("allPieces getter", () => {

@@ -111,7 +111,7 @@ export class Group {
     // Find connected components in the remaining pieces
     const connectedSubGroups = Group._findConnectedComponents(remainingPieces);
 
-    if ((connectedSubGroups.length = 1)) {
+    if (connectedSubGroups.length === 1) {
       // No fragmentation occurred - update pieces with remaining
       this.pieces = remainingPieces;
       this._updateBorderPieces();
