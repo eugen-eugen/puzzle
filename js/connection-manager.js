@@ -30,15 +30,18 @@ const SOUTHWEST = "sw";
 
 const DEFAULT_CONNECTION_DISTANCE_PX = 30; // Base pixel distance for matching
 const CONNECTION_TOLERANCE_SQ =
-  DEFAULT_CONNECTION_DISTANCE_PX * DEFAULT_CONNECTION_DISTANCE_PX; // 30^2 = 900
+  DEFAULT_CONNECTION_DISTANCE_PX * DEFAULT_CONNECTION_DISTANCE_PX; // 5^2 = 25
 const DEFAULT_ALIGNMENT_TOLERANCE_SQ = CONNECTION_TOLERANCE_SQ; // Same heuristic currently
-const FINE_PLACE_LARGE_DELTA_THRESHOLD = 1000; // Warn if alignment exceeds this many pixels
+const DEFAULT_PROFILE_TOLERANCE_PX = 2; // Max spread in waypoint distances for profile matching
+const PROFILE_TOLERANCE_SQ =
+  DEFAULT_PROFILE_TOLERANCE_PX * DEFAULT_PROFILE_TOLERANCE_PX; // 2^2 = 4
 const COARSE_RADIUS_MULTIPLIER = 1.5; // Radius multiplier relative to longest side
 
 // Public configuration (can be overridden during init)
 const CONFIG = {
   CONNECTION_TOLERANCE: CONNECTION_TOLERANCE_SQ,
   ALIGNMENT_TOLERANCE: DEFAULT_ALIGNMENT_TOLERANCE_SQ,
+  PROFILE_TOLERANCE: PROFILE_TOLERANCE_SQ,
 };
 
 let getPieceById = null;
@@ -62,21 +65,34 @@ function sideCornerKeys(side) {
   }
 }
 
-function isComplementary(polarityA, polarityB) {
-  // +1 with -1 only
-  return polarityA + polarityB === 0;
+function validateProfileAlignment(distances, profileTolerance) {
+  if (distances.length === 0) return false;
+  const maxDist = Math.max(...distances);
+  const minDist = Math.min(...distances);
+  const spread = maxDist - minDist;
+  return spread <= profileTolerance;
 }
 
 /**
  * Tests if two sets of waypoints match within tolerance, trying both direct and reversed ordering.
+ * Uses two-stage validation:
+ * 1. Position tolerance: All waypoint pairs must be within positionTolerance distance
+ * 2. Profile tolerance: The spread of distances (max - min) must be within profileTolerance,
+ *    ensuring parallel alignment of the profiles
  *
  * @param {Array<{x: number, y: number}>} mWaypoints - Moving piece waypoints [corner1, sidePoint, corner2]
  * @param {Array<{x: number, y: number}>} sWaypoints - Stationary piece waypoints [corner1, sidePoint, corner2]
- * @param {number} tolerance - Maximum allowed squared distance between matching waypoints
+ * @param {number} positionTolerance - Maximum allowed squared distance between matching waypoints
+ * @param {number} profileTolerance - Maximum allowed spread (max - min) in waypoint distances
  * @returns {Object|null} Match result with ordering info, or null if no match found.
- *   Returns: { reversed: boolean, distances: number[] } where distances are the squared distances for each waypoint pair
+ *   Returns: { reversed: boolean, distances: number[], profileValid: boolean }
  */
-function matchWaypoints(mWaypoints, sWaypoints, tolerance) {
+function matchWaypoints(
+  mWaypoints,
+  sWaypoints,
+  positionTolerance,
+  profileTolerance
+) {
   if (mWaypoints.length !== sWaypoints.length) return null;
 
   // Try direct ordering first
@@ -85,14 +101,15 @@ function matchWaypoints(mWaypoints, sWaypoints, tolerance) {
   for (let i = 0; i < mWaypoints.length; i++) {
     const d2 = pointDist2(mWaypoints[i], sWaypoints[i]);
     distances.push(d2);
-    if (d2 > tolerance) {
+    if (d2 > positionTolerance) {
       allMatch = false;
       break;
     }
   }
 
   if (allMatch) {
-    return { reversed: false, distances };
+    const profileValid = validateProfileAlignment(distances, profileTolerance);
+    return { reversed: false, distances, profileValid };
   }
 
   // Try reversed ordering
@@ -102,23 +119,26 @@ function matchWaypoints(mWaypoints, sWaypoints, tolerance) {
   for (let i = 0; i < mWaypoints.length; i++) {
     const d2 = pointDist2(mWaypoints[i], reversedS[i]);
     distances.push(d2);
-    if (d2 > tolerance) {
+    if (d2 > positionTolerance) {
       allMatch = false;
       break;
     }
   }
 
   if (allMatch) {
-    return { reversed: true, distances };
+    const profileValid = validateProfileAlignment(distances, profileTolerance);
+    return { reversed: true, distances, profileValid };
   }
 
   return null;
 }
 
 function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
-  // Adjust tolerance based on current zoom level
+  // Adjust tolerances based on current zoom level
   const zoomLevel = getCurrentZoom();
-  const tolerance = CONFIG.CONNECTION_TOLERANCE / (zoomLevel * zoomLevel);
+  const positionTolerance =
+    CONFIG.CONNECTION_TOLERANCE / (zoomLevel * zoomLevel);
+  const profileTolerance = CONFIG.PROFILE_TOLERANCE / (zoomLevel * zoomLevel);
   let best = null;
   const movingEdges = movingPiece.edges;
   const stationaryEdges = stationaryPiece.edges;
@@ -137,7 +157,6 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
     ALL_SIDES.forEach((sLogicalSide) => {
       const sPol = stationaryEdges[sLogicalSide];
       if (sPol === 0) return;
-      if (!isComplementary(mPol, sPol)) return;
       const sSPoint = stationaryPiece.sPoints[sLogicalSide];
       if (!sSPoint) return;
 
@@ -151,9 +170,16 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
       const sWaypoints = [swcA, swS, swcB];
 
       // Test waypoint matching with both direct and reversed ordering
-      const waypointMatch = matchWaypoints(mWaypoints, sWaypoints, tolerance);
+      // Validates: (1) position tolerance - absolute distance match
+      //            (2) profile tolerance - parallel alignment consistency
+      const waypointMatch = matchWaypoints(
+        mWaypoints,
+        sWaypoints,
+        positionTolerance,
+        profileTolerance
+      );
 
-      if (waypointMatch) {
+      if (waypointMatch && waypointMatch.profileValid) {
         // Calculate aggregate score and determine corner mapping
         const agg = waypointMatch.distances.reduce((sum, d) => sum + d, 0);
 
@@ -357,6 +383,9 @@ export function initConnectionManager(opts) {
   if (opts.tolerance != null) {
     CONFIG.CONNECTION_TOLERANCE = opts.tolerance;
     CONFIG.ALIGNMENT_TOLERANCE = opts.tolerance;
+  }
+  if (opts.profileTolerance != null) {
+    CONFIG.PROFILE_TOLERANCE = opts.profileTolerance;
   }
 }
 

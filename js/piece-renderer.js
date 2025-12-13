@@ -154,7 +154,6 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
 
   initConnectionManager({
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
-    tolerance: CONNECTION_TOLERANCE_SQ, // squared distance tolerance (~30px)
     onHighlightChange: (pieceId, data) => applyHighlight(pieceId, data),
     getPieceElement: (id) => pieceElements.get(id),
   });
