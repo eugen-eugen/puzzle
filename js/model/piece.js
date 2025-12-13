@@ -94,9 +94,6 @@ export class Piece {
 
     this.edges = data.edges || { north: 0, east: 0, south: 0, west: 0 };
 
-    // Initialize center cache for memoization
-    this._cachedCenter = null;
-
     // Set up worldData cache
     this._initializeWorldDataCache();
 
@@ -329,7 +326,6 @@ export class Piece {
    */
   setPosition(point) {
     this.position = point;
-    this._cachedCenter = null; // Invalidate center cache
   }
 
   /**
@@ -369,21 +365,14 @@ export class Piece {
     } else {
       this.position.mutAdd(new Point(deltaX, deltaY));
     }
-    this._cachedCenter = null; // Invalidate center cache
   }
 
   /**
    * Get the center point of the piece based on its actual geometry
-   * Memoizes result until position or rotation changes.
    * @param {HTMLElement} [element] - DOM element for accurate dimensions
    * @returns {Point} Center point
    */
   getCenter(element = null) {
-    // Return cached value if available (element not provided, cache is fresh)
-    if (!element && this._cachedCenter !== null) {
-      return this._cachedCenter;
-    }
-
     // Calculate offset used in positioning calculations
     const boundingFrame = this.calculateBoundingFrame();
     const scale = this.scale || 0.35;
@@ -404,14 +393,7 @@ export class Piece {
     const offset = scaledCenterOffset.sub(canvasCenter);
 
     // The visual center is now at the position plus canvas center minus offset
-    const center = this.position.sub(offset).add(canvasCenter);
-
-    // Cache result if no element was provided
-    if (!element) {
-      this._cachedCenter = center;
-    }
-
-    return center;
+    return this.position.sub(offset).add(canvasCenter);
   }
 
   /**
@@ -496,7 +478,6 @@ export class Piece {
   rotate(degrees) {
     this.rotation = (this.rotation + degrees) % 360;
     if (this.rotation < 0) this.rotation += 360;
-    this._cachedCenter = null; // Invalidate center cache
   }
 
   /**
@@ -506,7 +487,6 @@ export class Piece {
   setRotation(degrees) {
     this.rotation = degrees % 360;
     if (this.rotation < 0) this.rotation += 360;
-    this._cachedCenter = null; // Invalidate center cache
   }
 
   // ===== Group Management =====
