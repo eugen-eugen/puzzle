@@ -122,6 +122,19 @@ export function applyPieceZIndex(pieceId, zIndex) {
   }
 }
 
+/**
+ * Apply grayscale filter to the viewport
+ * @param {boolean} removeColor - Whether to apply grayscale (true) or remove it (false)
+ */
+export function applyViewportGrayscaleFilter(removeColor) {
+  if (!piecesViewport) return;
+  if (removeColor) {
+    piecesViewport.style.filter = "grayscale(100%)";
+  } else {
+    piecesViewport.style.filter = "none";
+  }
+}
+
 // Zoom and pan state getters and setters
 export function getZoomLevel() {
   return zoomLevel;

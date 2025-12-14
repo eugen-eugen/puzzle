@@ -32,7 +32,7 @@ async function loadAvailablePictures() {
             pieces: DEFAULT_PIECES,
           };
         }
-        // If pic is an object, allow pieces property
+        // If pic is an object, spread all properties and set defaults
         return {
           type: "local",
           filename: pic.filename,
@@ -40,7 +40,9 @@ async function loadAvailablePictures() {
           title:
             pic.title ||
             pic.filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, ""),
-          pieces: pic.pieces || DEFAULT_PIECES,
+          pieces: pic.pieces ?? DEFAULT_PIECES,
+          removeColor: pic.removeColor ?? false,
+          ...pic, // Spread all other fields as-is
         };
       });
       allPictures.push(...localPictures);
@@ -60,8 +62,10 @@ async function loadAvailablePictures() {
       const remotePictures = (data.pictures || []).map((item) => ({
         type: "remote",
         url: item.url,
-        title: item.title || "Remote Image",
-        pieces: item.pieces || DEFAULT_PIECES,
+        title: item.title ?? "Remote Image",
+        pieces: item.pieces ?? DEFAULT_PIECES,
+        removeColor: item.removeColor ?? false,
+        ...item, // Spread all other fields as-is
       }));
       allPictures.push(...remotePictures);
       console.log(
@@ -167,30 +171,36 @@ export async function showPictureGallery(onSelect, onClose) {
       const item = document.createElement("a");
       item.className = "picture-gallery-item";
       const numPieces = picture.pieces || DEFAULT_PIECES;
+      const removeColor = picture.removeColor ? "true" : "false";
       const deepLinkUrl = `?image=${encodeURIComponent(
         picture.url
-      )}&pieces=${numPieces}&norotate=y`;
+      )}&pieces=${numPieces}&norotate=y&removeColor=${removeColor}`;
       item.href = deepLinkUrl;
       item.title = t("gallery.itemTooltip", {
         title: picture.title,
         pieces: numPieces,
       });
-      
+
       // Container for image and title
       const imageContainer = document.createElement("div");
       imageContainer.className = "picture-gallery-item-container";
-      
+
       const img = document.createElement("img");
       img.src = picture.url;
       img.alt = picture.title;
       img.loading = "lazy";
+      
+      // Apply grayscale filter if removeColor is set
+      if (picture.removeColor) {
+        img.style.filter = "grayscale(100%)";
+      }
 
       // Hide item if image fails to load
       img.addEventListener("error", () => {
         item.style.display = "none";
         console.warn(`[picture-gallery] Failed to load image: ${picture.url}`);
       });
-      
+
       // Add image title below the preview
       const titleDiv = document.createElement("div");
       titleDiv.className = "picture-gallery-item-title";
@@ -199,7 +209,7 @@ export async function showPictureGallery(onSelect, onClose) {
       imageContainer.appendChild(img);
       imageContainer.appendChild(titleDiv);
       item.appendChild(imageContainer);
-      
+
       item.addEventListener("click", (e) => {
         e.preventDefault();
         hidePictureGallery();
@@ -216,11 +226,11 @@ export async function showPictureGallery(onSelect, onClose) {
     const uploadItem = document.createElement("button");
     uploadItem.className = "picture-gallery-item picture-gallery-upload";
     uploadItem.title = t("gallery.uploadOwn");
-    
+
     // Container for plus sign and label
     const container = document.createElement("div");
     container.className = "picture-gallery-item-container";
-    
+
     // Plus sign
     const plusSign = document.createElement("div");
     plusSign.innerHTML = "➕";
@@ -231,13 +241,13 @@ export async function showPictureGallery(onSelect, onClose) {
     plusSign.style.justifyContent = "center";
     plusSign.style.width = "100%";
     container.appendChild(plusSign);
-    
+
     // Label below plus
     const label = document.createElement("div");
     label.className = "picture-gallery-item-title";
     label.textContent = t("gallery.selectOwn");
     container.appendChild(label);
-    
+
     uploadItem.appendChild(container);
     uploadItem.style.border = "none";
     uploadItem.style.background = "transparent";

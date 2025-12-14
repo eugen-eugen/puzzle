@@ -69,6 +69,7 @@ import {
   applyPieceCorrectnessVisualFeedback,
   applyBlinkingEffectForIncorrectPieces,
   updateZoomDisplay,
+  applyViewportGrayscaleFilter,
   MIN_ZOOM,
   MAX_ZOOM,
 } from "./ui/display.js";
@@ -466,16 +467,18 @@ async function bootstrap() {
 
   // Set up cross-module function references
   setCaptureInitialMargins(captureInitialMargins);
-  // Deep link mode: ?image=<url>&pieces=<n>&norotate=<y|n>
+  // Deep link mode: ?image=<url>&pieces=<n>&norotate=<y|n>&removeColor=<true|false>
   try {
     const params = new URLSearchParams(window.location.search);
     const imageParam = params.get("image");
     const piecesParam = params.get("pieces");
     const noRotateParam = params.get("norotate");
+    const removeColorParam = params.get("removeColor");
     console.log("[deep-link] URL params:", {
       imageParam,
       piecesParam,
       noRotateParam,
+      removeColorParam,
     });
     if (imageParam && piecesParam) {
       const desiredPieces = parseInt(piecesParam, 10);
@@ -483,21 +486,30 @@ async function bootstrap() {
         noRotateParam === "y" ||
         noRotateParam === "yes" ||
         noRotateParam === "true";
+      const removeColor =
+        removeColorParam === "true" || removeColorParam === "yes";
       console.log("[deep-link] Parsed values:", {
         desiredPieces,
         noRotate,
         noRotateParam,
+        removeColor,
+        removeColorParam,
       });
       if (Util.isPositiveNumber(desiredPieces)) {
         deepLinkActive = true; // mark so persistence skip resume
         if (topBar) topBar.classList.add("deep-link-mode"); // Hide controls in deep link mode
+        
+        // Persist removeColor setting
+        localStorage.setItem("removeColor", removeColor ? "true" : "false");
+        
         console.info(
           "[deep-link] Loading image:",
           imageParam,
           "with",
           desiredPieces,
           "pieces",
-          noRotate ? "(no rotation)" : ""
+          noRotate ? "(no rotation)" : "",
+          removeColor ? "(grayscale)" : ""
         );
 
         // Load remote image with timeout
@@ -511,6 +523,10 @@ async function bootstrap() {
             // Use exported setter instead of accessing internal DOM element
             setSliderValue(sliderVal);
             updatePieceDisplay();
+            
+            // Apply grayscale filter if removeColor is set
+            applyViewportGrayscaleFilter(removeColor);
+            
             await generatePuzzle(noRotate);
             // Reset deep link flag so persistence can start saving changes
             deepLinkActive = false;
@@ -624,6 +640,12 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+// Apply grayscale filter from localStorage if set
+const removeColorSetting = localStorage.getItem("removeColor");
+if (removeColorSetting === "true") {
+  applyViewportGrayscaleFilter(true);
+}
 
 // Create and show a custom modal dialog for resuming a saved game
 function createResumeModal({

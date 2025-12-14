@@ -2,22 +2,44 @@
   "pictures": [
     {
       "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Structure_of_animal_cell.JPG/2560px-Structure_of_animal_cell.JPG",
-      "title": "Animal Cell Structure"
+      "title": "Animal Cell Structure",
+      "removeColor": false
     },
     {
       "url": "https://static.tildacdn.com/tild6634-6535-4636-b938-333935393465/Group_297-min.jpg",
       "title": "Blauer Traktor",
-      "pieces": 4
+      "pieces": 4,
+      "removeColor": false
     },
     {
       "url": "https://static.kinoafisha.info/k/articles/1200/upload/editor/articles/542647252404.jpg.webp",
       "title": "Blauer Traktor",
-      "pieces": 8
+      "pieces": 8,
+      "removeColor": false
     },
     {
       "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/BRD.png/1200px-BRD.png",
       "title": "Deutschland Karte",
-      "pieces": 40
+      "pieces": 40,
+      "removeColor": false
+    },
+    {
+      "url": "https://pixabay.com/get/gbd9d075988acebc57df92620344d297f108b2506005b6a4bec73dab7a6004cb2113e0dc675a2d81fe1eaecca0e24c3dd_1920.png",
+      "title": "Rainbow Background",
+      "pieces": 20,
+      "removeColor": false
+    },
+    {
+      "url": "https://pixabay.com/get/g7c77817719ae4e96507b25ee042066330e338df1bd71230a1e46fd2dda0eddc1fdfe55afc6705770d0557c83e10a0266_1920.jpg",
+      "title": "Rainbow Soap Bubbles",
+      "pieces": 15,
+      "removeColor": false
+    },
+    {
+      "url": "https://pixabay.com/get/g7c77817719ae4e96507b25ee042066330e338df1bd71230a1e46fd2dda0eddc1fdfe55afc6705770d0557c83e10a0266_1920.jpg",
+      "title": "Rainbow Soap Bubbles",
+      "pieces": 15,
+      "removeColor": true
     }
   ]
 }
