@@ -97,7 +97,7 @@ export async function showPictureGallery(onSelect, onClose) {
   gallery.className = "picture-gallery";
 
   const title = document.createElement("h2");
-  title.textContent = "🧩 Choose a Puzzle";
+  title.textContent = t("gallery.title");
   gallery.appendChild(title);
 
   // --- Filter Buttons (icons only) ---
@@ -107,17 +107,17 @@ export async function showPictureGallery(onSelect, onClose) {
   const babyBtn = document.createElement("button");
   babyBtn.className = "picture-gallery-filter-btn";
   babyBtn.innerHTML = "🍼";
-  babyBtn.title = "Baby (4-8 pieces)";
+  babyBtn.title = t("gallery.filterBaby");
 
   const studentBtn = document.createElement("button");
   studentBtn.className = "picture-gallery-filter-btn";
   studentBtn.innerHTML = "🎓";
-  studentBtn.title = "Student (10-100 pieces)";
+  studentBtn.title = t("gallery.filterStudent");
 
   const masterBtn = document.createElement("button");
   masterBtn.className = "picture-gallery-filter-btn";
   masterBtn.innerHTML = "🧙‍♂️";
-  masterBtn.title = "Master (>100 pieces)";
+  masterBtn.title = t("gallery.filterMaster");
 
   filterBar.appendChild(babyBtn);
   filterBar.appendChild(studentBtn);
@@ -163,14 +163,6 @@ export async function showPictureGallery(onSelect, onClose) {
       // Show all, no highlight
       filtered = pictures;
     }
-    if (filtered.length === 0) {
-      const noPicturesMsg = document.createElement("p");
-      noPicturesMsg.textContent = "No pictures available for this filter.";
-      noPicturesMsg.style.textAlign = "center";
-      noPicturesMsg.style.padding = "20px";
-      grid.appendChild(noPicturesMsg);
-      return;
-    }
     filtered.forEach((picture) => {
       const item = document.createElement("a");
       item.className = "picture-gallery-item";
@@ -179,7 +171,15 @@ export async function showPictureGallery(onSelect, onClose) {
         picture.url
       )}&pieces=${numPieces}&norotate=y`;
       item.href = deepLinkUrl;
-      item.title = `${picture.title} - Start puzzle with ${numPieces} pieces`;
+      item.title = t("gallery.itemTooltip", {
+        title: picture.title,
+        pieces: numPieces,
+      });
+      
+      // Container for image and title
+      const imageContainer = document.createElement("div");
+      imageContainer.className = "picture-gallery-item-container";
+      
       const img = document.createElement("img");
       img.src = picture.url;
       img.alt = picture.title;
@@ -190,8 +190,16 @@ export async function showPictureGallery(onSelect, onClose) {
         item.style.display = "none";
         console.warn(`[picture-gallery] Failed to load image: ${picture.url}`);
       });
+      
+      // Add image title below the preview
+      const titleDiv = document.createElement("div");
+      titleDiv.className = "picture-gallery-item-title";
+      titleDiv.textContent = picture.title;
 
-      item.appendChild(img);
+      imageContainer.appendChild(img);
+      imageContainer.appendChild(titleDiv);
+      item.appendChild(imageContainer);
+      
       item.addEventListener("click", (e) => {
         e.preventDefault();
         hidePictureGallery();
@@ -199,6 +207,47 @@ export async function showPictureGallery(onSelect, onClose) {
       });
       grid.appendChild(item);
     });
+    // Always show the upload button at the end
+    addUploadButton();
+  }
+
+  // Helper function to add the upload button as a gallery item
+  function addUploadButton() {
+    const uploadItem = document.createElement("button");
+    uploadItem.className = "picture-gallery-item picture-gallery-upload";
+    uploadItem.title = t("gallery.uploadOwn");
+    
+    // Container for plus sign and label
+    const container = document.createElement("div");
+    container.className = "picture-gallery-item-container";
+    
+    // Plus sign
+    const plusSign = document.createElement("div");
+    plusSign.innerHTML = "➕";
+    plusSign.style.flex = "0 0 80%";
+    plusSign.style.fontSize = "6em";
+    plusSign.style.display = "flex";
+    plusSign.style.alignItems = "center";
+    plusSign.style.justifyContent = "center";
+    plusSign.style.width = "100%";
+    container.appendChild(plusSign);
+    
+    // Label below plus
+    const label = document.createElement("div");
+    label.className = "picture-gallery-item-title";
+    label.textContent = t("gallery.selectOwn");
+    container.appendChild(label);
+    
+    uploadItem.appendChild(container);
+    uploadItem.style.border = "none";
+    uploadItem.style.background = "transparent";
+    uploadItem.style.cursor = "pointer";
+    uploadItem.style.padding = "0";
+    uploadItem.addEventListener("click", () => {
+      hidePictureGallery();
+      if (onClose) onClose();
+    });
+    grid.appendChild(uploadItem);
   }
 
   // Initial render: show all
@@ -241,19 +290,6 @@ export async function showPictureGallery(onSelect, onClose) {
       showPictureGallery(onSelect, onClose);
     });
   }
-
-  const closeContainer = document.createElement("div");
-  closeContainer.className = "picture-gallery-close";
-
-  const closeButton = document.createElement("button");
-  closeButton.textContent = t("gallery.uploadOwn");
-  closeButton.addEventListener("click", () => {
-    hidePictureGallery();
-    if (onClose) onClose();
-  });
-
-  closeContainer.appendChild(closeButton);
-  gallery.appendChild(closeContainer);
 
   overlay.appendChild(gallery);
   document.body.appendChild(overlay);
