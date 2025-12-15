@@ -241,7 +241,7 @@ export class GameTableController {
    * @param {Point} delta - Movement delta
    */
   movePieces(pieceIds, delta) {
-    pieceIds.forEach(id => this.movePiece(id, delta));
+    pieceIds.forEach((id) => this.movePiece(id, delta));
   }
 
   moveGroup(groupId, delta) {
