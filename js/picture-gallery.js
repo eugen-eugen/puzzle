@@ -189,7 +189,7 @@ export async function showPictureGallery(onSelect, onClose) {
       img.src = picture.url;
       img.alt = picture.title;
       img.loading = "lazy";
-      
+
       // Apply grayscale filter if removeColor is set
       if (picture.removeColor) {
         img.style.filter = "grayscale(100%)";

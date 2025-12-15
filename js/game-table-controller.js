@@ -159,7 +159,10 @@ export class GameTableController {
   _computeAvgPieceSize() {
     if (!state || !state.pieces || state.pieces.length === 0) return 0;
     return (
-      (state.pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) /
+      (state.pieces.reduce(
+        (acc, p) => acc + Math.min(p.imgRect.width, p.imgRect.height),
+        0
+      ) /
         state.pieces.length) *
       (state.pieces[0]?.scale || 1)
     );
@@ -218,11 +221,6 @@ export class GameTableController {
       throw new Error("GameTableController.setPiecePosition expects Point");
     }
     this._piecePositions.set(pieceId, position.clone());
-    // Mirror back to Piece for compatibility (Phase 1)
-    const piece = this._findPiece(pieceId);
-    if (piece) {
-      piece.position = position;
-    }
     this._updateSpatialIndexFor(pieceId);
     this._applyDomPosition(pieceId);
   }
@@ -235,6 +233,15 @@ export class GameTableController {
     if (!current) return;
     const next = current.add(delta);
     this.setPiecePosition(pieceId, next);
+  }
+
+  /**
+   * Move multiple pieces by the same delta (batch operation)
+   * @param {number[]} pieceIds - Array of piece IDs
+   * @param {Point} delta - Movement delta
+   */
+  movePieces(pieceIds, delta) {
+    pieceIds.forEach(id => this.movePiece(id, delta));
   }
 
   moveGroup(groupId, delta) {

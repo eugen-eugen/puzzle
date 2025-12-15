@@ -20,16 +20,27 @@ class GroupManager {
   /**
    * Initialize the group manager with existing pieces
    * This should be called after pieces are loaded/created
+   * GroupManager is responsible for assigning groupIds to pieces
    */
   initialize() {
     // Clear existing groups
     this.groups.clear();
 
-    // Create groups from existing pieces
+    // Assign groupIds to pieces and group them
     const piecesByGroup = new Map();
 
     state.pieces.forEach((piece) => {
-      const groupId = piece.groupId;
+      // Get requested groupId from piece (from deserialized data or null)
+      let groupId = piece._requestedGroupId;
+
+      // If no requested groupId, generate a unique one (new pieces)
+      if (!groupId) {
+        groupId = `g${piece.id}`;
+      }
+
+      // Set the groupId via GroupManager's internal method
+      piece._setGroupId(groupId);
+
       if (!piecesByGroup.has(groupId)) {
         piecesByGroup.set(groupId, []);
       }

@@ -498,10 +498,10 @@ async function bootstrap() {
       if (Util.isPositiveNumber(desiredPieces)) {
         deepLinkActive = true; // mark so persistence skip resume
         if (topBar) topBar.classList.add("deep-link-mode"); // Hide controls in deep link mode
-        
+
         // Persist removeColor setting
         localStorage.setItem("removeColor", removeColor ? "true" : "false");
-        
+
         console.info(
           "[deep-link] Loading image:",
           imageParam,
@@ -523,10 +523,10 @@ async function bootstrap() {
             // Use exported setter instead of accessing internal DOM element
             setSliderValue(sliderVal);
             updatePieceDisplay();
-            
+
             // Apply grayscale filter if removeColor is set
             applyViewportGrayscaleFilter(removeColor);
-            
+
             await generatePuzzle(noRotate);
             // Reset deep link flag so persistence can start saving changes
             deepLinkActive = false;

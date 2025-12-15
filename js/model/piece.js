@@ -5,9 +5,7 @@
 
 import { Point } from "../geometry/point.js";
 import { Rectangle } from "../geometry/rectangle.js";
-import { state } from "../game-engine.js";
 import { DEFAULT_PIECE_SCALE } from "../constants/piece-constants.js";
-import { applyPieceTransform } from "../ui/display.js";
 import { gameTableController } from "../game-table-controller.js";
 
 /**
@@ -18,38 +16,19 @@ export class Piece {
   constructor(data) {
     // Core identity
     this.id = data.id;
-    this.gridX = data.gridX;
-    this.gridY = data.gridY;
+    this.gridPos = new Point(data.gridX, data.gridY);
 
-    // Initialize groupId - only the constructor and GroupManager should set this
-    this._groupId = data.groupId || `g${data.id}`;
-    this._allowGroupIdChange = true; // Allow changes during construction
+    // GroupId will be set by GroupManager after construction
+    // Store the requested groupId for GroupManager to use
+    this._requestedGroupId = data.groupId;
+    this._groupId = null;
 
-    // Define groupId property with getter/setter to track modifications
-    Object.defineProperty(this, "groupId", {
-      get() {
-        return this._groupId;
-      },
-      set(value) {
-        if (!this._allowGroupIdChange) {
-          const error = new Error(
-            `[Piece] Direct groupId modification is not allowed for piece ${this.id}. Use GroupManager operations instead.`
-          );
-          console.error(error.message);
-          console.trace("Stack trace for unauthorized groupId modification:");
-          throw error;
-        }
-        this._groupId = value;
-      },
-      enumerable: true,
-      configurable: true,
-    });
-
-    // Physical dimensions
-    this.w = data.w;
-    this.h = data.h;
-    this.imgX = data.imgX;
-    this.imgY = data.imgY;
+    // Physical dimensions - Rectangle stores position (imgX, imgY) and size (w, h)
+    this.imgRect = new Rectangle(
+      new Point(data.imgX, data.imgY),
+      data.w,
+      data.h
+    );
 
     // Visual representation
     this.bitmap = data.bitmap;
@@ -57,9 +36,10 @@ export class Piece {
     this.scale = data.scale || DEFAULT_PIECE_SCALE;
 
     // Position and orientation
-    this.position =
+    // Position is now managed by GameTableController - initialize it there
+    const initialPosition =
       data.position instanceof Point
-        ? data.position.clone()
+        ? data.position
         : new Point(data.displayX || 0, data.displayY || 0);
     this.rotation = data.rotation || 0;
     this.zIndex = data.zIndex !== undefined ? data.zIndex : null; // Z-index for layering, null means not yet assigned
@@ -81,9 +61,9 @@ export class Piece {
       // Fallback to legacy data structure
       const rawCorners = data.corners || {
         nw: { x: 0, y: 0 },
-        ne: { x: this.w, y: 0 },
-        se: { x: this.w, y: this.h },
-        sw: { x: 0, y: this.h },
+        ne: { x: this.imgRect.width, y: 0 },
+        se: { x: this.imgRect.width, y: this.imgRect.height },
+        sw: { x: 0, y: this.imgRect.height },
       };
       const rawSPoints = data.sPoints || {};
 
@@ -97,21 +77,8 @@ export class Piece {
     // Set up worldData cache
     this._initializeWorldDataCache();
 
-    // Register with GameTableController for position tracking
-    try {
-      if (gameTableController && gameTableController.registerPiece) {
-        gameTableController.registerPiece(this);
-      }
-    } catch (e) {
-      // Non-fatal: controller may not be initialized yet during early bootstrap
-      console.warn(
-        `[Piece] Controller registration skipped for piece ${this.id}:`,
-        e.message
-      );
-    }
-
-    // Lock groupId changes after construction
-    this._allowGroupIdChange = false;
+    // Register position with GameTableController
+    gameTableController.setPiecePosition(this.id, initialPosition);
   }
 
   /**
@@ -159,8 +126,8 @@ export class Piece {
    * @private
    */
   _calculatePieceSidePoints(hSides, vSides, c_nw, rows, cols) {
-    const r = this.gridY;
-    const c = this.gridX;
+    const r = this.gridPos.y;
+    const c = this.gridPos.x;
 
     return {
       north:
@@ -321,6 +288,61 @@ export class Piece {
   // ===== Position Management =====
 
   /**
+   * Get piece position (delegated to GameTableController)
+   * @returns {Point} Current position
+   */
+  get position() {
+    return gameTableController.getPiecePosition(this.id) || new Point(0, 0);
+  }
+
+  /**
+   * Set piece position (delegated to GameTableController)
+   * @param {Point} value - New position
+   */
+  set position(value) {
+    if (!(value instanceof Point)) {
+      throw new Error("[Piece] position must be a Point instance");
+    }
+    gameTableController.setPiecePosition(this.id, value);
+  }
+
+  /**
+   * Get groupId (read-only via getter)
+   */
+  get groupId() {
+    return this._groupId;
+  }
+
+  /**
+   * Prevent direct groupId assignment - use GroupManager operations instead
+   */
+  set groupId(value) {
+    const error = new Error(
+      `[Piece] Direct groupId modification is not allowed for piece ${this.id}. Use GroupManager operations instead.`
+    );
+    console.error(error.message);
+    console.trace("Stack trace for unauthorized groupId modification:");
+    throw error;
+  }
+
+  // Convenience getters for backward compatibility
+  get w() {
+    return this.imgRect.width;
+  }
+
+  get h() {
+    return this.imgRect.height;
+  }
+
+  get imgX() {
+    return this.imgRect.position.x;
+  }
+
+  get imgY() {
+    return this.imgRect.position.y;
+  }
+
+  /**
    * Set absolute position
    * @param {Point} point - Point instance
    */
@@ -360,11 +382,8 @@ export class Piece {
    * @param {number} [deltaY] - Y offset (if deltaX is number)
    */
   move(deltaX, deltaY) {
-    if (deltaX instanceof Point) {
-      this.position.mutAdd(deltaX);
-    } else {
-      this.position.mutAdd(new Point(deltaX, deltaY));
-    }
+    const delta = deltaX instanceof Point ? deltaX : new Point(deltaX, deltaY);
+    gameTableController.movePiece(this.id, delta);
   }
 
   /**
@@ -497,9 +516,7 @@ export class Piece {
    * @private
    */
   _setGroupId(newGroupId) {
-    this._allowGroupIdChange = true;
-    this.groupId = newGroupId;
-    this._allowGroupIdChange = false;
+    this._groupId = newGroupId;
   }
 
   // getGroupPieces() method has been removed - use GroupManager.getGroup().allPieces instead
@@ -580,7 +597,7 @@ export class Piece {
     if (!isFinite(minX)) {
       return Rectangle.fromPoints(
         new Point(0, 0),
-        new Point(this.w || 0, this.h || 0)
+        new Point(this.imgRect.width, this.imgRect.height)
       );
     }
 
@@ -639,8 +656,8 @@ export class Piece {
   serialize(includeBitmap = false) {
     const data = {
       id: this.id,
-      gridX: this.gridX,
-      gridY: this.gridY,
+      gridX: this.gridPos.x,
+      gridY: this.gridPos.y,
       rotation: this.rotation,
       displayX: this.position.x,
       displayY: this.position.y,
@@ -649,11 +666,11 @@ export class Piece {
       edges: this.edges,
       corners: this.corners,
       sPoints: this.sPoints,
-      w: this.w,
-      h: this.h,
+      w: this.imgRect.width,
+      h: this.imgRect.height,
       scale: this.scale,
-      imgX: this.imgX,
-      imgY: this.imgY,
+      imgX: this.imgRect.position.x,
+      imgY: this.imgRect.position.y,
     };
 
     if (includeBitmap && this.bitmap?.toDataURL) {
@@ -745,8 +762,8 @@ export class Piece {
    * @returns {string} Debug string
    */
   toString() {
-    return `Piece{id:${this.id}, grid:(${this.gridX},${
-      this.gridY
+    return `Piece{id:${this.id}, grid:(${this.gridPos.x},${
+      this.gridPos.y
     }), pos:(${this.position.x.toFixed(1)},${this.position.y.toFixed(
       1
     )}), rot:${this.rotation}°, group:${this.groupId}}`;

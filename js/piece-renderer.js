@@ -81,7 +81,11 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
   );
   pieceElements.clear();
   const avgSize =
-    (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
+    (pieces.reduce(
+      (acc, p) => acc + Math.min(p.imgRect.width, p.imgRect.height),
+      0
+    ) /
+      pieces.length) *
     SCALE;
 
   // Step 1: Apply random rotation to each piece (0°, 90°, 180°, or 270°)
@@ -172,7 +176,11 @@ export function renderPiecesAtPositions(container, pieces) {
   console.debug("[pieceRenderer] renderPiecesAtPositions count", pieces.length);
   pieceElements.clear();
   const avgSize =
-    (pieces.reduce((acc, p) => acc + Math.min(p.w, p.h), 0) / pieces.length) *
+    (pieces.reduce(
+      (acc, p) => acc + Math.min(p.imgRect.width, p.imgRect.height),
+      0
+    ) /
+      pieces.length) *
     (pieces[0]?.scale || SCALE || 0.7);
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");

@@ -85,11 +85,11 @@ function serializeState(includeBitmaps = STORE_BITMAPS) {
         groupId: p.groupId,
         edges: p.edges,
         sPoints: p.sPoints,
-        w: p.w,
-        h: p.h,
+        w: p.imgRect.width,
+        h: p.imgRect.height,
         scale: p.scale,
-        imgX: p.imgX,
-        imgY: p.imgY,
+        imgX: p.imgRect.position.x,
+        imgY: p.imgRect.position.y,
         bitmapData,
       };
     }

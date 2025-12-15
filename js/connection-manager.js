@@ -335,18 +335,13 @@ function finePlace(movingPiece, highlightData) {
   // Get all pieces in the moving group (including the moving piece itself)
   const movingGroupPieces = getMovingGroupPieces(movingPiece); // Apply translation to all pieces in the moving group
   movingGroupPieces.forEach((piece) => {
-    if (!piece.position || !(piece.position instanceof Point)) {
-      piece.position = new Point(0, 0);
+    // Use controller to move piece (position is now delegated)
+    if (gameTableController) {
+      gameTableController.movePiece(piece.id, delta);
     }
-    // Mutate then sync through controller for spatial index + cache invalidation
-    piece.position.mutAdd(delta);
     if (pieceElementsAccessor) {
       const el = pieceElementsAccessor(piece.id);
       if (el) applyPieceTransform(el, piece);
-    }
-    // Ensure controller & spatial index updated with new center
-    if (gameTableController) {
-      gameTableController.setPiecePosition(piece.id, piece.position);
     }
   });
 }
