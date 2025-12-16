@@ -9,7 +9,27 @@ permissions:
   contents: write
 
 jobs:
-  build-and-deploy:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+  build-standard:
+    needs: test
     runs-on: ubuntu-latest
     
     steps:
@@ -26,9 +46,6 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
-
-      - name: Run tests
-        run: npm test
 
       - name: Generate LICENSE file
         run: npm run generate-license
@@ -58,3 +75,53 @@ jobs:
           # Commit and push
           git commit -m "chore: deploy build from commit ${{ github.sha }}" || echo "No changes to commit"
           git push origin release --force
+
+  build-restricted:
+    needs: test
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build restricted mode
+        run: npm run build:restricted -- --base /pzl/
+
+      - name: Deploy to eugen-eugen/pzl repository
+        env:
+          DEPLOY_TOKEN: ${{ secrets.PZL_DEPLOY_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Clone target repository
+          git clone https://x-access-token:${DEPLOY_TOKEN}@github.com/eugen-eugen/pzl.git pzl-repo
+          cd pzl-repo
+          
+          # Create or checkout main branch
+          git checkout main || git checkout -b main
+          
+          # Remove all existing files except .git
+          find . -maxdepth 1 ! -name '.git' ! -name '.' ! -name '..' -exec rm -rf {} +
+          
+          # Copy build artifacts
+          cp -r ../dist/* .
+          cp ../LICENSE .
+          
+          # Add all changes
+          git add -A
+          
+          # Commit and push
+          git commit -m "chore: deploy restricted build from eugen-eugen/puzzle@${{ github.sha }}" || echo "No changes to commit"
+          git push origin main --force

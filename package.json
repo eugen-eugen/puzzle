@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run generate-license && vite build",
+    "build:restricted": "BUILD_MODE=restricted npm run generate-license && BUILD_MODE=restricted vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",

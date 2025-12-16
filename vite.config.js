@@ -6,10 +6,13 @@ import {
   writeFileSync,
   readFileSync,
   existsSync,
+  unlinkSync,
 } from "fs";
 import { resolve } from "path";
 
 export default defineConfig(function ({ command, mode }) {
+  const isRestrictedMode = process.env.BUILD_MODE === 'restricted';
+  
   return {
     base: "/puzzle/",
     build: {
@@ -20,7 +23,27 @@ export default defineConfig(function ({ command, mode }) {
         },
       },
     },
+    define: {
+      __RESTRICTED_MODE__: isRestrictedMode,
+    },
     plugins: [
+      // HTML transformation plugin for restricted mode
+      {
+        name: "transform-html",
+        transformIndexHtml(html) {
+          if (isRestrictedMode) {
+            console.log('[restricted mode] Hiding control bar and removing manifest in HTML');
+            // Remove manifest.json link
+            html = html.replace(/<link rel="manifest" href="manifest\.json"[^>]*>\s*/gi, '');
+            
+            // Add CSS to hide the control bar in the head
+            const styleTag = '<style>.top-bar { display: none !important; }</style>\n';
+            html = html.replace('</head>', styleTag + '</head>');
+            
+            return html;
+          }
+        },
+      },
       (function () {
         let resolvedConfig;
         return {
@@ -29,6 +52,11 @@ export default defineConfig(function ({ command, mode }) {
             resolvedConfig = config;
           },
           closeBundle: function () {
+            // Skip manifest processing in restricted mode
+            if (isRestrictedMode) {
+              return;
+            }
+            
             const manifestPath = resolve(__dirname, "dist/manifest.json");
 
             try {
@@ -58,6 +86,12 @@ export default defineConfig(function ({ command, mode }) {
             resolvedConfig = config;
           },
           closeBundle: function () {
+            // Skip asset-manifest generation in restricted mode
+            if (isRestrictedMode) {
+              console.log('[restricted mode] Skipping asset-manifest.json generation');
+              return;
+            }
+            
             const distDir = resolve(__dirname, "dist");
             const assetsDir = resolve(distDir, "assets");
 
@@ -122,6 +156,37 @@ export default defineConfig(function ({ command, mode }) {
       {
         name: "copy-pictures",
         closeBundle: function () {
+          // Skip copying local pictures in restricted mode
+          if (isRestrictedMode) {
+            console.log(`[restricted mode] Skipping local pictures`);
+            
+            // Still copy remote-pictures.json and LICENSE
+            const outDir = resolve(__dirname, "dist/pictures");
+            mkdirSync(outDir, { recursive: true });
+            
+            const remotePicturesPath = resolve(__dirname, "pictures", "remote-pictures.json");
+            try {
+              copyFileSync(
+                remotePicturesPath,
+                resolve(outDir, "remote-pictures.json")
+              );
+              console.log(`Copied remote-pictures.json to dist/pictures`);
+            } catch (e) {
+              console.warn(`Could not copy remote-pictures.json:`, e.message);
+            }
+
+            // Copy LICENSE file to dist
+            try {
+              const licensePath = resolve(__dirname, "LICENSE");
+              copyFileSync(licensePath, resolve(__dirname, "dist/LICENSE"));
+              console.log(`Copied LICENSE to dist`);
+            } catch (e) {
+              console.warn(`Could not copy LICENSE:`, e.message);
+            }
+            
+            return;
+          }
+
           const srcDir = resolve(__dirname, "pictures");
           const outDir = resolve(__dirname, "dist/pictures");
           mkdirSync(outDir, { recursive: true });
@@ -169,6 +234,48 @@ export default defineConfig(function ({ command, mode }) {
             );
           } catch (e) {
             console.warn(`Could not copy pictures:`, e.message);
+          }
+        },
+      },
+      {
+        name: "remove-pwa-files-restricted",
+        closeBundle: function () {
+          if (isRestrictedMode) {
+            console.log('[restricted mode] Removing PWA files');
+            const distDir = resolve(__dirname, "dist");
+            
+            // Remove service-worker.js
+            try {
+              const swPath = resolve(distDir, "service-worker.js");
+              if (existsSync(swPath)) {
+                unlinkSync(swPath);
+                console.log('Removed service-worker.js');
+              }
+            } catch (e) {
+              console.warn('Could not remove service-worker.js:', e.message);
+            }
+            
+            // Remove manifest.json
+            try {
+              const manifestPath = resolve(distDir, "manifest.json");
+              if (existsSync(manifestPath)) {
+                unlinkSync(manifestPath);
+                console.log('Removed manifest.json');
+              }
+            } catch (e) {
+              console.warn('Could not remove manifest.json:', e.message);
+            }
+            
+            // Remove asset-manifest.json (should not be generated, but just in case)
+            try {
+              const assetManifestPath = resolve(distDir, "asset-manifest.json");
+              if (existsSync(assetManifestPath)) {
+                unlinkSync(assetManifestPath);
+                console.log('Removed asset-manifest.json');
+              }
+            } catch (e) {
+              console.warn('Could not remove asset-manifest.json:', e.message);
+            }
           }
         },
       },

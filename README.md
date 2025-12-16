@@ -2,9 +2,10 @@
 
 > A lightweight, offline‑capable, single–page jigsaw puzzle app that turns any uploaded image into an interactive puzzle with drag, rotate, group merge, detach, zoom & persistent resume.
 
-## 🎮 [Play Now on GitHub Pages](https://eugen-eugen.github.io/puzzle/)
+## 🎮 Play Now
 
-Try the app directly in your browser without any installation!
+- **[Full Version](https://eugen-eugen.github.io/puzzle/)** - Complete app with all features and PWA support
+- **[Restricted Version](https://eugen-eugen.github.io/pzl/)** - Minimal kiosk-mode version with curated content
 
 ---
 ## ✨ Key Features (Current)
@@ -263,6 +264,41 @@ alert(t('error.generate', { error: e.message }));
 - **Border Piece Connection Detection**: Groups track "border pieces" (pieces with <4 neighbors). During drag, all border pieces check for connections simultaneously, not just the dragged piece.
 - **Multi-Highlight System**: All stationary pieces that border pieces can connect to are highlighted green during drag, providing better visual feedback.
 - **Production Build**: GitHub Actions workflow automatically builds and deploys to `release` branch with proper asset paths for GitHub Pages.
+
+### Restricted Build Mode
+A special build mode is available for creating a locked-down version of the game suitable for public kiosks, embedded displays, or curated content distributions.
+
+#### Features of Restricted Mode
+- **No Control Bar**: The UI control bar (slider, zoom controls, help button, language selector) is hidden via CSS injection
+- **No Local Pictures**: Only remote pictures from `remote-pictures.json` are packaged (local picture files are excluded from the build)
+- **Smaller Bundle Size**: Significantly reduced package size by excluding local image files
+- **Curated Content Only**: Users can only play puzzles from the pre-configured remote picture gallery
+
+#### Building in Restricted Mode
+```bash
+npm run build:restricted
+```
+
+This sets the `BUILD_MODE=restricted` environment variable which:
+1. Adds CSS to hide `.top-bar` elements in the built HTML
+2. Skips copying local picture files (only `remote-pictures.json` is included)
+3. Sets the `__RESTRICTED_MODE__` compile-time flag for runtime detection
+
+#### Use Cases
+- **Public Kiosks**: Deploy on public displays where user control should be limited
+- **Embedded Displays**: Use in iframe contexts where simplified UI is preferred
+- **Demo Distributions**: Share a curated experience with specific puzzles only
+- **Bandwidth-Constrained Deployments**: Smaller bundle for faster loading
+
+#### Comparison
+| Feature | Standard Build | Restricted Build |
+|---------|---------------|------------------|
+| Control Bar | ✅ Visible | ❌ Hidden |
+| Local Pictures | ✅ Included | ❌ Excluded |
+| Remote Pictures | ✅ Included | ✅ Included |
+| Image Upload | ✅ Enabled | ❌ Hidden (control bar) |
+| Settings Control | ✅ Enabled | ❌ Hidden (control bar) |
+| Bundle Size | Larger (~with local images) | Smaller (remote only) |
 
 ### Suggested Debug Enhancements (Not yet included)
 - Toggle overlays for world corners & sPoints
