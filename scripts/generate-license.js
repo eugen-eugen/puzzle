@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 // generate-license.js - Generate LICENSE file with picture attributions
-import { readFileSync, writeFileSync } from 'fs';
-import { resolve, dirname } from 'path';
-import { fileURLToPath } from 'url';
+import { readFileSync, writeFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const rootDir = resolve(__dirname, '..');
+const rootDir = resolve(__dirname, "..");
 
 // Base license for the project code
 const BASE_LICENSE = `MIT License
@@ -42,84 +42,96 @@ The following images are used with proper attribution:
 
 function loadPictureAttribtuions() {
   const attributions = [];
-  
+
   // Load local pictures
   try {
-    const picturesPath = resolve(rootDir, 'pictures', 'pictures.json');
-    const picturesData = JSON.parse(readFileSync(picturesPath, 'utf-8'));
-    
+    const picturesPath = resolve(rootDir, "pictures", "pictures.json");
+    const picturesData = JSON.parse(readFileSync(picturesPath, "utf-8"));
+
     if (picturesData.pictures) {
-      picturesData.pictures.forEach(pic => {
-        if (typeof pic === 'object' && pic.license) {
+      picturesData.pictures.forEach((pic) => {
+        if (typeof pic === "object" && pic.license) {
           attributions.push({
             title: pic.title || pic.filename,
-            type: 'local',
+            type: "local",
             filename: pic.filename,
-            license: pic.license
+            license: pic.license,
           });
         }
       });
     }
   } catch (error) {
-    console.warn('[generate-license] Could not load local pictures:', error.message);
+    console.warn(
+      "[generate-license] Could not load local pictures:",
+      error.message
+    );
   }
-  
+
   // Load remote pictures
   try {
-    const remotePicturesPath = resolve(rootDir, 'pictures', 'remote-pictures.json');
-    const remotePicturesData = JSON.parse(readFileSync(remotePicturesPath, 'utf-8'));
-    
+    const remotePicturesPath = resolve(
+      rootDir,
+      "pictures",
+      "remote-pictures.json"
+    );
+    const remotePicturesData = JSON.parse(
+      readFileSync(remotePicturesPath, "utf-8")
+    );
+
     if (remotePicturesData.pictures) {
-      remotePicturesData.pictures.forEach(pic => {
+      remotePicturesData.pictures.forEach((pic) => {
         if (pic.license) {
           attributions.push({
             title: pic.title,
-            type: 'remote',
+            type: "remote",
             url: pic.url,
-            license: pic.license
+            license: pic.license,
           });
         }
       });
     }
   } catch (error) {
-    console.warn('[generate-license] Could not load remote pictures:', error.message);
+    console.warn(
+      "[generate-license] Could not load remote pictures:",
+      error.message
+    );
   }
-  
+
   return attributions;
 }
 
 function generateLicenseFile() {
   const attributions = loadPictureAttribtuions();
-  
+
   let licenseContent = BASE_LICENSE;
-  
+
   if (attributions.length === 0) {
-    licenseContent += 'No images with specific license attributions found.\n';
+    licenseContent += "No images with specific license attributions found.\n";
   } else {
     // Group by license to make it more readable
     const byLicense = {};
-    attributions.forEach(attr => {
+    attributions.forEach((attr) => {
       if (!byLicense[attr.license]) {
         byLicense[attr.license] = [];
       }
       byLicense[attr.license].push(attr);
     });
-    
+
     Object.entries(byLicense).forEach(([license, items]) => {
       licenseContent += `\n${license}\n`;
-      licenseContent += '-'.repeat(license.length) + '\n';
-      items.forEach(item => {
+      licenseContent += "-".repeat(license.length) + "\n";
+      items.forEach((item) => {
         licenseContent += `  - ${item.title}`;
-        if (item.type === 'local') {
+        if (item.type === "local") {
           licenseContent += ` (${item.filename})`;
-        } else if (item.type === 'remote') {
+        } else if (item.type === "remote") {
           licenseContent += `\n    ${item.url}`;
         }
-        licenseContent += '\n';
+        licenseContent += "\n";
       });
     });
   }
-  
+
   licenseContent += `
 ================================================================================
 DEPENDENCIES
@@ -136,10 +148,12 @@ node_modules for full license texts:
 
 For production builds, only runtime dependencies are included.
 `;
-  
-  const licensePath = resolve(rootDir, 'LICENSE');
-  writeFileSync(licensePath, licenseContent, 'utf-8');
-  console.log(`[generate-license] Generated LICENSE file with ${attributions.length} image attributions`);
+
+  const licensePath = resolve(rootDir, "LICENSE");
+  writeFileSync(licensePath, licenseContent, "utf-8");
+  console.log(
+    `[generate-license] Generated LICENSE file with ${attributions.length} image attributions`
+  );
 }
 
 // Run if called directly

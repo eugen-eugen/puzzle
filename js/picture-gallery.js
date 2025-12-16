@@ -173,7 +173,9 @@ export async function showPictureGallery(onSelect, onClose) {
       item.className = "picture-gallery-item";
       const numPieces = picture.pieces || DEFAULT_PIECES;
       const removeColor = picture.removeColor ? "true" : "false";
-      const license = picture.license ? `&license=${encodeURIComponent(picture.license)}` : "";
+      const license = picture.license
+        ? `&license=${encodeURIComponent(picture.license)}`
+        : "";
       const deepLinkUrl = `?image=${encodeURIComponent(
         picture.url
       )}&pieces=${numPieces}&norotate=y&removeColor=${removeColor}${license}`;
@@ -198,13 +200,15 @@ export async function showPictureGallery(onSelect, onClose) {
           centered: true,
           fontSizePercent: 4,
           minFontSize: 20,
-          returnDataUrl: true
+          returnDataUrl: true,
         })
           .then((dataUrl) => {
             img.src = dataUrl;
           })
           .catch((error) => {
-            console.warn(`[picture-gallery] Failed to add license to preview: ${error.message}`);
+            console.warn(
+              `[picture-gallery] Failed to add license to preview: ${error.message}`
+            );
             img.src = picture.url;
             if (picture.removeColor) {
               img.style.filter = "grayscale(100%)";

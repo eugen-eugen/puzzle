@@ -12,19 +12,24 @@
  * @param {boolean} options.returnDataUrl - Return data URL instead of Image element (default: false)
  * @returns {Promise<HTMLImageElement|string>} Image with license text or data URL
  */
-export async function addLicenseToImage(imageSource, licenseText, options = {}) {
+export async function addLicenseToImage(
+  imageSource,
+  licenseText,
+  options = {}
+) {
   const {
     removeColor = false,
     centered = false,
     fontSizePercent = 2,
     minFontSize = 12,
-    returnDataUrl = false
+    returnDataUrl = false,
   } = options;
 
   // Load image if URL provided
-  const img = typeof imageSource === 'string' 
-    ? await loadImage(imageSource) 
-    : imageSource;
+  const img =
+    typeof imageSource === "string"
+      ? await loadImage(imageSource)
+      : imageSource;
 
   const canvas = document.createElement("canvas");
   canvas.width = img.width;
@@ -46,13 +51,16 @@ export async function addLicenseToImage(imageSource, licenseText, options = {}) 
   }
 
   // Calculate font size based on image height
-  const fontSize = Math.max(minFontSize, Math.floor(img.height * (fontSizePercent / 100)));
+  const fontSize = Math.max(
+    minFontSize,
+    Math.floor(img.height * (fontSizePercent / 100))
+  );
   const padding = Math.floor(fontSize * 0.5);
 
   // Set up text style
   ctx.font = `${fontSize}px Arial, sans-serif`;
   ctx.textBaseline = "bottom";
-  
+
   if (centered) {
     ctx.textAlign = "center";
   } else {
@@ -88,7 +96,7 @@ export async function addLicenseToImage(imageSource, licenseText, options = {}) 
 
   // Return data URL or new Image element
   const dataUrl = canvas.toDataURL();
-  
+
   if (returnDataUrl) {
     return dataUrl;
   }
@@ -111,7 +119,7 @@ export function loadImage(url, crossOrigin = true) {
     if (crossOrigin) {
       img.crossOrigin = "anonymous";
     }
-    
+
     img.onload = () => resolve(img);
     img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
     img.src = url;
