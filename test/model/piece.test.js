@@ -1,6 +1,6 @@
 // piece.test.js - Unit tests for Piece model
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { Piece } from "@/js/model/Piece.js";
+import { Piece } from "@/js/model/piece.js";
 import { Point } from "@/js/geometry/point.js";
 import { Rectangle } from "@/js/geometry/rectangle.js";
 import { DEFAULT_PIECE_SCALE } from "@/js/constants/piece-constants.js";
