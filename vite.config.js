@@ -137,10 +137,7 @@ export default defineConfig(function ({ command, mode }) {
             // Copy pictures.json if it exists (don't generate it)
             const picturesJsonPath = resolve(srcDir, "pictures.json");
             try {
-              copyFileSync(
-                picturesJsonPath,
-                resolve(outDir, "pictures.json")
-              );
+              copyFileSync(picturesJsonPath, resolve(outDir, "pictures.json"));
               console.log(`Copied pictures.json to dist/pictures`);
             } catch (e) {
               console.warn(`Could not copy pictures.json:`, e.message);
@@ -179,13 +176,15 @@ export default defineConfig(function ({ command, mode }) {
         name: "generate-pictures-dev",
         configureServer: function (server) {
           // Check if pictures.json already exists - don't overwrite it
-          const picturesJsonPath = resolve(__dirname, "pictures", "pictures.json");
-          
+          const picturesJsonPath = resolve(
+            __dirname,
+            "pictures",
+            "pictures.json"
+          );
+
           try {
             if (existsSync(picturesJsonPath)) {
-              console.log(
-                `pictures.json already exists, skipping generation`
-              );
+              console.log(`pictures.json already exists, skipping generation`);
               return;
             }
 
