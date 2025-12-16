@@ -351,10 +351,10 @@ describe("geometry-utils", () => {
 
     it("should handle corner objects with c_ prefix", () => {
       const raw = {
-        nw: { x: 0, y: 0 },
-        ne: { x: 100, y: 0 },
-        se: { x: 100, y: 100 },
-        sw: { x: 0, y: 100 },
+        c_nw: { x: 0, y: 0 },
+        c_ne: { x: 100, y: 0 },
+        c_se: { x: 100, y: 100 },
+        c_sw: { x: 0, y: 100 },
       };
 
       const result = convertToPoints(raw);
