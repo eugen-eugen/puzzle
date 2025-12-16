@@ -101,8 +101,8 @@ Using adaptive probability based on the ratio of needed positive orientations to
 | `WAYPOINT_OFFSET_RANGE` | 0.25 | Waypoint position range along edge (±25% from center) |
 | `CAVITY_DEPTH_CAP_RELATIVE_TO_MIN` | 0.25 | Max cavity depth as fraction of min(pieceW, pieceH) |
 | `CAVITY_DEPTH_CAP_EDGE_FRACTION` | 0.5 | Max cavity depth as fraction of edge length |
-| `KNOB` | +1 | Outward bump polarity |
-| `DENT` | -1 | Inward cavity polarity |
+| `KNOB` | +1 | Outward bump orientation (used during generation) |
+| `DENT` | -1 | Inward cavity orientation (used during generation) |
 
 ## Mathematical Properties
 

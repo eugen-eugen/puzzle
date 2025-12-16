@@ -140,14 +140,10 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
     CONFIG.CONNECTION_TOLERANCE / (zoomLevel * zoomLevel);
   const profileTolerance = CONFIG.PROFILE_TOLERANCE / (zoomLevel * zoomLevel);
   let best = null;
-  const movingEdges = movingPiece.edges;
-  const stationaryEdges = stationaryPiece.edges;
 
   ALL_SIDES.forEach((mLogicalSide) => {
-    const mPol = movingEdges[mLogicalSide];
-    if (mPol === 0) return; // border side ignored
     const mSPoint = movingPiece.sPoints[mLogicalSide];
-    if (!mSPoint) return; // border
+    if (!mSPoint) return; // border side, no connection possible
 
     const mCornerNames = sideCornerKeys(mLogicalSide);
     const mwcA = movingWD.worldCorners[mCornerNames[0]];
@@ -155,10 +151,8 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
     const mwS = movingWD.worldSPoints[mLogicalSide];
 
     ALL_SIDES.forEach((sLogicalSide) => {
-      const sPol = stationaryEdges[sLogicalSide];
-      if (sPol === 0) return;
       const sSPoint = stationaryPiece.sPoints[sLogicalSide];
-      if (!sSPoint) return;
+      if (!sSPoint) return; // border side, no connection possible
 
       const sCornerNames = sideCornerKeys(sLogicalSide);
       const swcA = stationaryWD.worldCorners[sCornerNames[0]];

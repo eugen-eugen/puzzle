@@ -30,7 +30,7 @@ Try the app directly in your browser without any installation!
 | Module | Purpose |
 |--------|---------|
 | `js/app.js` | UI bootstrap, zoom/pan, progress, resume modal, orchestrates modules |
-| `js/jigsaw-generator.js` | Generates pieces via lattice + side waypoints, assigns polarity & geometry |
+| `js/jigsaw-generator.js` | Generates pieces via lattice + side waypoints & geometry |
 | `js/piece-renderer.js` | Renders canvases inside absolutely positioned DIV wrappers and handles drag / rotate |
 | `js/connection-manager.js` | Geometric side matching (corner + sPoint waypoint checks) + group merging with border piece detection |
 | `js/spatial-index.js` | Uniform grid spatial index for coarse candidate lookup |
@@ -50,7 +50,7 @@ Pieces are cut from the source image using:
 - A grid approximated to target count with aspect preservation
 - Corner lattice `(rows+1) x (cols+1)`
 - Internal edge waypoints (one per interior side) displaced perpendicular to the edge
-- Polarity (+1 bump / -1 dent / 0 border) balanced to ~50/50 distribution
+- Geometric profile matching for piece connections (bump/dent compatibility verified by waypoint alignment)
 - Each interior side defined by three local points: `cornerA → sPoint → cornerB`
 
 This avoids Bezier curves (straight segment geometry) while retaining traditional puzzle silhouette.
@@ -63,7 +63,7 @@ A dragged piece (or group) is tested against nearby candidates using intelligent
 2. **Multi-Candidate Testing**: During drag, all border pieces simultaneously check for connections
 3. **Spatial Index Query**: Coarse candidate lookup for each border piece
 4. **Geometric Validation**: For each side pair:
-   - Both sides must be interior & polarity complementary
+   - Both sides must be interior with matching geometric profiles
    - Both corner ↔ corner squared distances within tolerance
    - Side length difference within tolerance
    - Corner→sPoint structural distances within tolerance

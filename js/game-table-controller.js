@@ -34,6 +34,9 @@ export class GameTableController {
     // Internal store – currently mirrors Piece.position (Point)
     this._piecePositions = new Map(); // id -> Point
 
+    // worldData cache for pieces
+    this._worldDataCache = new Map(); // id -> { data, lastPositionX, lastPositionY, lastRotation, lastScale }
+
     // Z-index management
     this.maxZIndex = 0;
 
@@ -52,9 +55,14 @@ export class GameTableController {
   _bootstrapPositions() {
     if (!state || !state.pieces) return;
     state.pieces.forEach((p) => {
-      if (p.position instanceof Point) {
-        // Clone to avoid external mutation affecting controller silently
-        this._piecePositions.set(p.id, p.position.clone());
+      const position = this.getPiecePosition(p.id);
+      if (position instanceof Point) {
+        // Position already set during Piece construction
+        return;
+      }
+      // Fallback: if position not yet registered, use stored value
+      if (p.displayX !== undefined && p.displayY !== undefined) {
+        this._piecePositions.set(p.id, new Point(p.displayX, p.displayY));
       }
     });
   }
@@ -69,8 +77,10 @@ export class GameTableController {
   syncAllPositions() {
     if (!state || !state.pieces) return;
     state.pieces.forEach((p) => {
-      if (p.position instanceof Point) {
-        this._piecePositions.set(p.id, p.position.clone());
+      const position = this.getPiecePosition(p.id);
+      if (!position && p.displayX !== undefined && p.displayY !== undefined) {
+        // Register missing position from saved data
+        this._piecePositions.set(p.id, new Point(p.displayX, p.displayY));
       }
     });
     // Auto manage spatial index lifecycle (create/rebuild if needed)
@@ -79,8 +89,8 @@ export class GameTableController {
 
   // Register a single piece (called from Piece constructor)
   registerPiece(piece) {
-    if (!piece || !(piece.position instanceof Point)) return;
-    this._piecePositions.set(piece.id, piece.position.clone());
+    if (!piece) return;
+    // Position is already set via setPiecePosition in Piece constructor
     // Ensure index exists or updated appropriately
     const hadIndex = !!this.spatialIndex;
     this._autoManageSpatialIndex();
@@ -216,6 +226,152 @@ export class GameTableController {
     return this._piecePositions.get(pieceId) || null;
   }
 
+  /**
+   * Get or compute cached worldData for a piece
+   * @param {Object} piece - The piece object
+   * @returns {Object} {worldCorners, worldSPoints}
+   */
+  getWorldData(piece) {
+    const pieceId = piece.id;
+    const currentPosition = this.getPiecePosition(pieceId);
+
+    if (!currentPosition || !(currentPosition instanceof Point)) {
+      // Fallback for pieces not yet initialized
+      return { worldCorners: {}, worldSPoints: {} };
+    }
+
+    const currentRotation = piece.rotation;
+    const currentScale = piece.scale;
+
+    // Get cached data
+    let cached = this._worldDataCache.get(pieceId);
+
+    // Check if cache is valid
+    const positionChanged =
+      !cached ||
+      currentPosition.x !== cached.lastPositionX ||
+      currentPosition.y !== cached.lastPositionY;
+
+    const otherPropsChanged =
+      cached &&
+      (currentRotation !== cached.lastRotation ||
+        currentScale !== cached.lastScale);
+
+    // Invalidate and recompute if needed
+    if (!cached || positionChanged || otherPropsChanged) {
+      const worldData = this._computeWorldDataInternal(piece);
+      cached = {
+        data: worldData,
+        lastPositionX: currentPosition.x,
+        lastPositionY: currentPosition.y,
+        lastRotation: currentRotation,
+        lastScale: currentScale,
+      };
+      this._worldDataCache.set(pieceId, cached);
+    }
+
+    return cached.data;
+  }
+
+  /**
+   * Get the center point of a piece based on its actual geometry
+   * @param {Object} piece - The piece object
+   * @param {HTMLElement} [element] - DOM element for accurate dimensions
+   * @returns {Point} Center point in world coordinates
+   */
+  getCenter(piece, element = null) {
+    // Calculate offset used in positioning calculations
+    const boundingFrame = piece.calculateBoundingFrame();
+    const scale = piece.scale;
+
+    let w, h;
+    if (element) {
+      // Use DOM element dimensions if available
+      w = element.offsetWidth;
+      h = element.offsetHeight;
+    } else {
+      // Use scaled bounding frame dimensions when no element is provided
+      w = boundingFrame.width * scale;
+      h = boundingFrame.height * scale;
+    }
+
+    const canvasCenter = new Point(w / 2, h / 2);
+    const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+    const offset = scaledCenterOffset.sub(canvasCenter);
+
+    // Get position from controller
+    const position = this.getPiecePosition(piece.id);
+    // The visual center is: element top-left (position - offset) + canvas center
+    return position.sub(offset).add(canvasCenter);
+  }
+
+  /**
+   * Internal computation function for world-space coordinates.
+   * Computes the world-space coordinates for the corners and side points of a puzzle piece,
+   * taking into account its position, scale, and rotation.
+   * @private
+   * @param {Object} piece - The piece object
+   * @returns {Object} {worldCorners, worldSPoints}
+   */
+  _computeWorldDataInternal(piece) {
+    // Requires: piece.bitmap.width/height, position from controller, piece.rotation, piece.scale
+    const scale = piece.scale;
+    const position = this.getPiecePosition(piece.id) || new Point(0, 0);
+
+    // Calculate the bounding frame to determine visual center
+    const boundingFrame = piece.calculateBoundingFrame();
+
+    // The piece position now represents the visual center, so calculate canvas top-left
+    const bitmapSize = new Point(
+      piece.bitmap.width * scale,
+      piece.bitmap.height * scale
+    );
+    const canvasCenter = bitmapSize.scaled(0.5);
+    const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+    const offset = scaledCenterOffset.sub(canvasCenter);
+    const canvasTopLeft = position.sub(offset);
+
+    // Pivot point for rotation should be the visual center of the piece
+    const pivot = piece.getCenter();
+
+    const toCanvasLocalPoint = (pt) =>
+      pt.sub(boundingFrame.topLeft).scaled(scale);
+
+    // Corners
+    const c = piece.corners;
+    const cornersLocal = {
+      nw: toCanvasLocalPoint(c.nw),
+      ne: toCanvasLocalPoint(c.ne),
+      se: toCanvasLocalPoint(c.se),
+      sw: toCanvasLocalPoint(c.sw),
+    };
+
+    const worldCorners = {};
+    for (const [key, pLocal] of Object.entries(cornersLocal)) {
+      // Translate to canvas position, then rotate around visual center
+      const translated = pLocal.add(canvasTopLeft);
+      const rotated = translated.rotatedAroundDeg(pivot, piece.rotation);
+      worldCorners[key] = rotated;
+    }
+
+    // Side points
+    const sp = piece.sPoints;
+    const worldSPoints = {};
+    ["north", "east", "south", "west"].forEach((side) => {
+      const p = sp[side];
+      if (!p) {
+        worldSPoints[side] = null;
+        return;
+      }
+      const local = toCanvasLocalPoint(p);
+      const translated = local.add(canvasTopLeft);
+      const rotated = translated.rotatedAroundDeg(pivot, piece.rotation);
+      worldSPoints[side] = rotated;
+    });
+
+    return { worldCorners, worldSPoints };
+  }
+
   setPiecePosition(pieceId, position) {
     if (!(position instanceof Point)) {
       throw new Error("GameTableController.setPiecePosition expects Point");
@@ -243,7 +399,32 @@ export class GameTableController {
   movePieces(pieceIds, delta) {
     pieceIds.forEach((id) => this.movePiece(id, delta));
   }
+  /**
+   * Set piece position by specifying its center point
+   * @param {number} pieceId - Piece ID
+   * @param {Point} centerPoint - Center point
+   * @param {HTMLElement} element - DOM element for dimensions
+   */
+  placePieceCenter(pieceId, centerPoint, element) {
+    const piece = this._findPiece(pieceId);
+    if (!piece) return;
 
+    // Reverse the getCenter() calculation
+    const w = element.offsetWidth;
+    const h = element.offsetHeight;
+
+    const boundingFrame = piece.calculateBoundingFrame();
+    const scale = piece.scale || 0.35;
+
+    const canvasCenter = new Point(w / 2, h / 2);
+    const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+    const offset = scaledCenterOffset.sub(canvasCenter);
+
+    // getCenter() returns: position.sub(offset).add(canvasCenter)
+    // So to get position from centerPoint: centerPoint.sub(canvasCenter).add(offset)
+    const position = centerPoint.sub(canvasCenter).add(offset);
+    this.setPiecePosition(pieceId, position);
+  }
   moveGroup(groupId, delta) {
     const group = groupManager.getGroup(groupId);
     if (!group) return;
@@ -301,14 +482,10 @@ export class GameTableController {
       const rotatedCenter = preCenter.rotatedAroundDeg(pivot, angleDegrees);
 
       // Update piece position to the new center
-      piece.placeCenter(rotatedCenter, pieceEl);
+      this.placePieceCenter(piece.id, rotatedCenter, pieceEl);
 
       // Apply transform to DOM element (position and rotation)
       applyPieceTransform(pieceEl, piece);
-
-      // Sync controller position and spatial index
-      this._piecePositions.set(piece.id, piece.position.clone());
-      this._updateSpatialIndexFor(piece.id);
     });
   }
 

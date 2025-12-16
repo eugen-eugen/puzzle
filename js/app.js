@@ -129,8 +129,10 @@ function calculatePiecesBounds(pieces) {
     if (!boundingFrame) continue;
 
     // Create rectangle from bounding frame at piece position
-    const worldMin = piece.position.add(boundingFrame.topLeft);
-    const worldMax = piece.position.add(boundingFrame.bottomRight);
+    const position =
+      gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
+    const worldMin = position.add(boundingFrame.topLeft);
+    const worldMax = position.add(boundingFrame.bottomRight);
     const pieceRect = Rectangle.fromPoints(worldMin, worldMax);
 
     if (!pieceRect.isEmpty()) {
@@ -375,9 +377,9 @@ export function checkPuzzleCorrectness() {
             );
           } else {
             // Check if neighbor is correctly positioned by comparing corner alignment
-            const positionIsCorrect = piece.isNeighbor(
-              expectedNeighbor,
-              direction
+            const positionIsCorrect = gameTableController.arePiecesNeighbors(
+              piece,
+              expectedNeighbor
             );
 
             if (!positionIsCorrect) {

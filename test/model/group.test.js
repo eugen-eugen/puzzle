@@ -5,7 +5,12 @@ import { Group } from "@/js/model/group.js";
 // Mock dependencies
 vi.mock("@/js/game-table-controller.js", () => ({
   gameTableController: {
-    arePiecesNeighbors: vi.fn(),
+    arePiecesNeighbors: vi.fn((piece1, piece2) => {
+      // Mock neighbor logic based on grid positions
+      const dx = Math.abs(piece1.gridX - piece2.gridX);
+      const dy = Math.abs(piece1.gridY - piece2.gridY);
+      return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
+    }),
     setPiecePosition: vi.fn(),
     movePiece: vi.fn(),
   },
@@ -26,11 +31,6 @@ function createMockPiece(id, gridX, gridY, neighbors = {}) {
     rotation: 0,
     _setGroupId(newId) {
       this.groupId = newId;
-    },
-    isAnyNeighbor(otherPiece) {
-      const dx = Math.abs(this.gridX - otherPiece.gridX);
-      const dy = Math.abs(this.gridY - otherPiece.gridY);
-      return (dx === 1 && dy === 0) || (dx === 0 && dy === 1);
     },
     calculateBoundingFrame() {
       return null;

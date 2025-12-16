@@ -71,22 +71,33 @@ export function generateJigsawPieces(img, targetCount) {
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       // Calculate corner positions for this piece
-      const c_nw = corners[r][c];
-      const c_ne = corners[r][c + 1];
-      const c_se = corners[r + 1][c + 1];
-      const c_sw = corners[r + 1][c];
+      const nw = corners[r][c];
+      const ne = corners[r][c + 1];
+      const se = corners[r + 1][c + 1];
+      const sw = corners[r + 1][c];
+
+      // Calculate side points for this piece from the shared lattice
+      const geometrySidePoints = {
+        north: r > 0 ? new Point(hSides[r - 1][c].x, hSides[r - 1][c].y) : null,
+        east:
+          c < cols - 1 && vSides[r][c]
+            ? new Point(vSides[r][c].x, vSides[r][c].y)
+            : null,
+        south: r < rows - 1 ? new Point(hSides[r][c].x, hSides[r][c].y) : null,
+        west:
+          c > 0 && vSides[r][c - 1]
+            ? new Point(vSides[r][c - 1].x, vSides[r][c - 1].y)
+            : null,
+      };
 
       // Create temporary piece to calculate bounding frame with geometry data
       const tempPiece = new Piece({
         id: -1,
         gridX: c,
         gridY: r,
-        geometryCorners: { c_ne, c_se, c_sw },
-        hSides,
-        vSides,
-        c_nw,
-        rows,
-        cols,
+        geometryCorners: { nw, ne, se, sw },
+        geometrySidePoints,
+        nw,
         w: pieceW, // fallback values
         h: pieceH,
       });
@@ -114,10 +125,10 @@ export function generateJigsawPieces(img, targetCount) {
       ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
       ctx.clip(path);
       // Compute source rect based on actual piece boundaries
-      const minX = boundingFrame.topLeft.x + c_nw.x;
-      const maxX = boundingFrame.bottomRight.x + c_nw.x;
-      const minY = boundingFrame.topLeft.y + c_nw.y;
-      const maxY = boundingFrame.bottomRight.y + c_nw.y;
+      const minX = boundingFrame.topLeft.x + nw.x;
+      const maxX = boundingFrame.bottomRight.x + nw.x;
+      const minY = boundingFrame.topLeft.y + nw.y;
+      const maxY = boundingFrame.bottomRight.y + nw.y;
 
       let srcX = minX;
       let srcY = minY;
@@ -133,8 +144,8 @@ export function generateJigsawPieces(img, targetCount) {
       // Adjust destination offset to align clipped region correctly with centered frame
       // After translation, coordinate system is offset by (-boundingFrame.topLeft.x, -boundingFrame.topLeft.y)
       // So destination should be relative to the piece's corner position
-      const dx = clipX - c_nw.x;
-      const dy = clipY - c_nw.y;
+      const dx = clipX - nw.x;
+      const dy = clipY - nw.y;
       ctx.drawImage(master, clipX, clipY, clipW, clipH, dx, dy, clipW, clipH);
       ctx.restore();
       // Debug outline (optional)
@@ -145,32 +156,6 @@ export function generateJigsawPieces(img, targetCount) {
       ctx.stroke(path);
       ctx.restore();
 
-      // Edge metadata mapping based on orientation signs
-      let north = 0,
-        south = 0,
-        west = 0,
-        east = 0;
-      if (r > 0) {
-        const o = hSides[r - 1][c].orientation; // +1 shifted downward
-        // For this piece (below the edge), downward shift is cavity => dent; upward shift is bump
-        north = o === -1 ? 1 : -1;
-      }
-      if (r < rows - 1) {
-        const o = hSides[r][c].orientation; // +1 downward
-        // For this piece (above the edge), downward shift is bump
-        south = o === 1 ? 1 : -1;
-      }
-      if (c > 0) {
-        const o = vSides[r][c - 1].orientation; // +1 shift rightward
-        // For this piece (to right of the edge), rightward shift is cavity -> dent
-        west = o === -1 ? 1 : -1;
-      }
-      if (c < cols - 1) {
-        const o = vSides[r][c].orientation; // +1 shift rightward
-        // For this piece (to left), rightward shift is bump
-        east = o === 1 ? 1 : -1;
-      }
-
       const pieceId = id++;
       const pieceData = {
         id: pieceId,
@@ -178,21 +163,17 @@ export function generateJigsawPieces(img, targetCount) {
         gridY: r,
         w: actualPieceW,
         h: actualPieceH,
-        imgX: c_nw.x,
-        imgY: c_nw.y,
+        imgX: nw.x,
+        imgY: nw.y,
         rotation:
           RANDOM_ROTATIONS[Math.floor(Math.random() * RANDOM_ROTATIONS.length)],
         path,
         bitmap: canvas,
-        edges: { north, east, south, west },
         groupId: "g" + pieceId, // Each piece starts in its own group
         // Geometry data for calculation
-        geometryCorners: { c_ne, c_se, c_sw },
-        hSides,
-        vSides,
-        c_nw,
-        rows,
-        cols,
+        geometryCorners: { nw, ne, se, sw },
+        geometrySidePoints,
+        nw,
       };
 
       // Create piece instance with all properties and methods

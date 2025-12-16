@@ -1,10 +1,14 @@
 // Piece.js - Jigsaw puzzle piece model class
 // Encapsulates all piece-related properties and behaviors
 // Integrates with Point geometry system and provides automatic worldData caching
-// Updated: 2025-11-13 - Legacy methods removed, GroupManager enforced
+// Updated: 2025-12-16 - Dead code removed (getBounds, getSelectionBounds)
 
 import { Point } from "../geometry/point.js";
 import { Rectangle } from "../geometry/rectangle.js";
+import {
+  normalizePointsToOrigin,
+  convertToPoints,
+} from "../geometry/geometry-utils.js";
 import { DEFAULT_PIECE_SCALE } from "../constants/piece-constants.js";
 import { gameTableController } from "../game-table-controller.js";
 
@@ -13,6 +17,30 @@ import { gameTableController } from "../game-table-controller.js";
  * Manages all piece properties, position, rotation, grouping, and geometry
  */
 export class Piece {
+  /**
+   * Create a new Piece
+   * @param {Object} data - Piece initialization data
+   * @param {string} data.id - Unique piece identifier
+   * @param {number} data.gridX - Grid X coordinate
+   * @param {number} data.gridY - Grid Y coordinate
+   * @param {string} [data.groupId] - Initial group ID (will be managed by GroupManager)
+   * @param {number} data.imgX - X coordinate in source image
+   * @param {number} data.imgY - Y coordinate in source image
+   * @param {number} data.w - Width in source image
+   * @param {number} data.h - Height in source image
+   * @param {HTMLCanvasElement} data.bitmap - Piece bitmap
+   * @param {Path2D} data.path - Piece path
+   * @param {number} [data.scale] - Display scale (defaults to DEFAULT_PIECE_SCALE)
+   * @param {Point} [data.nw] - Northwest corner position
+   * @param {number} [data.displayX] - Display X position (used if nw not provided)
+   * @param {number} [data.displayY] - Display Y position (used if nw not provided)
+   * @param {number} [data.rotation=0] - Rotation in degrees
+   * @param {number} [data.zIndex] - Z-index for layering
+   * @param {Object} [data.geometryCorners] - Corner points for geometry calculation
+   * @param {Object} [data.geometrySidePoints] - Side points for geometry calculation
+   * @param {Object} [data.corners] - Pre-calculated corner points
+   * @param {Object} [data.sPoints] - Pre-calculated side points
+   */
   constructor(data) {
     // Core identity
     this.id = data.id;
@@ -38,454 +66,53 @@ export class Piece {
     // Position and orientation
     // Position is now managed by GameTableController - initialize it there
     const initialPosition =
-      data.position instanceof Point
-        ? data.position
+      data.nw instanceof Point
+        ? data.nw
         : new Point(data.displayX || 0, data.displayY || 0);
     this.rotation = data.rotation || 0;
     this.zIndex = data.zIndex !== undefined ? data.zIndex : null; // Z-index for layering, null means not yet assigned
 
     // Calculate piece geometry if geometry data is provided
-    if (data.geometryCorners && data.hSides && data.vSides && data.c_nw) {
-      this.corners = this._calculatePieceCorners(
-        data.geometryCorners,
-        data.c_nw
-      );
-      this.sPoints = this._calculatePieceSidePoints(
-        data.hSides,
-        data.vSides,
-        data.c_nw,
-        data.rows,
-        data.cols
-      );
+    if (data.geometryCorners && data.geometrySidePoints && data.nw) {
+      this.corners = normalizePointsToOrigin(data.geometryCorners, data.nw);
+      this.sPoints = normalizePointsToOrigin(data.geometrySidePoints, data.nw);
     } else {
-      // Fallback to legacy data structure
-      const rawCorners = data.corners || {
-        nw: { x: 0, y: 0 },
-        ne: { x: this.imgRect.width, y: 0 },
-        se: { x: this.imgRect.width, y: this.imgRect.height },
-        sw: { x: 0, y: this.imgRect.height },
-      };
-      const rawSPoints = data.sPoints || {};
-
-      // Ensure corners and side points are Point instances
-      this.corners = this._ensureCornersArePoints(rawCorners);
-      this.sPoints = this._ensureSidePointsArePoints(rawSPoints);
+      this.corners = convertToPoints(data.corners);
+      this.sPoints = convertToPoints(data.sPoints);
     }
-
-    this.edges = data.edges || { north: 0, east: 0, south: 0, west: 0 };
-
-    // Set up worldData cache
-    this._initializeWorldDataCache();
 
     // Register position with GameTableController
     gameTableController.setPiecePosition(this.id, initialPosition);
   }
 
   /**
-   * Convert corner objects to Point instances
-   * @private
+   * Get cached worldData - delegates to GameTableController
+   * @returns {Object} {worldCorners, worldSPoints}
    */
-  _ensureCornersArePoints(corners) {
-    return {
-      nw: new Point(corners.nw.x, corners.nw.y),
-      ne: new Point(corners.ne.x, corners.ne.y),
-      se: new Point(corners.se.x, corners.se.y),
-      sw: new Point(corners.sw.x, corners.sw.y),
-    };
-  }
-
-  /**
-   * Convert side point objects to Point instances (handling nulls)
-   * @private
-   */
-  _ensureSidePointsArePoints(sPoints) {
-    return {
-      north: sPoints.north ? new Point(sPoints.north.x, sPoints.north.y) : null,
-      east: sPoints.east ? new Point(sPoints.east.x, sPoints.east.y) : null,
-      south: sPoints.south ? new Point(sPoints.south.x, sPoints.south.y) : null,
-      west: sPoints.west ? new Point(sPoints.west.x, sPoints.west.y) : null,
-    };
-  }
-
-  /**
-   * Calculate piece corners relative to northwest corner
-   * @private
-   */
-  _calculatePieceCorners(geometryCorners, c_nw) {
-    const { c_ne, c_se, c_sw } = geometryCorners;
-    return {
-      nw: new Point(0, 0),
-      ne: c_ne.sub(c_nw),
-      se: c_se.sub(c_nw),
-      sw: c_sw.sub(c_nw),
-    };
-  }
-
-  /**
-   * Calculate piece side points relative to northwest corner
-   * @private
-   */
-  _calculatePieceSidePoints(hSides, vSides, c_nw, rows, cols) {
-    const r = this.gridPos.y;
-    const c = this.gridPos.x;
-
-    return {
-      north:
-        r > 0
-          ? new Point(hSides[r - 1][c].x, hSides[r - 1][c].y).sub(c_nw)
-          : null,
-      east:
-        c < cols - 1 && vSides[r][c]
-          ? new Point(vSides[r][c].x, vSides[r][c].y).sub(c_nw)
-          : null,
-      south:
-        r < rows - 1
-          ? new Point(hSides[r][c].x, hSides[r][c].y).sub(c_nw)
-          : null,
-      west:
-        c > 0 && vSides[r][c - 1]
-          ? new Point(vSides[r][c - 1].x, vSides[r][c - 1].y).sub(c_nw)
-          : null,
-    };
-  }
-
-  /**
-   * Initialize worldData cache
-   * @private
-   */
-  _initializeWorldDataCache() {
-    this._setupWorldDataCache();
-  }
-
-  /**
-   * Sets up a cached worldData property that automatically invalidates
-   * when relevant geometric properties change.
-   * @private
-   */
-  _setupWorldDataCache() {
-    let cachedWorldData = null;
-    let lastPositionX = null;
-    let lastPositionY = null;
-    let lastRotation = null;
-    let lastScale = null;
-
-    const invalidateCache = () => {
-      cachedWorldData = null;
-    };
-
-    // Define the worldData getter that computes and caches the result
-    Object.defineProperty(this, "worldData", {
-      get() {
-        // Ensure piece has position Point before computing world data
-        if (!this.position || !(this.position instanceof Point)) {
-          // Initialize position if missing (fallback for pieces not yet processed)
-          this.position = new Point(0, 0);
-        }
-
-        // Check if we need to recompute due to property changes
-        const currentPosition = this.position;
-        const currentRotation = this.rotation;
-        const currentScale = this.scale;
-
-        // Check if position coordinates changed (since Point is mutable)
-        const positionChanged =
-          currentPosition &&
-          (currentPosition.x !== lastPositionX ||
-            currentPosition.y !== lastPositionY);
-
-        // Check if other properties changed
-        const otherPropsChanged =
-          cachedWorldData &&
-          (currentRotation !== lastRotation || currentScale !== lastScale);
-
-        // Invalidate cache if any relevant property changed
-        if (positionChanged || otherPropsChanged) {
-          invalidateCache();
-        }
-
-        // Compute if cache is invalid
-        if (!cachedWorldData) {
-          cachedWorldData = this._computeWorldDataInternal();
-          lastPositionX = currentPosition ? currentPosition.x : null;
-          lastPositionY = currentPosition ? currentPosition.y : null;
-          lastRotation = currentRotation;
-          lastScale = currentScale;
-        }
-
-        return cachedWorldData;
-      },
-      configurable: true, // Allow reconfiguration if needed
-    });
-  }
-
-  /**
-   * Internal computation function for world-space coordinates.
-   * Computes the world-space coordinates for the corners and side points of a puzzle piece,
-   * taking into account its position, scale, and rotation.
-   * Updated to work with the new centered positioning system.
-   * @private
-   */
-  _computeWorldDataInternal() {
-    // Requires: this.bitmap.width/height, this.position, this.rotation, this.scale
-    // Note: this.scale is guaranteed to be set in constructor, so no null check needed
-
-    const scale = this.scale;
-
-    // Calculate the bounding frame to determine visual center
-    const boundingFrame = this.calculateBoundingFrame();
-
-    // The piece position now represents the visual center, so calculate canvas top-left
-    const bitmapSize = new Point(
-      this.bitmap.width * scale,
-      this.bitmap.height * scale
-    );
-    const canvasCenter = bitmapSize.scaled(0.5);
-    const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
-    const offset = scaledCenterOffset.sub(canvasCenter);
-    const canvasTopLeft = this.position.sub(offset);
-
-    // Pivot point for rotation should be the visual center of the piece
-    const pivot = this.getCenter();
-
-    const toCanvasLocalPoint = (pt) =>
-      pt.sub(boundingFrame.topLeft).scaled(scale);
-
-    // Corners
-    const c = this.corners;
-    const cornersLocal = {
-      nw: toCanvasLocalPoint(c.nw),
-      ne: toCanvasLocalPoint(c.ne),
-      se: toCanvasLocalPoint(c.se),
-      sw: toCanvasLocalPoint(c.sw),
-    };
-
-    const worldCorners = {};
-    for (const [key, pLocal] of Object.entries(cornersLocal)) {
-      // Translate to canvas position, then rotate around visual center
-      const translated = pLocal.add(canvasTopLeft);
-      const rotated = translated.rotatedAroundDeg(pivot, this.rotation);
-      worldCorners[key] = rotated;
-    }
-
-    // Side points
-    const sp = this.sPoints;
-    const worldSPoints = {};
-    ["north", "east", "south", "west"].forEach((side) => {
-      const p = sp[side];
-      if (!p) {
-        worldSPoints[side] = null;
-        return;
-      }
-      const local = toCanvasLocalPoint(p);
-      const translated = local.add(canvasTopLeft);
-      const rotated = translated.rotatedAroundDeg(pivot, this.rotation);
-      worldSPoints[side] = rotated;
-    });
-
-    return { worldCorners, worldSPoints };
+  get worldData() {
+    return gameTableController.getWorldData(this);
   }
 
   // ===== Position Management =====
-
-  /**
-   * Get piece position (delegated to GameTableController)
-   * @returns {Point} Current position
-   */
-  get position() {
-    return gameTableController.getPiecePosition(this.id) || new Point(0, 0);
-  }
-
-  /**
-   * Set piece position (delegated to GameTableController)
-   * @param {Point} value - New position
-   */
-  set position(value) {
-    if (!(value instanceof Point)) {
-      throw new Error("[Piece] position must be a Point instance");
-    }
-    gameTableController.setPiecePosition(this.id, value);
-  }
+  // Position is managed by GameTableController - use gameTableController.getPiecePosition(id)
+  // and gameTableController.setPiecePosition(id, position) directly
 
   /**
    * Get groupId (read-only via getter)
+   * @returns {string|null} Current group ID or null if not assigned
    */
   get groupId() {
     return this._groupId;
   }
 
   /**
-   * Prevent direct groupId assignment - use GroupManager operations instead
-   */
-  set groupId(value) {
-    const error = new Error(
-      `[Piece] Direct groupId modification is not allowed for piece ${this.id}. Use GroupManager operations instead.`
-    );
-    console.error(error.message);
-    console.trace("Stack trace for unauthorized groupId modification:");
-    throw error;
-  }
-
-  // Convenience getters for backward compatibility
-  get w() {
-    return this.imgRect.width;
-  }
-
-  get h() {
-    return this.imgRect.height;
-  }
-
-  get imgX() {
-    return this.imgRect.position.x;
-  }
-
-  get imgY() {
-    return this.imgRect.position.y;
-  }
-
-  /**
-   * Set absolute position
-   * @param {Point} point - Point instance
-   */
-  setPosition(point) {
-    this.position = point;
-  }
-
-  /**
-   * Set position by specifying the center point of the piece
-   * Converts center coordinates to the internal position representation used by setPosition()
-   * This is the inverse operation of getCenter()
-   * @param {Point} centerPoint - Center point of the piece
-   * @param {HTMLElement} element - DOM element for accurate dimensions
-   */
-  placeCenter(centerPoint, element) {
-    // Reverse the getCenter() calculation
-    const w = element.offsetWidth;
-    const h = element.offsetHeight;
-
-    // Calculate offset used in getCenter()
-    const boundingFrame = this.calculateBoundingFrame();
-    const scale = this.scale || 0.35;
-
-    const canvasCenter = new Point(w / 2, h / 2);
-    const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
-    const offset = scaledCenterOffset.sub(canvasCenter);
-
-    // getCenter() returns: this.position.sub(offset).add(canvasCenter)
-    // So to get this.position from centerPoint: centerPoint.sub(canvasCenter).add(offset)
-    const position = centerPoint.sub(canvasCenter).add(offset);
-    this.setPosition(position);
-  }
-
-  /**
-   * Move by relative offset
-   * @param {number|Point} deltaX - X offset or Point instance
-   * @param {number} [deltaY] - Y offset (if deltaX is number)
-   */
-  move(deltaX, deltaY) {
-    const delta = deltaX instanceof Point ? deltaX : new Point(deltaX, deltaY);
-    gameTableController.movePiece(this.id, delta);
-  }
-
-  /**
    * Get the center point of the piece based on its actual geometry
+   * Delegates to GameTableController
    * @param {HTMLElement} [element] - DOM element for accurate dimensions
-   * @returns {Point} Center point
+   * @returns {Point} Center point in world coordinates
    */
   getCenter(element = null) {
-    // Calculate offset used in positioning calculations
-    const boundingFrame = this.calculateBoundingFrame();
-    const scale = this.scale || 0.35;
-
-    let w, h;
-    if (element) {
-      // Use DOM element dimensions if available
-      w = element.offsetWidth;
-      h = element.offsetHeight;
-    } else {
-      // Use scaled bounding frame dimensions when no element is provided
-      w = boundingFrame.width * scale;
-      h = boundingFrame.height * scale;
-    }
-
-    const canvasCenter = new Point(w / 2, h / 2);
-    const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
-    const offset = scaledCenterOffset.sub(canvasCenter);
-
-    // The visual center is now at the position plus canvas center minus offset
-    return this.position.sub(offset).add(canvasCenter);
-  }
-
-  /**
-   * Get bounding rectangle based on actual piece geometry
-   * @param {HTMLElement} [element] - DOM element for accurate dimensions
-   * @returns {Object} {x, y, width, height}
-   */
-  getBounds(element = null) {
-    if (element) {
-      // With the new positioning system, calculate where the element actually is
-      const w = element.offsetWidth;
-      const h = element.offsetHeight;
-
-      // Calculate the positioning offset used in applyPieceTransform
-      const boundingFrame = this.calculateBoundingFrame();
-      const scale = this.scale || 0.35;
-
-      const canvasCenter = new Point(w / 2, h / 2);
-      const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
-      const offset = scaledCenterOffset.sub(canvasCenter);
-      const topLeft = this.position.sub(offset);
-
-      return {
-        x: topLeft.x,
-        y: topLeft.y,
-        width: w,
-        height: h,
-      };
-    }
-
-    // Calculate bounds based on actual piece geometry
-    const boundingFrame = this.calculateBoundingFrame();
-    const scale = this.scale || 0.35;
-    const scaledFrame = boundingFrame.scaled(scale);
-    const halfSize = scaledFrame.centerOffset;
-
-    return {
-      x: this.position.x - halfSize.x,
-      y: this.position.y - halfSize.y,
-      width: scaledFrame.width,
-      height: scaledFrame.height,
-    };
-  }
-
-  /**
-   * Get selection bounds that properly center around the actual piece shape
-   * This is specifically for visual selection highlighting (blue frame)
-   * @param {HTMLElement} [element] - DOM element for accurate dimensions
-   * @returns {Object} {x, y, width, height} for selection frame
-   */
-  getSelectionBounds(element = null) {
-    if (element) {
-      // Use DOM element dimensions if available, but adjust for centering
-      const boundingFrame = this.calculateBoundingFrame();
-      const scale = this.scale || 0.35;
-
-      const bitmapSize = new Point(element.offsetWidth, element.offsetHeight);
-      const bitmapCenter = bitmapSize.scaled(0.5);
-      const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
-      const offset = scaledCenterOffset.sub(bitmapCenter);
-      const topLeft = this.position.sub(offset);
-
-      // Return bounds centered on the actual piece shape
-      return {
-        x: topLeft.x,
-        y: topLeft.y,
-        width: bitmapSize.x,
-        height: bitmapSize.y,
-      };
-    }
-
-    // Fallback to regular bounds calculation
-    return this.getBounds();
+    return gameTableController.getCenter(this, element);
   }
 
   // ===== Rotation Management =====
@@ -520,29 +147,6 @@ export class Piece {
   }
 
   // getGroupPieces() method has been removed - use GroupManager.getGroup().allPieces instead
-
-  /**
-   * Detach this piece from its current group (create new group)
-   * @deprecated Use GroupManager.detachPiece() instead - this method throws an error
-   * @throws {Error} Always throws - use GroupManager.detachPiece() instead
-   */
-  detachFromGroup() {
-    throw new Error(
-      "[Piece] detachFromGroup() is removed. Use GroupManager.detachPiece() instead."
-    );
-  }
-
-  /**
-   * Merge this piece's group with another piece's group
-   * @deprecated Use GroupManager.mergeGroups() instead - this method throws an error
-   * @param {Piece} otherPiece - Target piece whose group to merge with
-   * @throws {Error} Always throws - use GroupManager.mergeGroups() instead
-   */
-  mergeWithGroup(otherPiece) {
-    throw new Error(
-      "[Piece] mergeWithGroup() is removed. Use GroupManager.mergeGroups() instead."
-    );
-  }
 
   // ===== Geometry Access =====
 
@@ -587,10 +191,12 @@ export class Piece {
     let maxY = -Infinity;
 
     for (const point of allPoints) {
-      minX = Math.min(minX, point.x);
-      maxX = Math.max(maxX, point.x);
-      minY = Math.min(minY, point.y);
-      maxY = Math.max(maxY, point.y);
+      if (point && point.x !== undefined && point.y !== undefined) {
+        minX = Math.min(minX, point.x);
+        maxX = Math.max(maxX, point.x);
+        minY = Math.min(minY, point.y);
+        maxY = Math.max(maxY, point.y);
+      }
     }
 
     // Handle edge case where no valid points found
@@ -654,21 +260,22 @@ export class Piece {
    * @returns {Object} Serializable piece data
    */
   serialize(includeBitmap = false) {
+    const position =
+      gameTableController.getPiecePosition(this.id) || new Point(0, 0);
     const data = {
       id: this.id,
       gridX: this.gridPos.x,
       gridY: this.gridPos.y,
       rotation: this.rotation,
-      displayX: this.position.x,
-      displayY: this.position.y,
+      displayX: position.x,
+      displayY: position.y,
       groupId: this.groupId,
       zIndex: this.zIndex,
-      edges: this.edges,
       corners: this.corners,
       sPoints: this.sPoints,
       w: this.imgRect.width,
       h: this.imgRect.height,
-      scale: this.scale,
+      scale: DEFAULT_PIECE_SCALE,
       imgX: this.imgRect.position.x,
       imgY: this.imgRect.position.y,
     };
@@ -699,78 +306,22 @@ export class Piece {
       ...data,
       bitmap,
       path,
-      position: new Point(data.displayX || 0, data.displayY || 0),
     });
   }
 
   // ===== Utility Methods =====
 
   /**
-   * (Removed) Spatial index updates handled exclusively by GameTableController.
-   */
-
-  /**
-   * Check if this piece is correctly positioned (for puzzle completion)
-   * @param {number} [tolerance=50] - Position tolerance in pixels
-   * @returns {boolean} True if piece is in correct position
-   */
-  isCorrectlyPositioned(tolerance = 50) {
-    // This would need grid-to-world coordinate conversion logic
-    // For now, placeholder implementation
-    return false;
-  }
-
-  /**
-   * Check if this piece is correctly positioned relative to another piece that should be its neighbor
-   * @param {Piece} otherPiece - The piece to check positioning against
-   * @param {string} direction - Expected direction of neighbor: 'north', 'south', 'east', 'west'
-   * @returns {boolean} True if pieces are correctly positioned as neighbors
-   */
-  isNeighbor(otherPiece, direction) {
-    // Phase 2: Delegate to GameTableController when available
-    // Always use controller-based neighbor logic (legacy fallback removed)
-    return gameTableController.arePiecesNeighbors(this, otherPiece);
-    /* Legacy geometric code removed intentionally. Direction-specific checks
-       can be reintroduced inside controller if needed. */
-  }
-
-  /**
-   * Check if this piece is a neighbor of another piece in any direction
-   * Used for Group connectivity validation - checks all four directions
-   * @param {Piece} otherPiece - The piece to check against
-   * @returns {boolean} True if pieces are neighbors in any direction
-   */
-  isAnyNeighbor(otherPiece) {
-    // Phase 2: Use controller-level neighbor logic when available
-    return gameTableController.arePiecesNeighbors(this, otherPiece);
-  }
-
-  /**
-   * Check if this piece is properly managed by GroupManager
-   * @returns {boolean} True if piece's group exists in GroupManager
-   */
-  isProperlyGrouped() {
-    if (typeof window !== "undefined" && window.groupManager) {
-      const group = window.groupManager.getGroup(this.groupId);
-      return group && group.allPieces.includes(this);
-    }
-    return false; // Cannot verify without GroupManager
-  }
-
-  /**
    * Debug string representation
    * @returns {string} Debug string
    */
   toString() {
+    const position =
+      gameTableController.getPiecePosition(this.id) || new Point(0, 0);
     return `Piece{id:${this.id}, grid:(${this.gridPos.x},${
       this.gridPos.y
-    }), pos:(${this.position.x.toFixed(1)},${this.position.y.toFixed(
-      1
-    )}), rot:${this.rotation}°, group:${this.groupId}}`;
+    }), pos:(${position.x.toFixed(1)},${position.y.toFixed(1)}), rot:${
+      this.rotation
+    }°, group:${this.groupId}}`;
   }
-}
-
-// Factory function for creating pieces (maintains compatibility with existing code)
-export function createPieceWithWorldData(data) {
-  return new Piece(data);
 }

@@ -3,7 +3,7 @@
 // and allow future enhancements (e.g., pixel snapping, transform batching).
 //
 // Contract:
-// - Expects piece.position to be a Point-compatible object with numeric x,y.
+// - Piece position is managed by gameTableController, retrieved via getPiecePosition(id).
 // - Silently no-ops if arguments are missing.
 // - Returns the element for chaining.
 
@@ -12,6 +12,7 @@ import { getPieceElement } from "./ui-interaction-manager.js";
 import { Util } from "../utils/util.js";
 import { groupManager } from "../group-manager.js";
 import { state } from "../game-engine.js";
+import { gameTableController } from "../game-table-controller.js";
 
 // Display Constants
 const MIN_ZOOM = 0.1;
@@ -92,7 +93,9 @@ export function applyPieceTransform(element, piece) {
   );
   const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
   const offset = scaledCenterOffset.sub(canvasCenter);
-  const elementPosition = piece.position.sub(offset);
+  const position =
+    gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
+  const elementPosition = position.sub(offset);
 
   // Apply position with centering offset
   element.style.left = elementPosition.x + "px";
@@ -440,9 +443,9 @@ export function applyBlinkingEffectForIncorrectPieces(pieces, constants) {
               isCorrect = false;
             } else {
               // Check if neighbor is correctly positioned by comparing corner alignment
-              const positionIsCorrect = piece.isNeighbor(
-                expectedNeighbor,
-                direction
+              const positionIsCorrect = gameTableController.arePiecesNeighbors(
+                piece,
+                expectedNeighbor
               );
 
               if (!positionIsCorrect) {

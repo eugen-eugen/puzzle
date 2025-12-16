@@ -76,7 +76,7 @@ While a piece (or group) is being dragged, the system attempts to identify one o
   1.2 Both sides are interior sides (each has an s_-point). Border (flat) sides are ignored.
   1.3 The squared distance between the two corners (side length) of the moving side matches (within CONNECTION_TOLERANCE) the squared distance between the two corners of the stationary side.
   1.4 The squared distances from each corner to its side's s_-point match (cornerA→s, cornerB→s) within CONNECTION_TOLERANCE between moving and stationary sides.
-  1.5 The bump/dent polarity is complementary (knob vs dent). If both sides have same polarity, the pair is rejected.
+  1.5 The geometric profiles must match. Connection validation uses waypoint alignment to ensure complementary bump/dent shapes fit together.
 2. Only one candidate (the best-scoring by minimal aggregate corner squared distance sum) is highlighted at a time to reduce visual noise.
 
 ##### Highlight Behavior
@@ -111,7 +111,7 @@ Each group maintains a list of "border pieces" - pieces with fewer than 4 neighb
 {
   corners: [ {x, y}, {x, y} ],      // local geometry before rotation
   sPoint: {x, y} | null,            // null for border sides
-  polarity: +1 | -1 | 0,            // +1 = bump, -1 = dent, 0 = border/flat
+  // Polarity no longer stored - geometric profile matching via waypoints determines compatibility
   worldCorners: [ {x, y}, {x, y} ], // computed on-the-fly
   worldSPoint: {x, y} | null        // computed on-the-fly
 }
@@ -143,7 +143,7 @@ dist2(M.cornerB, S.cornerB) <= CONNECTION_TOLERANCE
 | dist2(M.cornerA, M.cornerB) - dist2(S.cornerA, S.cornerB) | <= CONNECTION_TOLERANCE
 | dist2(M.cornerA, M.sPoint) - dist2(S.cornerA, S.sPoint)   | <= CONNECTION_TOLERANCE
 | dist2(M.cornerB, M.sPoint) - dist2(S.cornerB, S.sPoint)   | <= CONNECTION_TOLERANCE
-polarity(M) + polarity(S) == 0  // complementary bump/dent
+// Geometric profile compatibility verified through waypoint alignment
 ```
 If multiple candidates pass: choose the minimal `dist2(M.cornerA, S.cornerA) + dist2(M.cornerB, S.cornerB)` aggregate.
 
@@ -153,7 +153,7 @@ If multiple candidates pass: choose the minimal `dist2(M.cornerA, S.cornerA) + d
   - Extract world positions of all corners & s_-points for moving piece sides.
   - Query spatial index for nearby pieces/groups within a coarse radius (derived from CONNECTION_TOLERANCE upper bound).
 2. For each candidate piece/group side:
-  - Skip if polarity == 0 (border) or same polarity as moving side.
+  - Skip if side is border (no sidePoint available).
   - Check corner proximity (both corners within tolerance to some permutation of candidate corners; maintain ordering once matched).
   - Compare squared side length and corner→s_-point squared distances.
 3. Aggregate score = sum of squared corner distances; pick minimum passing candidate.

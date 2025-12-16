@@ -31,14 +31,16 @@ const DOUBLE_TAP_MAX_DIST_SQ = 26 * 26; // Spatial tolerance between taps
 const SCALE = DEFAULT_RENDER_SCALE;
 
 function ensurePiecePosition(piece) {
-  // Piece class instances already have position and accessors set up
-  if (piece.position instanceof Point) return piece;
+  // Piece class instances already have position managed by gameTableController
+  const position = gameTableController.getPiecePosition(piece.id);
+  if (position instanceof Point) return piece;
 
   // Handle missing position (should be rare with new Piece class)
-  if (!piece.position || !(piece.position instanceof Point)) {
-    const initX = piece.position?.x || 0;
-    const initY = piece.position?.y || 0;
-    piece.position = new Point(initX, initY);
+  const existingPos = gameTableController.getPiecePosition(piece.id);
+  if (!existingPos || !(existingPos instanceof Point)) {
+    const initX = existingPos?.x || 0;
+    const initY = existingPos?.y || 0;
+    gameTableController.setPiecePosition(piece.id, new Point(initX, initY));
   }
 
   return piece;
@@ -65,7 +67,9 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
     piece.rotate(rotationDegrees);
     el.style.transform = `rotate(${piece.rotation}deg)`;
   }
-  ensureRectInView(piece.position, new Point(el.offsetWidth, el.offsetHeight), {
+  const position =
+    gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
+  ensureRectInView(position, new Point(el.offsetWidth, el.offsetHeight), {
     forceZoom: false,
   });
 }
@@ -131,7 +135,7 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
     wrapper.appendChild(canvas);
     container.appendChild(wrapper);
     pieceElements.set(p.id, wrapper);
-    p.scale = SCALE;
+    p.scale = DEFAULT_PIECE_SCALE;
   });
 
   // Step 3: Randomly exchange N pairs of positions (N = number of pieces)
@@ -150,7 +154,7 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
   // Step 4: Apply final positions and transforms
   pieces.forEach((p, index) => {
     const wrapper = pieceElements.get(p.id);
-    p.placeCenter(positions[index], wrapper);
+    gameTableController.placePieceCenter(p.id, positions[index], wrapper);
     applyPieceTransform(wrapper, p);
   });
 
@@ -181,13 +185,13 @@ export function renderPiecesAtPositions(container, pieces) {
       0
     ) /
       pieces.length) *
-    (pieces[0]?.scale || SCALE || 0.7);
+    (pieces[0]?.scale || DEFAULT_PIECE_SCALE || 0.7);
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "piece";
     wrapper.dataset.id = p.id;
     const canvas = document.createElement("canvas");
-    const scale = p.scale || SCALE;
+    const scale = p.scale || DEFAULT_PIECE_SCALE;
     const scaledW = Math.max(24, p.bitmap.width * scale);
     const scaledH = Math.max(24, p.bitmap.height * scale);
     canvas.width = scaledW;
@@ -285,7 +289,7 @@ function moveSinglePiece(piece, delta) {
   // Retained only for potential future direct piece animations; not used in drag path.
   const d =
     delta instanceof Point ? delta : new Point(delta.x || 0, delta.y || 0);
-  piece.move(d);
+  gameTableController.movePiece(piece.id, d);
   const el = pieceElements.get(piece.id);
   if (el) {
     applyPieceTransform(el, piece);

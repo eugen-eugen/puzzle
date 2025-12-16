@@ -1,7 +1,59 @@
 // Setup file for Vitest - provides browser API polyfills for Node.js environment
 
+// Polyfill Path2D for Node.js test environment
+if (typeof Path2D === "undefined") {
+  global.Path2D = class Path2D {
+    constructor(path) {
+      this.commands = [];
+      if (path instanceof Path2D) {
+        this.commands = [...path.commands];
+      }
+    }
+    moveTo(x, y) {
+      this.commands.push({ type: "moveTo", x, y });
+    }
+    lineTo(x, y) {
+      this.commands.push({ type: "lineTo", x, y });
+    }
+    closePath() {
+      this.commands.push({ type: "closePath" });
+    }
+    arc(x, y, radius, startAngle, endAngle, counterclockwise) {
+      this.commands.push({
+        type: "arc",
+        x,
+        y,
+        radius,
+        startAngle,
+        endAngle,
+        counterclockwise,
+      });
+    }
+    arcTo(x1, y1, x2, y2, radius) {
+      this.commands.push({ type: "arcTo", x1, y1, x2, y2, radius });
+    }
+    bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y) {
+      this.commands.push({
+        type: "bezierCurveTo",
+        cp1x,
+        cp1y,
+        cp2x,
+        cp2y,
+        x,
+        y,
+      });
+    }
+    quadraticCurveTo(cpx, cpy, x, y) {
+      this.commands.push({ type: "quadraticCurveTo", cpx, cpy, x, y });
+    }
+    rect(x, y, width, height) {
+      this.commands.push({ type: "rect", x, y, width, height });
+    }
+  };
+}
+
 // Polyfill DOMPoint for Node.js test environment
-if (typeof DOMPoint === 'undefined') {
+if (typeof DOMPoint === "undefined") {
   global.DOMPoint = class DOMPoint {
     constructor(x = 0, y = 0, z = 0, w = 1) {
       this.x = x;
@@ -19,7 +71,7 @@ if (typeof DOMPoint === 'undefined') {
 }
 
 // Polyfill DOMMatrix for Node.js test environment
-if (typeof DOMMatrix === 'undefined') {
+if (typeof DOMMatrix === "undefined") {
   global.DOMMatrix = class DOMMatrix {
     constructor() {
       // Initialize as identity matrix
@@ -61,7 +113,7 @@ if (typeof DOMMatrix === 'undefined') {
       const radians = (degrees * Math.PI) / 180;
       const cos = Math.cos(radians);
       const sin = Math.sin(radians);
-      
+
       const rotation = new DOMMatrix();
       rotation.a = cos;
       rotation.b = sin;

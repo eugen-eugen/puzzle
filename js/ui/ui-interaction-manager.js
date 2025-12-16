@@ -16,6 +16,7 @@ import { state } from "../game-engine.js";
 import { dragMonitor } from "../interaction/drag.js";
 import { groupManager } from "../group-manager.js";
 import * as hlHandler from "../interaction/hl-interaction-handler.js";
+import { gameTableController } from "../game-table-controller.js";
 
 // Constants for interaction behavior
 const OUTSIDE_THRESHOLD_PX = 40;
@@ -76,11 +77,11 @@ export function initializeInteractions(pieceElementsMap) {
       const piece = state.pieces.find((p) => p.id === pieceId);
       const el = pieceElements.get(pieceId);
       if (piece && el) {
-        ensureRectInView(
-          piece.position,
-          new Point(el.offsetWidth, el.offsetHeight),
-          { forceZoom: false }
-        );
+        const position =
+          gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
+        ensureRectInView(position, new Point(el.offsetWidth, el.offsetHeight), {
+          forceZoom: false,
+        });
       }
     },
   });
@@ -441,13 +442,14 @@ function checkBoundaries(element, piece) {
   const container = element.parentElement;
   const cRect = container.getBoundingClientRect();
 
-  const overLeft = piece.position.x < -OUTSIDE_THRESHOLD_PX;
-  const overTop = piece.position.y < -OUTSIDE_THRESHOLD_PX;
+  const position = gameTableController.getPiecePosition(piece.id);
+
+  const overLeft = position.x < -OUTSIDE_THRESHOLD_PX;
+  const overTop = position.y < -OUTSIDE_THRESHOLD_PX;
   const overRight =
-    piece.position.x + element.offsetWidth > cRect.width + OUTSIDE_THRESHOLD_PX;
+    position.x + element.offsetWidth > cRect.width + OUTSIDE_THRESHOLD_PX;
   const overBottom =
-    piece.position.y + element.offsetHeight >
-    cRect.height + OUTSIDE_THRESHOLD_PX;
+    position.y + element.offsetHeight > cRect.height + OUTSIDE_THRESHOLD_PX;
 
   const isOutside = overLeft || overTop || overRight || overBottom;
 

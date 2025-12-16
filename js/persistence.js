@@ -75,15 +75,16 @@ function serializeState(includeBitmaps = STORE_BITMAPS) {
           bitmapData = null;
         }
       }
+      const position =
+        gameTableController.getPiecePosition(p.id) || new Point(0, 0);
       return {
         id: p.id,
         gridX: p.gridX,
         gridY: p.gridY,
         rotation: p.rotation,
-        displayX: p.position.x,
-        displayY: p.position.y,
+        displayX: position.x,
+        displayY: position.y,
         groupId: p.groupId,
-        edges: p.edges,
         sPoints: p.sPoints,
         w: p.imgRect.width,
         h: p.imgRect.height,
@@ -403,7 +404,6 @@ function reconstructPieces(data, masterImage) {
       position: new Point(sp.displayX || 0, sp.displayY || 0),
       groupId: sp.groupId,
       zIndex: sp.zIndex,
-      edges: sp.edges,
       sPoints: sp.sPoints,
       w: sp.w,
       h: sp.h,

@@ -254,8 +254,10 @@ export class Group {
       if (!boundingFrame) continue;
 
       // Create rectangle from bounding frame at piece position
-      const worldMin = piece.position.add(boundingFrame.topLeft);
-      const worldMax = piece.position.add(boundingFrame.bottomRight);
+      const position =
+        gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
+      const worldMin = position.add(boundingFrame.topLeft);
+      const worldMax = position.add(boundingFrame.bottomRight);
       const pieceRect = Rectangle.fromPoints(worldMin, worldMax);
 
       if (!pieceRect.isEmpty()) {
@@ -362,10 +364,10 @@ export class Group {
       const piece1 = pieces[i];
       for (let j = i + 1; j < pieces.length; j++) {
         const piece2 = pieces[j];
-        const neighbors =
-          (gameTableController &&
-            gameTableController.arePiecesNeighbors(piece1, piece2)) ||
-          piece1.isAnyNeighbor(piece2);
+        const neighbors = gameTableController.arePiecesNeighbors(
+          piece1,
+          piece2
+        );
         if (neighbors) {
           g.setEdge(piece1.id, piece2.id);
         }
