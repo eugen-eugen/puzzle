@@ -100,13 +100,13 @@ jobs:
 
       - name: Deploy to eugen-eugen/pzl repository
         env:
-          DEPLOY_TOKEN: ${{ secrets.PZL_DEPLOY_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           
-          # Clone target repository
-          git clone https://x-access-token:${DEPLOY_TOKEN}@github.com/eugen-eugen/pzl.git pzl-repo
+          # Clone target repository using GITHUB_TOKEN
+          git clone https://x-access-token:${GITHUB_TOKEN}@github.com/eugen-eugen/pzl.git pzl-repo
           cd pzl-repo
           
           # Create or checkout main branch
