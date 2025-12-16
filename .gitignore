@@ -23,5 +23,3 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
-# Generated files
-pictures/pictures.json

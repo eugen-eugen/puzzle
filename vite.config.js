@@ -5,6 +5,7 @@ import {
   readdirSync,
   writeFileSync,
   readFileSync,
+  existsSync,
 } from "fs";
 import { resolve } from "path";
 
@@ -133,12 +134,17 @@ export default defineConfig(function ({ command, mode }) {
               copyFileSync(resolve(srcDir, file), resolve(outDir, file));
             });
 
-            // Generate pictures.json with list of all available pictures
-            const picturesJson = { pictures: files };
-            writeFileSync(
-              resolve(outDir, "pictures.json"),
-              JSON.stringify(picturesJson, null, 2)
-            );
+            // Copy pictures.json if it exists (don't generate it)
+            const picturesJsonPath = resolve(srcDir, "pictures.json");
+            try {
+              copyFileSync(
+                picturesJsonPath,
+                resolve(outDir, "pictures.json")
+              );
+              console.log(`Copied pictures.json to dist/pictures`);
+            } catch (e) {
+              console.warn(`Could not copy pictures.json:`, e.message);
+            }
 
             // Copy remote-pictures.json if it exists
             const remotePicturesPath = resolve(srcDir, "remote-pictures.json");
@@ -164,7 +170,6 @@ export default defineConfig(function ({ command, mode }) {
             console.log(
               `Copied ${files.length} picture files to dist/pictures`
             );
-            console.log(`Generated pictures.json with ${files.length} entries`);
           } catch (e) {
             console.warn(`Could not copy pictures:`, e.message);
           }
@@ -173,18 +178,26 @@ export default defineConfig(function ({ command, mode }) {
       {
         name: "generate-pictures-dev",
         configureServer: function (server) {
-          // Generate pictures.json in dev mode
-          const srcDir = resolve(__dirname, "pictures");
-          const picturesDir = resolve(__dirname, "pictures");
-
+          // Check if pictures.json already exists - don't overwrite it
+          const picturesJsonPath = resolve(__dirname, "pictures", "pictures.json");
+          
           try {
+            if (existsSync(picturesJsonPath)) {
+              console.log(
+                `pictures.json already exists, skipping generation`
+              );
+              return;
+            }
+
+            // Only generate if it doesn't exist
+            const srcDir = resolve(__dirname, "pictures");
             const files = readdirSync(srcDir).filter(function (file) {
               return /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(file);
             });
 
             const picturesJson = { pictures: files };
             writeFileSync(
-              resolve(picturesDir, "pictures.json"),
+              picturesJsonPath,
               JSON.stringify(picturesJson, null, 2)
             );
 

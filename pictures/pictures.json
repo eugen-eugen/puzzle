@@ -1,0 +1,13 @@
+{
+  "pictures": [
+    "A320.jpg",
+    "kleidung.png",
+    {
+      "filename": "regenbogen-hintergrund-mit-sternen-1101110-1920x1280.jpg",
+      "title": "Regenbogen Hintergrund mit Sternen",
+      "pieces": 20,
+      "removeColor": false,
+      "license": "© Tim Reckmann / ccnull.de / CC-BY 2.0"
+    }
+  ]
+}
