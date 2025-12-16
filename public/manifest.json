@@ -2,6 +2,9 @@
   "name": "Puzzle Lab",
   "short_name": "Puzzle",
   "description": "Offline-capable procedural jigsaw puzzle from any image.",
+  "version": "1.0.0",
+  "author": "Puzzle Lab Contributors",
+  "license": "MIT",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
@@ -9,6 +12,7 @@
   "background_color": "#121212",
   "theme_color": "#222a36",
   "categories": ["games", "puzzle"],
+  "screenshots": [],
   "icons": [
     {
       "src": "icons/icon-192.png",
