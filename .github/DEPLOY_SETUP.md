@@ -16,26 +16,39 @@ This repository uses GitHub Actions to automatically build and deploy two versio
 
 ## Required Setup
 
-### 1. Create PZL_DEPLOY_TOKEN Secret
+### Create Fine-Grained Personal Access Token (Recommended)
 
-To deploy to the `eugen-eugen/pzl` repository, you need to create a GitHub Personal Access Token:
+GitHub's built-in `GITHUB_TOKEN` only works for the repository where the workflow runs. For cross-repository deployment, you need a Personal Access Token scoped to the target repository.
 
-1. Go to GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)
-2. Click "Generate new token (classic)"
-3. Give it a descriptive name: "Deploy to pzl repository"
-4. Select scopes:
-   - ✅ `repo` (Full control of private repositories)
-5. Generate token and copy it
+**Why fine-grained tokens are better:**
+- ✅ Scoped to only the `pzl` repository
+- ✅ More secure than classic tokens
+- ✅ Can set expiration (recommended: 1 year)
 
-### 2. Add Secret to This Repository
+**Steps:**
 
-1. Go to this repository's Settings → Secrets and variables → Actions
-2. Click "New repository secret"
-3. Name: `PZL_DEPLOY_TOKEN`
-4. Value: Paste the token you copied
-5. Click "Add secret"
+1. Go to GitHub Settings → Developer settings → [Personal access tokens → Fine-grained tokens](https://github.com/settings/tokens?type=beta)
 
-### 3. Create Target Repository
+2. Click "Generate new token"
+
+3. Configure the token:
+   - **Token name**: `Deploy to pzl repository`
+   - **Expiration**: 1 year (or custom)
+   - **Repository access**: Select "Only select repositories"
+     - Choose: `eugen-eugen/pzl`
+   - **Permissions**:
+     - Repository permissions → Contents: **Read and write**
+
+4. Click "Generate token" and copy it
+
+5. Add to puzzle repository secrets:
+   - Go to https://github.com/eugen-eugen/puzzle/settings/secrets/actions
+   - Click "New repository secret"
+   - Name: `PZL_DEPLOY_TOKEN`
+   - Value: Paste the token
+   - Click "Add secret"
+
+### Create Target Repository
 
 Ensure the `eugen-eugen/pzl` repository exists:
 
@@ -110,10 +123,15 @@ To manually trigger a deployment without pushing:
 
 ## Troubleshooting
 
+### Deployment to pzl fails with "403 Permission denied"
+- Verify `PZL_DEPLOY_TOKEN` secret is set in the puzzle repository
+- Check the token hasn't expired (regenerate if needed)
+- Ensure the token has "Contents: Read and write" permission for the pzl repository
+- Make sure you selected the `eugen-eugen/pzl` repository when creating the fine-grained token
+
 ### Deployment to pzl fails with "authentication failed"
-- Check that `PZL_DEPLOY_TOKEN` secret is set correctly
-- Verify the token has `repo` scope
-- Ensure the token hasn't expired
+- The token might be invalid or expired
+- Regenerate the token with correct permissions and update the secret
 
 ### Build fails with "Could not resolve entry module"
 - Check that vite.config.js syntax is correct
