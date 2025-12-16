@@ -152,6 +152,15 @@ export default defineConfig(function ({ command, mode }) {
               console.warn(`Could not copy remote-pictures.json:`, e.message);
             }
 
+            // Copy LICENSE file to dist
+            try {
+              const licensePath = resolve(__dirname, "LICENSE");
+              copyFileSync(licensePath, resolve(__dirname, "dist/LICENSE"));
+              console.log(`Copied LICENSE to dist`);
+            } catch (e) {
+              console.warn(`Could not copy LICENSE:`, e.message);
+            }
+
             console.log(
               `Copied ${files.length} picture files to dist/pictures`
             );

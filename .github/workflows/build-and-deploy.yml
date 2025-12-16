@@ -30,6 +30,9 @@ jobs:
       - name: Run tests
         run: npm test
 
+      - name: Generate LICENSE file
+        run: npm run generate-license
+
       - name: Build application
         run: npm run build
 
@@ -41,8 +44,8 @@ jobs:
           # Create or checkout release branch
           git checkout -B release
           
-          # Remove all files except dist and .git
-          find . -maxdepth 1 ! -name 'dist' ! -name '.git' ! -name '.' ! -name '..' -exec rm -rf {} +
+          # Remove all files except dist, LICENSE, and .git
+          find . -maxdepth 1 ! -name 'dist' ! -name 'LICENSE' ! -name '.git' ! -name '.' ! -name '..' -exec rm -rf {} +
           
           # Move dist contents to root
           mv dist/* .

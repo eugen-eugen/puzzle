@@ -1,5 +1,6 @@
 // picture-gallery.js - Picture selection gallery for game start
 import { t } from "./i18n.js";
+import { addLicenseToImage } from "./utils/image-util.js";
 
 const PICTURES_PATH = "pictures/";
 const DEFAULT_PIECES = 20;
@@ -172,9 +173,10 @@ export async function showPictureGallery(onSelect, onClose) {
       item.className = "picture-gallery-item";
       const numPieces = picture.pieces || DEFAULT_PIECES;
       const removeColor = picture.removeColor ? "true" : "false";
+      const license = picture.license ? `&license=${encodeURIComponent(picture.license)}` : "";
       const deepLinkUrl = `?image=${encodeURIComponent(
         picture.url
-      )}&pieces=${numPieces}&norotate=y&removeColor=${removeColor}`;
+      )}&pieces=${numPieces}&norotate=y&removeColor=${removeColor}${license}`;
       item.href = deepLinkUrl;
       item.title = t("gallery.itemTooltip", {
         title: picture.title,
@@ -186,13 +188,34 @@ export async function showPictureGallery(onSelect, onClose) {
       imageContainer.className = "picture-gallery-item-container";
 
       const img = document.createElement("img");
-      img.src = picture.url;
       img.alt = picture.title;
       img.loading = "lazy";
 
-      // Apply grayscale filter if removeColor is set
-      if (picture.removeColor) {
-        img.style.filter = "grayscale(100%)";
+      // Load image and add license if present
+      if (picture.license) {
+        addLicenseToImage(picture.url, picture.license, {
+          removeColor: picture.removeColor,
+          centered: true,
+          fontSizePercent: 4,
+          minFontSize: 20,
+          returnDataUrl: true
+        })
+          .then((dataUrl) => {
+            img.src = dataUrl;
+          })
+          .catch((error) => {
+            console.warn(`[picture-gallery] Failed to add license to preview: ${error.message}`);
+            img.src = picture.url;
+            if (picture.removeColor) {
+              img.style.filter = "grayscale(100%)";
+            }
+          });
+      } else {
+        img.src = picture.url;
+        // Apply grayscale filter if removeColor is set
+        if (picture.removeColor) {
+          img.style.filter = "grayscale(100%)";
+        }
       }
 
       // Hide item if image fails to load

@@ -85,6 +85,8 @@ import {
   setCurrentImageSource,
   getCurrentImageId,
   setCurrentImageId,
+  getCurrentImageLicense,
+  setCurrentImageLicense,
   pieceCountToSlider,
   setPersistence,
   setCaptureInitialMargins,
@@ -476,11 +478,13 @@ async function bootstrap() {
     const piecesParam = params.get("pieces");
     const noRotateParam = params.get("norotate");
     const removeColorParam = params.get("removeColor");
+    const licenseParam = params.get("license");
     console.log("[deep-link] URL params:", {
       imageParam,
       piecesParam,
       noRotateParam,
       removeColorParam,
+      licenseParam,
     });
     if (imageParam && piecesParam) {
       const desiredPieces = parseInt(piecesParam, 10);
@@ -520,6 +524,7 @@ async function bootstrap() {
           onLoad: async (img) => {
             setCurrentImage(img);
             setCurrentImageSource(imageParam); // Store URL for persistence
+            setCurrentImageLicense(licenseParam || null); // Store license if provided
             // Map piece count to slider position
             const sliderVal = pieceCountToSlider(desiredPieces);
             // Use exported setter instead of accessing internal DOM element
@@ -578,6 +583,8 @@ async function bootstrap() {
     setImage: setCurrentImage,
     setImageSource: setCurrentImageSource,
     setImageId: setCurrentImageId,
+    getImageLicense: getCurrentImageLicense,
+    setImageLicense: setCurrentImageLicense,
     regenerate: generatePuzzle,
     getState: () => state,
     setPieces: (pieces) => {

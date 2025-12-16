@@ -23,6 +23,7 @@ import {
   WHEEL_ZOOM_OUT_FACTOR,
 } from "./ui/display.js";
 import { isIndexedDBSupported, storeImageInDB } from "./indexed-db-storage.js";
+import { addLicenseToImage } from "./utils/image-util.js";
 
 // Forward declaration for captureInitialMargins - will be set by app.js
 let captureInitialMargins = null;
@@ -55,6 +56,7 @@ const piecesContainer = document.getElementById("piecesContainer");
 let currentImage = null;
 let currentImageSource = null; // Store filename or URL for persistence
 let currentImageId = null; // Store IndexedDB image ID for persistence
+let currentImageLicense = null; // Store license text for current image
 let isGenerating = false;
 let persistence = null; // module ref once loaded
 
@@ -119,6 +121,14 @@ function getCurrentImageId() {
 
 function setCurrentImageId(imageId) {
   currentImageId = imageId;
+}
+
+function getCurrentImageLicense() {
+  return currentImageLicense;
+}
+
+function setCurrentImageLicense(license) {
+  currentImageLicense = license;
 }
 
 function resetZoomAndPan() {
@@ -199,9 +209,12 @@ async function generatePuzzle(noRotate = false) {
     // Show original image when slider is at 0
     const viewport = getViewport();
     if (viewport) {
+      const displayImage = currentImageLicense
+        ? await addLicenseToImage(currentImage, currentImageLicense)
+        : currentImage;
       viewport.innerHTML = `
         <div class="original-image-container">
-          <img src="${currentImage.src}" alt="${t(
+          <img src="${displayImage.src}" alt="${t(
         "alt.originalImage"
       )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
         </div>
@@ -221,8 +234,13 @@ async function generatePuzzle(noRotate = false) {
   progressDisplay.textContent = t("status.generating");
 
   try {
+    // Add license text to image if present
+    const imageWithLicense = currentImageLicense
+      ? await addLicenseToImage(currentImage, currentImageLicense)
+      : currentImage;
+
     const { pieces, rows, cols } = generateJigsawPieces(
-      currentImage,
+      imageWithLicense,
       pieceCount
     );
     state.pieces = pieces;
@@ -293,12 +311,15 @@ async function handleImageUpload(e) {
     pieceSlider.value = 0;
     updatePieceDisplay();
 
-    // Show original image
+    // Show original image (with license if present)
     const viewport = getViewport();
     if (viewport) {
+      const displayImage = currentImageLicense
+        ? await addLicenseToImage(currentImage, currentImageLicense)
+        : currentImage;
       viewport.innerHTML = `
         <div class="original-image-container">
-          <img src="${currentImage.src}" alt="${t(
+          <img src="${displayImage.src}" alt="${t(
         "alt.originalImage"
       )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
         </div>
@@ -464,6 +485,8 @@ export {
   setCurrentImageSource,
   getCurrentImageId,
   setCurrentImageId,
+  getCurrentImageLicense,
+  setCurrentImageLicense,
   pieceCountToSlider,
   setPersistence,
   setCaptureInitialMargins,
