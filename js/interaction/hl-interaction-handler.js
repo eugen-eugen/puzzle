@@ -5,7 +5,6 @@ import { Point } from "../geometry/point.js";
 import { fitAllPiecesInView, calculatePiecesBounds } from "../app.js";
 import { groupManager } from "../group-manager.js";
 import { gameTableController } from "../game-table-controller.js";
-import { enforceInitialMargins } from "../ui/display.js";
 import { handleDragEnd } from "../connection-manager.js";
 import { state } from "../game-engine.js";
 

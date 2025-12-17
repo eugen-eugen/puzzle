@@ -31,10 +31,6 @@ vi.mock("@/js/game-table-controller.js", () => ({
   },
 }));
 
-vi.mock("@/js/ui/display.js", () => ({
-  enforceInitialMargins: vi.fn(),
-}));
-
 vi.mock("@/js/connection-manager.js", () => ({
   handleDragEnd: vi.fn(),
 }));
@@ -49,7 +45,6 @@ vi.mock("@/js/game-engine.js", () => ({
 import { fitAllPiecesInView, calculatePiecesBounds } from "@/js/app.js";
 import { groupManager } from "@/js/group-manager.js";
 import { gameTableController } from "@/js/game-table-controller.js";
-import { enforceInitialMargins } from "@/js/ui/display.js";
 import { handleDragEnd } from "@/js/connection-manager.js";
 import { state } from "@/js/game-engine.js";
 import { Point } from "@/js/geometry/point.js";
@@ -231,7 +226,7 @@ describe("hl-interaction-handler", () => {
       hlHandler.onPieceDragEnded(1, true);
 
       expect(handleDragEnd).toHaveBeenCalledWith(mockPieces[0], false);
-      expect(enforceInitialMargins).toHaveBeenCalled();
+
       expect(fitAllPiecesInView).toHaveBeenCalled();
       expect(visualListeners.onEnsurePieceInView).not.toHaveBeenCalled();
     });
@@ -240,7 +235,7 @@ describe("hl-interaction-handler", () => {
       hlHandler.onPieceDragEnded(1, false);
 
       expect(handleDragEnd).toHaveBeenCalledWith(mockPieces[0], false);
-      expect(enforceInitialMargins).toHaveBeenCalled();
+
       expect(fitAllPiecesInView).not.toHaveBeenCalled();
       expect(visualListeners.onEnsurePieceInView).toHaveBeenCalledWith(1);
     });
