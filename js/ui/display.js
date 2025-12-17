@@ -8,9 +8,8 @@
 // - Returns the element for chaining.
 
 import { Point } from "../geometry/point.js";
-import { getPieceElement } from "./ui-interaction-manager.js";
+import { getPieceElement } from "../piece-renderer.js";
 import { Util } from "../utils/util.js";
-import { groupManager } from "../group-manager.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "../game-table-controller.js";
 
@@ -31,36 +30,15 @@ let panOffset = new Point(0, 0);
 let isPanning = false;
 let lastPanPosition = new Point(0, 0);
 
-// Margin enforcement state
-let initialMargins = null;
-
 // Piece elements reference for z-index management
 let pieceElementsMap = null;
 
 // Initialize the viewport element reference
-export function initViewport(
-  viewportElementId = "piecesViewport",
-  containerId = "piecesContainer"
-) {
-  piecesViewport = document.getElementById(viewportElementId);
-  piecesContainer = document.getElementById(containerId);
+export function initViewport() {
+  piecesViewport = document.getElementById("piecesViewport");
+  piecesContainer = document.getElementById("piecesContainer");
   zoomDisplay = document.getElementById("zoomDisplay");
 
-  if (!Util.isElementValid(piecesViewport)) {
-    console.warn(
-      `[display] Viewport element with ID '${viewportElementId}' not found`
-    );
-  }
-  if (!Util.isElementValid(piecesContainer)) {
-    console.warn(
-      `[display] Container element with ID '${containerId}' not found`
-    );
-  }
-  if (!Util.isElementValid(zoomDisplay)) {
-    console.warn(
-      `[display] Zoom display element with ID 'zoomDisplay' not found`
-    );
-  }
   return piecesViewport;
 }
 
@@ -69,33 +47,31 @@ export function getViewport() {
   return piecesViewport;
 }
 
-// Deprecated legacy position helper (top-left placement). Removed in favor of center-based applyPieceTransform.
-// If reintroduction is ever needed, restore from history; do NOT re-add without revisiting rotation semantics.
-
 /**
  * Apply complete piece transformation (position and rotation) to DOM element
  * Adjusts positioning so the visual center of the piece shape aligns with the position
- * @param {HTMLElement} element - Target DOM element
  * @param {Piece} piece - Piece instance with position, rotation, and geometry data
  * @returns {HTMLElement} The element for chaining
  */
-export function applyPieceTransform(element, piece) {
-  if (!element || !piece) return element;
+export function applyPieceTransform(piece) {
+  if (!piece) return null;
+
+  const element = getPieceElement(piece.id);
+  if (!element) return null;
 
   // Calculate offset to center the actual piece shape within the canvas
   const boundingFrame = piece.calculateBoundingFrame();
-  const scale = piece.scale || 0.35;
 
   // Calculate how much to offset the element position to center the piece shape
   const canvasCenter = new Point(
-    (element.offsetWidth || piece.bitmap.width * scale) / 2,
-    (element.offsetHeight || piece.bitmap.height * scale) / 2
-  );
-  const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
+    element.offsetWidth,
+    element.offsetHeight
+  ).scaled(0.5);
+  const scaledCenterOffset = boundingFrame.centerOffset.scaled(piece.scale);
   const offset = scaledCenterOffset.sub(canvasCenter);
-  const position =
-    gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
-  const elementPosition = position.sub(offset);
+  const elementPosition = gameTableController
+    .getPiecePosition(piece.id)
+    .sub(offset);
 
   // Apply position with centering offset
   element.style.left = elementPosition.x + "px";
@@ -143,16 +119,13 @@ export function getZoomLevel() {
   return zoomLevel;
 }
 
-export function setZoomLevel(newZoomLevel) {
-  zoomLevel = newZoomLevel;
-}
-
 export function getPanOffset() {
   return panOffset;
 }
 
 export function setPanOffset(newPanOffset) {
   panOffset = newPanOffset;
+  updateViewportTransform();
 }
 
 export function getIsPanning() {
@@ -194,107 +167,35 @@ export function setZoom(newZoomLevel, center = null) {
 }
 
 // Apply viewport transform (pan and zoom) to the managed viewport element
-export function updateViewportTransform(
-  panOffsetParam = null,
-  zoomLevelParam = null
-) {
-  // Use parameters if provided, otherwise use internal state
-  const currentPanOffset = panOffsetParam || panOffset;
-  const currentZoomLevel = zoomLevelParam !== null ? zoomLevelParam : zoomLevel;
-
-  // Update internal state if parameters were provided
-  if (panOffsetParam) panOffset = panOffsetParam;
-  if (zoomLevelParam !== null) zoomLevel = zoomLevelParam;
-
-  if (!Util.isElementValid(piecesViewport) || !currentPanOffset) return;
-  piecesViewport.style.transform = `translate(${currentPanOffset.x}px, ${currentPanOffset.y}px) scale(${currentZoomLevel})`;
-}
-
-// Coordinate transformation function - converts screen coordinates to viewport coordinates
-export function screenToViewport(screenPoint, panOffset, zoomLevel) {
-  if (
-    !Util.isElementValid(piecesContainer) ||
-    !screenPoint ||
-    !panOffset ||
-    typeof zoomLevel !== "number"
-  ) {
-    return new Point(0, 0);
-  }
-
-  const containerRect = piecesContainer.getBoundingClientRect();
-  const relativeX = screenPoint.x - containerRect.left;
-  const relativeY = screenPoint.y - containerRect.top;
-
-  // Apply inverse zoom and pan transformation
-  const viewportX = (relativeX - panOffset.x) / zoomLevel;
-  const viewportY = (relativeY - panOffset.y) / zoomLevel;
-
-  return new Point(viewportX, viewportY);
-}
-
-// Coordinate transformation function - converts viewport coordinates to screen coordinates
-export function viewportToScreen(viewportPoint, panOffset, zoomLevel) {
-  if (
-    !piecesContainer ||
-    !viewportPoint ||
-    !panOffset ||
-    typeof zoomLevel !== "number"
-  ) {
-    return new Point(0, 0);
-  }
-
-  const containerRect = piecesContainer.getBoundingClientRect();
-
-  // Apply zoom and pan transformation
-  const relativeX = viewportPoint.x * zoomLevel + panOffset.x;
-  const relativeY = viewportPoint.y * zoomLevel + panOffset.y;
-
-  const screenX = relativeX + containerRect.left;
-  const screenY = relativeY + containerRect.top;
-
-  return new Point(screenX, screenY);
+function updateViewportTransform() {
+  if (!Util.isElementValid(piecesViewport) || !panOffset) return;
+  piecesViewport.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`;
 }
 
 // Function to draw piece outline with specified color
 export function drawPieceOutline(piece, color, lineWidth = 3) {
-  const element = getPieceElement(piece.id);
-
-  const canvas = element.querySelector("canvas");
-
   if (!piece.path) {
     console.warn(`[drawPieceOutline] No path found for piece ${piece.id}`);
     return;
   }
 
-  const ctx = canvas.getContext("2d");
-  const scale = piece.scale || 0.35;
-
-  console.log(
-    `[drawPieceOutline] Drawing with scale=${scale}, lineWidth=${lineWidth}`
-  );
-
-  // Save current context state
-  ctx.save();
-
   // Clear any previous outline by redrawing the piece
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  clearPieceOutline(piece);
 
-  // Redraw the piece bitmap
-  ctx.scale(scale, scale);
-  ctx.drawImage(piece.bitmap, 0, 0);
+  // Add the outline on top
+  const element = getPieceElement(piece.id);
+  const canvas = element.querySelector("canvas");
+  const ctx = canvas.getContext("2d");
+  const scale = piece.scale;
 
+  ctx.save();
   // Draw the outline using centered bounding frame translation (same as jigsawGenerator)
   const boundingFrame = piece.calculateBoundingFrame();
+  ctx.scale(scale, scale);
   ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
   ctx.strokeStyle = color;
   ctx.lineWidth = lineWidth / scale; // Adjust line width for scale
   ctx.stroke(piece.path);
-
-  console.log(
-    `[drawPieceOutline] Successfully drew outline for piece ${piece.id}`
-  );
-
-  // Restore context state
   ctx.restore();
 }
 
@@ -312,14 +213,13 @@ export function clearPieceOutline(piece) {
   }
 
   const ctx = canvas.getContext("2d");
-  const scale = piece.scale || 0.35;
 
   // Save current context state
   ctx.save();
 
   // Clear and redraw the piece without outline
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.scale(scale, scale);
+  ctx.scale(piece.scale, scapiece.scalele);
   ctx.drawImage(piece.bitmap, 0, 0);
 
   // Restore context state
@@ -345,148 +245,13 @@ export function updateZoomDisplay() {
   zoomDisplay.textContent = Math.round(zoomLevel * 100) + "%";
 }
 
-export function setInitialMargins(margins) {
-  initialMargins = margins;
-}
-
-export function enforceInitialMargins(piecesBounds) {
-  if (!initialMargins) {
-    return;
-  }
-
-  const margin = 50;
-  const minX = piecesBounds.left - margin;
-  const maxX = piecesBounds.right + margin;
-  const minY = piecesBounds.top - margin;
-  const maxY = piecesBounds.bottom + margin;
-
-  // Adjust pan offset to keep pieces within margins
-  const currentX = panOffset.x;
-  const currentY = panOffset.y;
-
-  let newX = currentX;
-  let newY = currentY;
-
-  if (minX < -window.innerWidth / 2) {
-    newX = currentX + (-window.innerWidth / 2 - minX);
-  }
-  if (maxX > window.innerWidth / 2) {
-    newX = currentX + (window.innerWidth / 2 - maxX);
-  }
-  if (minY < -window.innerHeight / 2) {
-    newY = currentY + (-window.innerHeight / 2 - minY);
-  }
-  if (maxY > window.innerHeight / 2) {
-    newY = currentY + (window.innerHeight / 2 - maxY);
-  }
-
-  if (newX !== currentX || newY !== currentY) {
-    panOffset = new Point(newX, newY);
-    updateViewportTransform();
-  }
-}
-
 // Apply visual feedback using shape outlines based on piece correctness
 export function applyPieceCorrectnessVisualFeedback(piece, isCorrect) {
   if (isCorrect) {
     drawPieceOutline(piece, "#2ea862", 4); // Green outline for correct pieces
-    return "correct";
   } else {
     drawPieceOutline(piece, "#c94848", 4); // Red outline for incorrect pieces
-    return "incorrect";
   }
-}
-
-// Apply blinking effect for incorrect pieces
-export function applyBlinkingEffectForIncorrectPieces(pieces, constants) {
-  const { BLINK_INTERVAL_MS, BLINK_HALF_CYCLES, BLINK_START_DELAY_MS } =
-    constants;
-
-  // Add blinking effect for incorrect pieces
-  setTimeout(() => {
-    let blinkingPieces = 0;
-
-    pieces.forEach((piece) => {
-      let isCorrect = true;
-
-      // Repeat the same correctness check as above
-      if (piece.rotation !== 0) {
-        isCorrect = false;
-      }
-
-      const expectedNeighbors = {
-        north: pieces.find(
-          (p) => p.gridX === piece.gridX && p.gridY === piece.gridY - 1
-        ),
-        east: pieces.find(
-          (p) => p.gridX === piece.gridX + 1 && p.gridY === piece.gridY
-        ),
-        south: pieces.find(
-          (p) => p.gridX === piece.gridX && p.gridY === piece.gridY + 1
-        ),
-        west: pieces.find(
-          (p) => p.gridX === piece.gridX - 1 && p.gridY === piece.gridY
-        ),
-      };
-
-      Object.entries(expectedNeighbors).forEach(
-        ([direction, expectedNeighbor]) => {
-          if (expectedNeighbor) {
-            // Check if they're in the same group by comparing their group objects
-            const pieceGroup = groupManager.getGroupForPiece(piece);
-            const neighborGroup =
-              groupManager.getGroupForPiece(expectedNeighbor);
-            const areInSameGroup =
-              pieceGroup && neighborGroup && pieceGroup === neighborGroup;
-
-            if (!areInSameGroup) {
-              isCorrect = false;
-            } else {
-              // Check if neighbor is correctly positioned by comparing corner alignment
-              const positionIsCorrect = gameTableController.arePiecesNeighbors(
-                piece,
-                expectedNeighbor
-              );
-
-              if (!positionIsCorrect) {
-                isCorrect = false;
-              }
-            }
-          }
-        }
-      );
-
-      // Create blinking effect for incorrect pieces
-      if (!isCorrect) {
-        blinkingPieces++;
-
-        // Cycle between clear and red outline for blinking effect
-        let blinkCount = 0;
-        const blinkInterval = setInterval(() => {
-          console.log(
-            `[checkPuzzleCorrectness] Blink ${blinkCount} for piece ${piece.id}`
-          );
-
-          if (blinkCount % 2 === 0) {
-            clearPieceOutline(piece);
-          } else {
-            drawPieceOutline(piece, "#c94848", 4);
-          }
-          blinkCount++;
-
-          if (blinkCount >= BLINK_HALF_CYCLES) {
-            // Blink 4 times (8 half-cycles)
-            clearInterval(blinkInterval);
-            drawPieceOutline(piece, "#c94848", 4); // End with red outline
-          }
-        }, BLINK_INTERVAL_MS); // intervals for blinking
-      }
-    });
-
-    console.log(
-      `[checkPuzzleCorrectness] Started blinking for ${blinkingPieces} pieces`
-    );
-  }, BLINK_START_DELAY_MS); // Small delay before starting blink effect
 }
 
 // Export zoom constants for use by other modules
@@ -500,11 +265,9 @@ export {
 
 /**
  * Apply highlight to piece(s)
- * @param {Map} pieceElementsMap - Map of piece ID to DOM element
  * @param {string|Array<string>|null} pieceId - Single piece ID, array of IDs, or null to clear
- * @param {*} candidateData - Candidate data (for compatibility)
  */
-export function applyHighlight(pieceElementsMap, pieceId, candidateData) {
+export function applyHighlight(pieceId) {
   if (!pieceElementsMap) return;
 
   pieceElementsMap.forEach((el) => el.classList.remove("candidate-highlight"));
@@ -519,6 +282,62 @@ export function applyHighlight(pieceElementsMap, pieceId, candidateData) {
   });
 }
 
+// Drawing Constants
+const DEBUG_OUTLINE_COLOR = "#ff00aa";
+const DEBUG_OUTLINE_WIDTH = 1.25;
+
+/**
+ * Draw a piece to a canvas using its bounding frame and path.
+ * @param {Piece} tempPiece - The piece to draw
+ * @param {Point} nw - The northwest corner position in image coordinates
+ * @param {HTMLCanvasElement} master - The master canvas containing the full image
+ * @returns {HTMLCanvasElement} The canvas with the drawn piece
+ */
+export function drawPiece(tempPiece, nw, master) {
+  const boundingFrame = tempPiece.calculateBoundingFrame();
+  const path = tempPiece.path;
+  // Use bounding frame dimensions directly for canvas
+  const pw = Math.ceil(boundingFrame.width);
+  const ph = Math.ceil(boundingFrame.height);
+  // Compute source rect based on actual piece boundaries
+  const minPoint = boundingFrame.topLeft.add(nw);
+  const maxPoint = boundingFrame.bottomRight.add(nw);
+
+  let srcX = minPoint.x;
+  let srcY = minPoint.y;
+  let srcW = maxPoint.x - minPoint.x;
+  let srcH = maxPoint.y - minPoint.y;
+
+  // Clamp to master image bounds
+  const clipX = Math.max(0, srcX);
+  const clipY = Math.max(0, srcY);
+  const clipW = Math.min(srcW, master.width - clipX);
+  const clipH = Math.min(srcH, master.height - clipY);
+
+  // Adjust destination offset to align clipped region correctly with centered frame
+  // After translation, coordinate system is offset by (-boundingFrame.topLeft.x, -boundingFrame.topLeft.y)
+  // So destination should be relative to the piece's corner position
+  const dx = clipX - nw.x;
+  const dy = clipY - nw.y;
+  const canvas = document.createElement("canvas");
+  canvas.width = pw;
+  canvas.height = ph;
+  const ctx = canvas.getContext("2d");
+  ctx.save();
+  // Center the bounding frame in the canvas
+  ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
+  ctx.clip(path);
+  ctx.drawImage(master, clipX, clipY, clipW, clipH, dx, dy, clipW, clipH);
+  ctx.restore();
+  // Debug outline (optional)
+  ctx.save();
+  ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
+  ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
+  ctx.lineWidth = DEBUG_OUTLINE_WIDTH;
+  ctx.stroke(path);
+  ctx.restore();
+  return canvas;
+}
+
 // Optional future ideas:
-// - applyPieceTransform(el, piece) to handle rotation + position via CSS translate/rotate.
 // - batchApply(ops[]) to reduce layout thrash.

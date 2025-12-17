@@ -114,9 +114,6 @@ export function onPieceDragEnded(pieceId, wentOutside) {
   // Handle connection logic
   handleDragEnd(piece, false);
 
-  // Handle bounds
-  enforceInitialMargins(calculatePiecesBounds(state.pieces));
-
   if (wentOutside) {
     fitAllPiecesInView();
   } else {

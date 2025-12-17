@@ -10,6 +10,7 @@
 import { Piece } from "./model/piece.js";
 import { Lattice } from "./geometry/lattice.js";
 import { Point } from "./geometry/point.js";
+import { drawPiece } from "./ui/display.js";
 
 // ================================
 // Generation Constants (avoid magic numbers)
@@ -17,8 +18,6 @@ import { Point } from "./geometry/point.js";
 const MIN_GRID_DIMENSION = 2;
 const MAX_DEPTH_FACTOR = 0.18; // Relative to min(pieceW,pieceH)
 const MIN_DEPTH_FACTOR = 0.1; // Relative to min(pieceW,pieceH)
-const DEBUG_OUTLINE_COLOR = "#ff00aa";
-const DEBUG_OUTLINE_WIDTH = 1.25;
 const RANDOM_ROTATIONS = [0, 90, 180, 270];
 
 /**
@@ -104,70 +103,20 @@ export function generateJigsawPieces(img, targetCount) {
 
       // Calculate actual bounding frame that includes all corner and side points
       const boundingFrame = tempPiece.calculateBoundingFrame();
-      const actualPieceW = boundingFrame.width;
-      const actualPieceH = boundingFrame.height;
-
-      const path = Lattice.createPiecePath(
-        r,
-        c,
-        tempPiece.corners,
-        tempPiece.sPoints
-      );
-      // Use bounding frame dimensions directly for canvas
-      const pw = Math.ceil(actualPieceW);
-      const ph = Math.ceil(actualPieceH);
-      const canvas = document.createElement("canvas");
-      canvas.width = pw;
-      canvas.height = ph;
-      const ctx = canvas.getContext("2d");
-      ctx.save();
-      // Center the bounding frame in the canvas
-      ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
-      ctx.clip(path);
-      // Compute source rect based on actual piece boundaries
-      const minX = boundingFrame.topLeft.x + nw.x;
-      const maxX = boundingFrame.bottomRight.x + nw.x;
-      const minY = boundingFrame.topLeft.y + nw.y;
-      const maxY = boundingFrame.bottomRight.y + nw.y;
-
-      let srcX = minX;
-      let srcY = minY;
-      let srcW = maxX - minX;
-      let srcH = maxY - minY;
-
-      // Clamp to master image bounds
-      const clipX = Math.max(0, srcX);
-      const clipY = Math.max(0, srcY);
-      const clipW = Math.min(srcW, master.width - clipX);
-      const clipH = Math.min(srcH, master.height - clipY);
-
-      // Adjust destination offset to align clipped region correctly with centered frame
-      // After translation, coordinate system is offset by (-boundingFrame.topLeft.x, -boundingFrame.topLeft.y)
-      // So destination should be relative to the piece's corner position
-      const dx = clipX - nw.x;
-      const dy = clipY - nw.y;
-      ctx.drawImage(master, clipX, clipY, clipW, clipH, dx, dy, clipW, clipH);
-      ctx.restore();
-      // Debug outline (optional)
-      ctx.save();
-      ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
-      ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
-      ctx.lineWidth = DEBUG_OUTLINE_WIDTH;
-      ctx.stroke(path);
-      ctx.restore();
+      const canvas = drawPiece(tempPiece, nw, master);
 
       const pieceId = id++;
       const pieceData = {
         id: pieceId,
         gridX: c,
         gridY: r,
-        w: actualPieceW,
-        h: actualPieceH,
+        w: boundingFrame.width,
+        h: boundingFrame.height,
         imgX: nw.x,
         imgY: nw.y,
         rotation:
           RANDOM_ROTATIONS[Math.floor(Math.random() * RANDOM_ROTATIONS.length)],
-        path,
+        path: tempPiece.path,
         bitmap: canvas,
         groupId: "g" + pieceId, // Each piece starts in its own group
         // Geometry data for calculation

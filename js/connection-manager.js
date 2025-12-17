@@ -335,7 +335,7 @@ function finePlace(movingPiece, highlightData) {
     }
     if (pieceElementsAccessor) {
       const el = pieceElementsAccessor(piece.id);
-      if (el) applyPieceTransform(el, piece);
+      if (el) applyPieceTransform(piece);
     }
   });
 }

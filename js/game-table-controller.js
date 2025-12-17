@@ -485,7 +485,7 @@ export class GameTableController {
       this.placePieceCenter(piece.id, rotatedCenter, pieceEl);
 
       // Apply transform to DOM element (position and rotation)
-      applyPieceTransform(pieceEl, piece);
+      applyPieceTransform(piece);
     });
   }
 
@@ -560,7 +560,7 @@ export class GameTableController {
     const piece = this._findPiece(pieceId);
     if (el && piece) {
       // Use unified transform application (accounts for true visual center)
-      applyPieceTransform(el, piece);
+      applyPieceTransform(piece);
     }
   }
 

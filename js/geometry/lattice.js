@@ -244,49 +244,4 @@ export class Lattice {
   getVSides() {
     return this.vSides;
   }
-
-  /**
-   * Generate Path2D from piece corners and side points
-   * @param {number} r - Row index (for debugging)
-   * @param {number} c - Column index (for debugging)
-   * @param {Object} pieceCorners - Corner points {nw, ne, se, sw}
-   * @param {Object} pieceSidePoints - Side points {north, east, south, west}
-   * @returns {Path2D} Generated path
-   */
-  static createPiecePath(r, c, pieceCorners, pieceSidePoints) {
-    const path = new Path2D();
-    const pts = [];
-
-    // Start with NW corner (at origin)
-    pts.push(pieceCorners.nw);
-
-    // Top edge
-    if (pieceSidePoints.north) {
-      pts.push(pieceSidePoints.north);
-    }
-    pts.push(pieceCorners.ne);
-
-    // Right edge
-    if (pieceSidePoints.east) {
-      pts.push(pieceSidePoints.east);
-    }
-    pts.push(pieceCorners.se);
-
-    // Bottom edge
-    if (pieceSidePoints.south) {
-      pts.push(pieceSidePoints.south);
-    }
-    pts.push(pieceCorners.sw);
-
-    // Left edge
-    if (pieceSidePoints.west) {
-      pts.push(pieceSidePoints.west);
-    }
-
-    // Build path
-    path.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) path.lineTo(pts[i].x, pts[i].y);
-    path.closePath();
-    return path;
-  }
 }

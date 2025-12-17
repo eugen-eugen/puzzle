@@ -3,11 +3,11 @@
 
 import { processImage } from "./image-processor.js";
 import { generateJigsawPieces } from "./jigsaw-generator.js";
-import { scatterInitialPieces } from "./piece-renderer.js";
 import {
+  scatterInitialPieces,
   getSelectedPiece,
   fixSelectedPieceOrientation,
-} from "./ui/ui-interaction-manager.js";
+} from "./piece-renderer.js";
 import { state } from "./game-engine.js";
 import { groupManager } from "./group-manager.js";
 import { t } from "./i18n.js";
@@ -24,9 +24,6 @@ import {
 } from "./ui/display.js";
 import { isIndexedDBSupported, storeImageInDB } from "./indexed-db-storage.js";
 import { addLicenseToImage } from "./utils/image-util.js";
-
-// Forward declaration for captureInitialMargins - will be set by app.js
-let captureInitialMargins = null;
 
 // ================================
 // Module Constants
@@ -255,9 +252,6 @@ async function generatePuzzle(noRotate = false) {
     if (viewport) {
       scatterInitialPieces(viewport, pieces, noRotate);
     }
-    if (captureInitialMargins) {
-      captureInitialMargins();
-    }
     updateProgress();
     if (persistence && persistence.markDirty) persistence.markDirty();
   } catch (e) {
@@ -463,11 +457,6 @@ function setPersistence(persistenceModule) {
   persistence = persistenceModule;
 }
 
-// Set captureInitialMargins function reference from app.js
-function setCaptureInitialMargins(captureFunc) {
-  captureInitialMargins = captureFunc;
-}
-
 // ================================
 // Exports
 // ================================
@@ -489,7 +478,6 @@ export {
   setCurrentImageLicense,
   pieceCountToSlider,
   setPersistence,
-  setCaptureInitialMargins,
   // Expose image input for programmatic access
   imageInput,
 };

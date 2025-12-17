@@ -7,15 +7,10 @@ import { applyPieceTransform } from "./ui/display.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
 import { groupManager } from "./group-manager.js";
 import { gameTableController } from "./game-table-controller.js";
-import {
-  initializeInteractions,
-  getSelectedPiece,
-  fixSelectedPieceOrientation,
-  getPieceElement,
-  applyHighlight,
-} from "./ui/ui-interaction-manager.js";
+import { UIInteractionManager } from "./ui/ui-interaction-manager.js";
 
 const pieceElements = new Map(); // id -> DOM element
+let uiManager = null; // Will be initialized with pieceElements
 
 // ================================
 // Module Constants (magic numbers -> named)
@@ -151,25 +146,27 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
     }
   }
 
+  const uiManager = new UIInteractionManager(pieceElements);
+
   // Step 4: Apply final positions and transforms
   pieces.forEach((p, index) => {
     const wrapper = pieceElements.get(p.id);
     gameTableController.placePieceCenter(p.id, positions[index], wrapper);
-    applyPieceTransform(wrapper, p);
+    applyPieceTransform(p);
   });
 
   groupManager.initialize();
 
   initConnectionManager({
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
-    onHighlightChange: (pieceId, data) => applyHighlight(pieceId, data),
+    onHighlightChange: (pieceId, data) =>
+      uiManager.applyHighlight(pieceId, data),
     getPieceElement: (id) => pieceElements.get(id),
   });
 
   gameTableController.updateViewportArea(areaW, areaH);
   gameTableController.syncAllPositions();
   gameTableController.attachPieceElements(pieceElements);
-  initializeInteractions(pieceElements);
 }
 
 // Render pieces using their saved position and rotation instead of scattering.
@@ -210,7 +207,7 @@ export function renderPiecesAtPositions(container, pieces) {
     const fallbackLeft = Math.random() * (areaW - scaledW);
     const fallbackTop = Math.random() * (areaH - scaledH);
     ensurePiecePosition(p);
-    applyPieceTransform(wrapper, p);
+    applyPieceTransform(p);
     wrapper.appendChild(canvas);
     // Position already set & applied above
     p.scale = scale;
@@ -223,7 +220,8 @@ export function renderPiecesAtPositions(container, pieces) {
   initConnectionManager({
     getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
     tolerance: 900,
-    onHighlightChange: (pieceId, data) => applyHighlight(pieceId, data),
+    onHighlightChange: (pieceId, data) =>
+      uiManager.applyHighlight(pieceId, data),
     getPieceElement: (id) => pieceElements.get(id),
   });
 
@@ -232,7 +230,7 @@ export function renderPiecesAtPositions(container, pieces) {
   // Initialize maxZIndex from loaded pieces
   gameTableController.initializeMaxZIndex();
   gameTableController.attachPieceElements(pieceElements);
-  initializeInteractions(pieceElements);
+  uiManager = new UIInteractionManager(pieceElements);
 }
 
 function getGroupPieces(piece) {
@@ -292,7 +290,7 @@ function moveSinglePiece(piece, delta) {
   gameTableController.movePiece(piece.id, d);
   const el = pieceElements.get(piece.id);
   if (el) {
-    applyPieceTransform(el, piece);
+    applyPieceTransform(piece);
   }
   // Spatial index update delegated to controller via setPiecePosition / rebuilds.
 }
@@ -307,4 +305,17 @@ function moveSinglePiece(piece, delta) {
 function findPiece(id) {
   // Use the imported state from gameEngine
   return state.pieces.find((p) => p.id === id);
+}
+
+// Export wrapper functions that delegate to uiManager
+export function getSelectedPiece() {
+  return uiManager ? uiManager.getSelectedPiece() : null;
+}
+
+export function fixSelectedPieceOrientation() {
+  return uiManager ? uiManager.fixSelectedPieceOrientation() : null;
+}
+
+export function getPieceElement(id) {
+  return pieceElements.get(id);
 }

@@ -7,10 +7,7 @@ import {
   getViewportState,
   ensureRectInView,
 } from "../app.js";
-import {
-  screenToViewport,
-  applyHighlight as displayApplyHighlight,
-} from "./display.js";
+import { applyHighlight as displayApplyHighlight } from "./display.js";
 import { handleDragMove } from "../connection-manager.js";
 import { state } from "../game-engine.js";
 import { dragMonitor } from "../interaction/drag.js";
@@ -22,503 +19,402 @@ import { gameTableController } from "../game-table-controller.js";
 const OUTSIDE_THRESHOLD_PX = 40;
 const LONG_PRESS_DURATION_MS = 1000; // Duration for long press to trigger detach
 
-// State management
-let pieceElements = null;
+export class UIInteractionManager {
+  constructor(pieceElementsMap) {
+    this.pieceElements = pieceElementsMap;
+    this.activeTouchIds = new Set();
+    this.longPressTimer = null;
+    this.longPressStartTime = null;
+    this.longPressPieceId = null;
+    this.dragPauseTimer = null;
+    this.isDragging = false;
+    this.highCurvatureDetach = false;
 
-// Double-tap detection state
-
-// Multi-touch state
-const activeTouchIds = new Set();
-
-// Long press detection state
-let longPressTimer = null;
-let longPressStartTime = null;
-let longPressPieceId = null;
-
-// Drag pause detection state (for detachment during drag)
-let dragPauseTimer = null;
-let isDragging = false;
-
-// High curvature detach state
-let highCurvatureDetach = false;
-
-/**
- * Initialize interact.js for puzzle pieces
- * @param {Map} pieceElementsMap - Map of piece ID to DOM element
- * (Spatial index attachment now handled in renderer; no longer passed here.)
- */
-export function initializeInteractions(pieceElementsMap) {
-  pieceElements = pieceElementsMap;
-
-  // Initialize high-level handler with listeners for visual feedback
-  hlHandler.initialize({
-    onPieceSelectedVisual: (pieceId, prevPieceId) => {
-      // Remove selection from previous piece
-      if (prevPieceId != null) {
-        const prev = pieceElements.get(prevPieceId);
-        if (prev) prev.classList.remove("selected");
-      }
-      // Add selection to new piece
-      const el = pieceElements.get(pieceId);
-      if (el) el.classList.add("selected");
-    },
-    onPieceDeselectedVisual: (pieceId) => {
-      const el = pieceElements.get(pieceId);
-      if (el) el.classList.remove("selected");
-    },
-    onPieceDetachedVisual: (pieceId) => {
-      const el = pieceElements.get(pieceId);
-      if (el) {
-        el.classList.add("detached-piece");
-        setTimeout(() => el.classList.remove("detached-piece"), 1000);
-      }
-    },
-    onEnsurePieceInView: (pieceId) => {
-      const piece = state.pieces.find((p) => p.id === pieceId);
-      const el = pieceElements.get(pieceId);
-      if (piece && el) {
-        const position =
-          gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
-        ensureRectInView(position, new Point(el.offsetWidth, el.offsetHeight), {
-          forceZoom: false,
-        });
-      }
-    },
-  });
-
-  if (!window.interact) {
-    console.error(
-      "[interactionManager] interact.js is not loaded! Interaction functionality will not work."
-    );
-    return;
+    this._initialize();
   }
 
-  try {
-    // Configure interact.js for each piece individually
-    pieceElementsMap.forEach((element, pieceId) => {
-      // Unset existing interactable to avoid duplicate listeners
-      var interactable = window.interact(element);
-      interactable.unset();
-      interactable = window.interact(element);
-      interactable
-        .draggable({
-          listeners: {
-            start: onDragStart,
-            move: onDragMove,
-            end: onDragEnd,
-          },
-          // No modifiers - allow dragging beyond parent bounds to trigger auto-fit
-        })
-        .on("tap", onTap)
-        .on("doubletap", onDoubleTap)
-        .on("down", onPointerDown)
-        .on("up", onPointerUp);
+  _initialize() {
+    const pieceElements = this.pieceElements;
 
-      // Configure double-tap detection settings
-      if (interactable.options && interactable.options.actions) {
-        // Set more generous double-tap detection
-        interactable.options.actions.doubletap = {
-          interval: 500, // Max time between taps (ms)
-          distance: 30, // Max distance between taps (px)
-        };
-      }
+    // Initialize high-level handler with listeners for visual feedback
+    hlHandler.initialize({
+      onPieceSelectedVisual: (pieceId, prevPieceId) => {
+        // Remove selection from previous piece
+        if (prevPieceId != null) {
+          const prev = pieceElements.get(prevPieceId);
+          if (prev) prev.classList.remove("selected");
+        }
+        // Add selection to new piece
+        const el = pieceElements.get(pieceId);
+        if (el) el.classList.add("selected");
+      },
+      onPieceDeselectedVisual: (pieceId) => {
+        const el = pieceElements.get(pieceId);
+        if (el) el.classList.remove("selected");
+      },
+      onPieceDetachedVisual: (pieceId) => {
+        const el = pieceElements.get(pieceId);
+        if (el) {
+          el.classList.add("detached-piece");
+          setTimeout(() => el.classList.remove("detached-piece"), 1000);
+        }
+      },
+      onEnsurePieceInView: (pieceId) => {
+        const piece = state.pieces.find((p) => p.id === pieceId);
+        const el = pieceElements.get(pieceId);
+        if (piece && el) {
+          const position =
+            gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
+          ensureRectInView(
+            position,
+            new Point(el.offsetWidth, el.offsetHeight),
+            {
+              forceZoom: false,
+            }
+          );
+        }
+      },
     });
 
-    // Configure global container interactions (unset first to avoid duplicates)
-    var containerInteractable = window.interact("#piecesContainer");
-    containerInteractable.unset();
+    if (!window.interact) {
+      console.error(
+        "[interactionManager] interact.js is not loaded! Interaction functionality will not work."
+      );
+      return;
+    }
 
-    containerInteractable = window.interact("#piecesContainer");
-    containerInteractable.on("tap", onContainerTap);
+    try {
+      // Configure interact.js for each piece individually
+      pieceElements.forEach((element, pieceId) => {
+        // Unset existing interactable to avoid duplicate listeners
+        var interactable = window.interact(element);
+        interactable.unset();
+        interactable = window.interact(element);
+        interactable
+          .draggable({
+            listeners: {
+              start: (event) => this._onDragStart(event),
+              move: (event) => this._onDragMove(event),
+              end: (event) => this._onDragEnd(event),
+            },
+          })
+          .on("tap", (event) => this._onTap(event))
+          .on("doubletap", (event) => this._onDoubleTap(event))
+          .on("down", (event) => this._onPointerDown(event))
+          .on("up", (event) => this._onPointerUp(event));
 
-    console.log("[interactionManager] interact.js configured successfully");
-  } catch (error) {
-    console.error("[interactionManager] Error configuring interact.js:", error);
-    throw error; // Re-throw to make the error visible
-  }
+        // Configure double-tap detection settings
+        if (interactable.options && interactable.options.actions) {
+          interactable.options.actions.doubletap = {
+            interval: 500,
+            distance: 30,
+          };
+        }
+      });
 
-  // Register curvature callback for shuffle-based detachment
-  const curvatureThreshold = 8;
-  console.log(
-    `[interactionManager] Curvature threshold for detachment: ${curvatureThreshold}`
-  );
+      // Configure global container interactions
+      var containerInteractable = window.interact("#piecesContainer");
+      containerInteractable.unset();
+      containerInteractable = window.interact("#piecesContainer");
+      containerInteractable.on("tap", (event) => this._onContainerTap(event));
 
-  dragMonitor.registerCurvatureCallback(curvatureThreshold, (data) => {
-    highCurvatureDetach = true;
+      console.log("[interactionManager] interact.js configured successfully");
+    } catch (error) {
+      console.error(
+        "[interactionManager] Error configuring interact.js:",
+        error
+      );
+      throw error;
+    }
+
+    // Register curvature callback for shuffle-based detachment
+    const curvatureThreshold = 8;
     console.log(
-      `[DragMonitor] HIGH curvature detected (shuffle motion)! Curvature: ${data.curvature.toFixed(
-        2
-      )} ` + `(threshold: ${data.threshold}) - enabling detachment mode`
+      `[interactionManager] Curvature threshold for detachment: ${curvatureThreshold}`
     );
-  });
-}
 
-/**
- * Add event listeners to a new piece (called when pieces are dynamically added)
- */
-export function addPieceInteraction(element) {
-  if (!window.interact) {
-    console.error("[interactionManager] interact.js is not loaded!");
-    return;
+    dragMonitor.registerCurvatureCallback(curvatureThreshold, (data) => {
+      this.highCurvatureDetach = true;
+      console.log(
+        `[DragMonitor] HIGH curvature detected (shuffle motion)! Curvature: ${data.curvature.toFixed(
+          2
+        )} (threshold: ${data.threshold}) - enabling detachment mode`
+      );
+    });
+
+    // Install keyboard event listeners
+    this._installKeyboardListeners();
   }
 
-  const interactable = window.interact(element);
+  _installKeyboardListeners() {
+    window.addEventListener("keydown", (e) => {
+      const selectedPiece = hlHandler.getSelectedPiece();
+      if (!selectedPiece) return;
 
-  interactable
-    .draggable({
-      origin: "self",
-      listeners: {
-        start: onDragStart,
-        move: onDragMove,
-        end: onDragEnd,
-      },
-      // No modifiers - allow dragging beyond parent bounds to trigger auto-fit
-    })
-    .on("tap", onTap)
-    .on("doubletap", onDoubleTap)
-    .on("down", onPointerDown)
-    .on("up", onPointerUp);
-
-  // Configure double-tap detection settings
-  if (interactable.options && interactable.options.actions) {
-    // Set more generous double-tap detection
-    interactable.options.actions.doubletap = {
-      interval: 500, // Max time between taps (ms)
-      distance: 30, // Max distance between taps (px)
-    };
-  }
-}
-
-/**
- * Handle drag start
- */
-function onDragStart(event) {
-  const element = event.target.closest(".piece") || event.target;
-  const pieceId = element.dataset.id;
-  const numericId = parseInt(pieceId, 10);
-
-  // Select the piece being dragged (brings it to front)
-  hlHandler.onPieceSelected(numericId);
-
-  // Track touch IDs for multi-touch detection
-  if (event.interaction.pointerType === "touch") {
-    activeTouchIds.add(event.interaction.id);
+      if (e.key === "r" || e.key === "R") {
+        const rotationAmount = e.shiftKey ? 270 : 90;
+        hlHandler.onPieceRotated(selectedPiece.id, rotationAmount);
+      }
+    });
   }
 
-  clearAllPieceOutlines();
+  addPieceInteraction(element) {
+    if (!window.interact) {
+      console.error("[interactionManager] interact.js is not loaded!");
+      return;
+    }
 
-  // Mark as dragging and clear drag pause state
-  isDragging = true;
-  clearDragPauseTimer();
+    const interactable = window.interact(element);
 
-  // Check for detach conditions
-  const isShiftPressed = event.shiftKey;
-  const multiTouchDetach =
-    event.interaction.pointerType === "touch" && activeTouchIds.size >= 2;
+    interactable
+      .draggable({
+        origin: "self",
+        listeners: {
+          start: (event) => this._onDragStart(event),
+          move: (event) => this._onDragMove(event),
+          end: (event) => this._onDragEnd(event),
+        },
+      })
+      .on("tap", (event) => this._onTap(event))
+      .on("doubletap", (event) => this._onDoubleTap(event))
+      .on("down", (event) => this._onPointerDown(event))
+      .on("up", (event) => this._onPointerUp(event));
 
-  // Check if drag started after 1 second hold (long press detach)
-  const longPressDetach =
-    longPressStartTime !== null &&
-    String(longPressPieceId) === String(pieceId) &&
-    performance.now() - longPressStartTime >= LONG_PRESS_DURATION_MS;
-
-  // Detach if needed before starting drag
-  if (isShiftPressed || multiTouchDetach || longPressDetach) {
-    hlHandler.onPieceDetached(numericId);
-    element.setAttribute("data-detached", "true");
+    if (interactable.options && interactable.options.actions) {
+      interactable.options.actions.doubletap = {
+        interval: 500,
+        distance: 30,
+      };
+    }
   }
 
-  // Remove visual feedback when drag starts
-  element.classList.remove("long-press-active");
+  _onDragStart(event) {
+    const element = event.target.closest(".piece") || event.target;
+    const pieceId = element.dataset.id;
+    const numericId = parseInt(pieceId, 10);
 
-  // Clear long press state after drag starts
-  clearLongPressTimer();
-  longPressStartTime = null;
-  longPressPieceId = null;
-}
+    hlHandler.onPieceSelected(numericId);
 
-/**
- * Handle drag move
- */
-function onDragMove(event) {
-  const element = event.target.closest(".piece") || event.target;
-  const pieceId = element.dataset.id;
-  const numericId = parseInt(pieceId, 10);
-  const piece = state.pieces.find((p) => p.id === numericId);
+    if (event.interaction.pointerType === "touch") {
+      this.activeTouchIds.add(event.interaction.id);
+    }
 
-  if (!piece) return;
+    clearAllPieceOutlines();
 
-  // Track drag speed
-  dragMonitor.dragEvent({
-    x: event.client.x,
-    y: event.client.y,
-    timestamp: performance.now(),
-  });
+    this.isDragging = true;
+    this._clearDragPauseTimer();
 
-  // Convert screen coordinates to viewport coordinates
-  const viewportState = getViewportState();
-  const viewportPos = screenToViewport(
-    new Point(event.client.x, event.client.y),
-    new Point(viewportState.panX, viewportState.panY),
-    viewportState.zoomLevel
-  );
+    const isShiftPressed = event.shiftKey;
+    const multiTouchDetach =
+      event.interaction.pointerType === "touch" &&
+      this.activeTouchIds.size >= 2;
 
-  // Calculate new position
-  const deltaX = event.dx / viewportState.zoomLevel;
-  const deltaY = event.dy / viewportState.zoomLevel;
+    const longPressDetach =
+      this.longPressStartTime !== null &&
+      String(this.longPressPieceId) === String(pieceId) &&
+      performance.now() - this.longPressStartTime >= LONG_PRESS_DURATION_MS;
 
-  // Check for high curvature detach during drag
-  if (highCurvatureDetach && !element.hasAttribute("data-detached")) {
-    // Only detach if piece is in a multi-piece group
-    const group = groupManager.getGroup(piece.groupId);
-    if (group && group.size() > 1) {
-      hlHandler.onPieceDetached(piece.id);
+    if (isShiftPressed || multiTouchDetach || longPressDetach) {
+      hlHandler.onPieceDetached(numericId);
       element.setAttribute("data-detached", "true");
     }
-    highCurvatureDetach = false; // Clear flag after detachment
+
+    element.classList.remove("long-press-active");
+
+    this._clearLongPressTimer();
+    this.longPressStartTime = null;
+    this.longPressPieceId = null;
   }
 
-  // Reset drag pause timer on each move
-  clearDragPauseTimer();
-  element.classList.remove("long-press-active");
+  _onDragMove(event) {
+    const element = event.target.closest(".piece") || event.target;
+    const pieceId = element.dataset.id;
+    const numericId = parseInt(pieceId, 10);
+    const piece = state.pieces.find((p) => p.id === numericId);
 
-  // Set new timer if piece is in a multi-piece group and not yet detached
-  if (!element.hasAttribute("data-detached") && piece.groupId) {
-    const group = groupManager.getGroup(piece.groupId);
-    if (group && group.size() > 1) {
-      dragPauseTimer = setTimeout(() => {
-        // Show visual feedback
-        element.classList.add("long-press-active");
+    if (!piece) return;
 
-        // Detach piece from group
+    dragMonitor.dragEvent({
+      x: event.client.x,
+      y: event.client.y,
+      timestamp: performance.now(),
+    });
+
+    const viewportState = getViewportState();
+
+    const deltaX = event.dx / viewportState.zoomLevel;
+    const deltaY = event.dy / viewportState.zoomLevel;
+
+    if (this.highCurvatureDetach && !element.hasAttribute("data-detached")) {
+      const group = groupManager.getGroup(piece.groupId);
+      if (group && group.size() > 1) {
         hlHandler.onPieceDetached(piece.id);
         element.setAttribute("data-detached", "true");
+      }
+      this.highCurvatureDetach = false;
+    }
 
-        // Remove visual feedback after short delay
-        setTimeout(() => {
-          element.classList.remove("long-press-active");
-        }, 300);
-      }, LONG_PRESS_DURATION_MS);
+    this._clearDragPauseTimer();
+    element.classList.remove("long-press-active");
+
+    if (!element.hasAttribute("data-detached") && piece.groupId) {
+      const group = groupManager.getGroup(piece.groupId);
+      if (group && group.size() > 1) {
+        this.dragPauseTimer = setTimeout(() => {
+          element.classList.add("long-press-active");
+          hlHandler.onPieceDetached(piece.id);
+          element.setAttribute("data-detached", "true");
+          setTimeout(() => {
+            element.classList.remove("long-press-active");
+          }, 300);
+        }, LONG_PRESS_DURATION_MS);
+      }
+    }
+
+    hlHandler.onPieceDragged(piece.id, new Point(deltaX, deltaY));
+    this._checkBoundaries(element, piece);
+    handleDragMove(piece);
+  }
+
+  _onDragEnd(event) {
+    const element = event.target.closest(".piece") || event.target;
+    const pieceId = element.dataset.id;
+    const numericId = parseInt(pieceId, 10);
+
+    if (event.interaction.pointerType === "touch") {
+      this.activeTouchIds.delete(event.interaction.id);
+    }
+
+    this.isDragging = false;
+    this._clearDragPauseTimer();
+    element.classList.remove("long-press-active");
+    this.highCurvatureDetach = false;
+
+    dragMonitor.endDrag();
+
+    element.removeAttribute("data-detached");
+
+    const wentOutside = element.hasAttribute("data-outside");
+    if (wentOutside) {
+      element.removeAttribute("data-outside");
+    }
+
+    hlHandler.onPieceDragEnded(numericId, wentOutside);
+  }
+
+  _onPointerDown(event) {
+    const element = event.target.closest(".piece") || event.target;
+    const pieceId = element.dataset.id;
+
+    this.longPressStartTime = performance.now();
+    this.longPressPieceId = pieceId;
+
+    this._clearLongPressTimer();
+
+    this.longPressTimer = setTimeout(() => {
+      const el = this.pieceElements.get(parseInt(pieceId, 10));
+      if (el) {
+        el.classList.add("long-press-active");
+      }
+    }, LONG_PRESS_DURATION_MS);
+  }
+
+  _onPointerUp(event) {
+    const element = event.target.closest(".piece") || event.target;
+
+    element.classList.remove("long-press-active");
+
+    this._clearLongPressTimer();
+    this.longPressStartTime = null;
+    this.longPressPieceId = null;
+  }
+
+  _onTap(event) {
+    const element = event.target.closest(".piece") || event.target;
+    const pieceId = element.dataset.id;
+    const numericId = parseInt(pieceId, 10);
+
+    hlHandler.onPieceSelected(numericId);
+  }
+
+  _onDoubleTap(event) {
+    const element = event.target.closest(".piece") || event.target;
+    const pieceId = element.dataset.id;
+    const numericId = parseInt(pieceId, 10);
+
+    element.classList.remove("long-press-active");
+    this._clearLongPressTimer();
+    this.longPressStartTime = null;
+    this.longPressPieceId = null;
+
+    event.preventDefault();
+    event.stopPropagation();
+
+    hlHandler.onPieceRotated(numericId, 90);
+  }
+
+  _onContainerTap(event) {
+    if (
+      event.target.id === "piecesContainer" ||
+      event.target.classList.contains("pieces-viewport")
+    ) {
+      this._clearLongPressTimer();
+      this.longPressStartTime = null;
+      this.longPressPieceId = null;
+
+      hlHandler.onPieceDeselected();
     }
   }
 
-  // Move pieces via high-level handler
-  hlHandler.onPieceDragged(piece.id, new Point(deltaX, deltaY));
+  _checkBoundaries(element, piece) {
+    const container = element.parentElement;
+    const cRect = container.getBoundingClientRect();
 
-  // Check boundaries
-  checkBoundaries(element, piece);
+    const position = gameTableController.getPiecePosition(piece.id);
 
-  // Handle connection evaluation
-  handleDragMove(piece);
-}
+    const overLeft = position.x < -OUTSIDE_THRESHOLD_PX;
+    const overTop = position.y < -OUTSIDE_THRESHOLD_PX;
+    const overRight =
+      position.x + element.offsetWidth > cRect.width + OUTSIDE_THRESHOLD_PX;
+    const overBottom =
+      position.y + element.offsetHeight > cRect.height + OUTSIDE_THRESHOLD_PX;
 
-/**
- * Handle drag end
- */
-function onDragEnd(event) {
-  const element = event.target.closest(".piece") || event.target;
-  const pieceId = element.dataset.id;
-  const numericId = parseInt(pieceId, 10);
+    const isOutside = overLeft || overTop || overRight || overBottom;
 
-  // Clean up touch tracking
-  if (event.interaction.pointerType === "touch") {
-    activeTouchIds.delete(event.interaction.id);
-  }
-
-  // Clear dragging state and drag pause timer
-  isDragging = false;
-  clearDragPauseTimer();
-  element.classList.remove("long-press-active");
-  highCurvatureDetach = false;
-
-  // End drag speed monitoring
-  dragMonitor.endDrag();
-
-  element.removeAttribute("data-detached");
-
-  // Check if piece went outside
-  const wentOutside = element.hasAttribute("data-outside");
-  if (wentOutside) {
-    element.removeAttribute("data-outside");
-  }
-
-  // Notify high-level handler that drag ended
-  hlHandler.onPieceDragEnded(numericId, wentOutside);
-}
-
-/**
- * Handle pointer down (tracks when pointer first goes down)
- */
-function onPointerDown(event) {
-  const element = event.target.closest(".piece") || event.target;
-  const pieceId = element.dataset.id;
-
-  // Start tracking press time for long press detection on drag
-  longPressStartTime = performance.now();
-  longPressPieceId = pieceId;
-
-  // Clear any existing timer
-  clearLongPressTimer();
-
-  // Show visual feedback after 1 second if still holding
-  longPressTimer = setTimeout(() => {
-    const el = pieceElements.get(parseInt(pieceId, 10));
-    if (el) {
-      el.classList.add("long-press-active");
+    if (isOutside && !element.hasAttribute("data-outside")) {
+      element.setAttribute("data-outside", "true");
+    } else if (!isOutside && element.hasAttribute("data-outside")) {
+      element.removeAttribute("data-outside");
     }
-  }, LONG_PRESS_DURATION_MS);
-}
+  }
 
-/**
- * Handle pointer up (clears long press if released without dragging)
- */
-function onPointerUp(event) {
-  const element = event.target.closest(".piece") || event.target;
+  getSelectedPiece() {
+    return hlHandler.getSelectedPiece();
+  }
 
-  // Remove visual feedback if pointer released without dragging
-  element.classList.remove("long-press-active");
+  fixSelectedPieceOrientation() {
+    return hlHandler.fixSelectedPieceOrientation();
+  }
 
-  // Clear long press state
-  clearLongPressTimer();
-  longPressStartTime = null;
-  longPressPieceId = null;
-}
+  getPieceElement(id) {
+    return this.pieceElements.get(id);
+  }
 
-/**
- * Handle single tap
- */
-function onTap(event) {
-  const element = event.target.closest(".piece") || event.target;
-  const pieceId = element.dataset.id;
-  const numericId = parseInt(pieceId, 10);
+  applyHighlight(pieceId) {
+    displayApplyHighlight(pieceId);
+  }
 
-  hlHandler.onPieceSelected(numericId);
-}
+  _clearLongPressTimer() {
+    if (this.longPressTimer) {
+      clearTimeout(this.longPressTimer);
+      this.longPressTimer = null;
+    }
+  }
 
-/**
- * Handle double tap/click
- */
-function onDoubleTap(event) {
-  const element = event.target.closest(".piece") || event.target;
-  const pieceId = element.dataset.id;
-  const numericId = parseInt(pieceId, 10);
-
-  // Clear long press timer and visual feedback on double tap
-  element.classList.remove("long-press-active");
-  clearLongPressTimer();
-  longPressStartTime = null;
-  longPressPieceId = null;
-
-  // Prevent dragging when double-tapping
-  event.preventDefault();
-  event.stopPropagation();
-
-  // Notify high-level handler to rotate piece
-  hlHandler.onPieceRotated(numericId, 90);
-}
-
-/**
- * Handle container tap (deselection)
- */
-function onContainerTap(event) {
-  if (
-    event.target.id === "piecesContainer" ||
-    event.target.classList.contains("pieces-viewport")
-  ) {
-    // Clear long press timer when tapping container
-    clearLongPressTimer();
-    longPressStartTime = null;
-    longPressPieceId = null;
-
-    // Notify high-level handler to deselect
-    hlHandler.onPieceDeselected();
+  _clearDragPauseTimer() {
+    if (this.dragPauseTimer) {
+      clearTimeout(this.dragPauseTimer);
+      this.dragPauseTimer = null;
+    }
   }
 }
-
-/**
- * Check if piece is outside boundaries
- */
-function checkBoundaries(element, piece) {
-  const container = element.parentElement;
-  const cRect = container.getBoundingClientRect();
-
-  const position = gameTableController.getPiecePosition(piece.id);
-
-  const overLeft = position.x < -OUTSIDE_THRESHOLD_PX;
-  const overTop = position.y < -OUTSIDE_THRESHOLD_PX;
-  const overRight =
-    position.x + element.offsetWidth > cRect.width + OUTSIDE_THRESHOLD_PX;
-  const overBottom =
-    position.y + element.offsetHeight > cRect.height + OUTSIDE_THRESHOLD_PX;
-
-  const isOutside = overLeft || overTop || overRight || overBottom;
-
-  if (isOutside && !element.hasAttribute("data-outside")) {
-    element.setAttribute("data-outside", "true");
-  } else if (!isOutside && element.hasAttribute("data-outside")) {
-    element.removeAttribute("data-outside");
-  }
-}
-
-/**
- * Get selected piece - delegates to high-level handler
- */
-export function getSelectedPiece() {
-  return hlHandler.getSelectedPiece();
-}
-
-/**
- * Fix selected piece orientation - delegates to high-level handler
- */
-export function fixSelectedPieceOrientation() {
-  return hlHandler.fixSelectedPieceOrientation();
-}
-
-/**
- * Get piece element by ID - delegates to high-level handler
- */
-export function getPieceElement(id) {
-  return pieceElements.get(id);
-}
-
-/**
- * Apply highlight to piece(s)
- * @param {string|Array<string>|null} pieceId - Single piece ID, array of IDs, or null to clear
- * @param {*} candidateData - Candidate data (for compatibility)
- */
-export function applyHighlight(pieceId, candidateData) {
-  displayApplyHighlight(pieceElements, pieceId, candidateData);
-}
-
-/**
- * Clear long press timer
- */
-function clearLongPressTimer() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-}
-
-/**
- * Clear drag pause timer
- */
-function clearDragPauseTimer() {
-  if (dragPauseTimer) {
-    clearTimeout(dragPauseTimer);
-    dragPauseTimer = null;
-  }
-}
-
-/**
- * Install keyboard event listeners for piece rotation (called once at module load)
- */
-window.addEventListener("keydown", (e) => {
-  const selectedPiece = hlHandler.getSelectedPiece();
-  if (!selectedPiece) return;
-
-  if (e.key === "r" || e.key === "R") {
-    const rotationAmount = e.shiftKey ? 270 : 90; // Shift+R = counter-clockwise
-    hlHandler.onPieceRotated(selectedPiece.id, rotationAmount);
-  }
-});

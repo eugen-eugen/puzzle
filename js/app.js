@@ -52,22 +52,19 @@ import { loadRemoteImageWithTimeout } from "./image-processor.js";
 import { gameTableController } from "./game-table-controller.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
 import {
-  updateViewportTransform,
   initViewport,
   getViewport,
   clearPieceOutline,
   updateOrientationTipButton,
   getZoomLevel,
-  setZoomLevel,
+  setZoom,
   getPanOffset,
   setPanOffset,
   getIsPanning,
   setIsPanning,
   getLastPanPosition,
   setLastPanPosition,
-  setInitialMargins,
   applyPieceCorrectnessVisualFeedback,
-  applyBlinkingEffectForIncorrectPieces,
   updateZoomDisplay,
   applyViewportGrayscaleFilter,
   MIN_ZOOM,
@@ -89,7 +86,6 @@ import {
   setCurrentImageLicense,
   pieceCountToSlider,
   setPersistence,
-  setCaptureInitialMargins,
   updatePieceDisplay,
   imageInput,
 } from "./control-bar.js";
@@ -99,9 +95,6 @@ import { showPictureGallery, hidePictureGallery } from "./picture-gallery.js";
 // Module Constants (replacing magic numbers)
 // ================================
 const DEFAULT_CORRECTNESS_SCALE_FALLBACK = DEFAULT_PIECE_SCALE; // Use consistent scale fallback
-const BLINK_INTERVAL_MS = 300; // Interval between blink frames
-const BLINK_HALF_CYCLES = 8; // Half cycles (on/off) => 4 full blinks
-const BLINK_START_DELAY_MS = 100; // Delay before starting blink effect
 
 // DOM elements for puzzle-specific functionality
 const piecesContainer = document.getElementById("piecesContainer");
@@ -147,18 +140,6 @@ function calculatePiecesBounds(pieces) {
 
   return bounds;
 }
-
-function captureInitialMargins() {
-  if (Util.isArrayEmpty(state.pieces)) return;
-  // Compute bounding box (logical coordinates)
-  const bounds = calculatePiecesBounds(state.pieces);
-  if (!bounds) return;
-  const minPoint = bounds.topLeft;
-  const screenMargins = getPanOffset().add(minPoint.scaled(getZoomLevel()));
-  setInitialMargins(screenMargins);
-}
-
-// enforceInitialMargins is now in display.js
 
 // Zoom and Pan functions
 // setZoom is now in display.js
@@ -206,9 +187,7 @@ function ensureRectInView(position, size, options = {}) {
         // avoid micro adjustments
         const targetZoom = Math.max(MIN_ZOOM, getZoomLevel() * minFactor);
         if (targetZoom < getZoomLevel() - 0.0001) {
-          setZoomLevel(targetZoom);
-          updateViewportTransform();
-          updateZoomDisplay();
+          setZoom(targetZoom);
           r = rectOnScreen();
         }
       }
@@ -222,7 +201,6 @@ function ensureRectInView(position, size, options = {}) {
       setPanOffset(getPanOffset().sub(new Point(r.bottomRight.x - contW, 0)));
     if (r.bottomRight.y > contH)
       setPanOffset(getPanOffset().sub(new Point(0, r.bottomRight.y - contH)));
-    updateViewportTransform();
     return; // Done for forceZoom path
   }
 
@@ -245,7 +223,6 @@ function ensureRectInView(position, size, options = {}) {
     panAdjusted = true;
   }
   if (panAdjusted) {
-    updateViewportTransform();
     r = rectOnScreen();
   }
   const overflow =
@@ -259,8 +236,7 @@ function ensureRectInView(position, size, options = {}) {
     const fitZoomH = contH / size.y;
     const targetZoom = Math.min(getZoomLevel(), fitZoomW, fitZoomH);
     if (targetZoom < getZoomLevel() - 0.0005) {
-      setZoomLevel(Math.max(MIN_ZOOM, targetZoom));
-      updateViewportTransform();
+      setZoom(Math.max(MIN_ZOOM, targetZoom));
       r = rectOnScreen();
       if (r.topLeft.x < 0)
         setPanOffset(getPanOffset().add(new Point(-r.topLeft.x, 0)));
@@ -270,13 +246,8 @@ function ensureRectInView(position, size, options = {}) {
         setPanOffset(getPanOffset().sub(new Point(r.bottomRight.x - contW, 0)));
       if (r.bottomRight.y > contH)
         setPanOffset(getPanOffset().sub(new Point(0, r.bottomRight.y - contH)));
-      updateViewportTransform();
       updateZoomDisplay();
-    } else if (panAdjusted) {
-      updateViewportTransform();
     }
-  } else if (panAdjusted) {
-    updateViewportTransform();
   }
 }
 
@@ -289,10 +260,9 @@ function getViewportState() {
 }
 
 function applyViewportState(v) {
-  setZoomLevel(v.zoomLevel);
+  setZoom(v.zoomLevel);
   setPanOffset(new Point(v.panX, v.panY));
-  updateViewportTransform();
-  // updateZoomDisplay is now called from display.js
+  // updateViewportTransform and updateZoomDisplay are called by setZoom
 }
 
 // updateProgress and generatePuzzle are now in controlBar.js
@@ -396,19 +366,12 @@ export function checkPuzzleCorrectness() {
     );
 
     // Apply visual feedback using shape outlines
-    const result = applyPieceCorrectnessVisualFeedback(piece, isCorrect);
-    if (result === "correct") {
+    applyPieceCorrectnessVisualFeedback(piece, isCorrect);
+    if (isCorrect) {
       correctCount++;
     } else {
       incorrectCount++;
     }
-  });
-
-  // Apply blinking effect for incorrect pieces
-  applyBlinkingEffectForIncorrectPieces(state.pieces, {
-    BLINK_INTERVAL_MS,
-    BLINK_HALF_CYCLES,
-    BLINK_START_DELAY_MS,
   });
 }
 
@@ -444,7 +407,6 @@ document.addEventListener("mousemove", (e) => {
     const delta = currentPosition.sub(getLastPanPosition());
     setPanOffset(getPanOffset().add(delta));
     setLastPanPosition(currentPosition);
-    updateViewportTransform();
   }
 });
 
@@ -469,8 +431,6 @@ async function bootstrap() {
   // Initialize control bar
   initControlBar();
 
-  // Set up cross-module function references
-  setCaptureInitialMargins(captureInitialMargins);
   // Deep link mode: ?image=<url>&pieces=<n>&norotate=<y|n>&removeColor=<true|false>
   try {
     const params = new URLSearchParams(window.location.search);
@@ -599,7 +559,6 @@ async function bootstrap() {
         viewport.innerHTML = "";
         scatterInitialPieces(viewport, state.pieces);
       }
-      captureInitialMargins();
       updateProgress();
     },
     renderPiecesFromState: () => {
@@ -608,7 +567,6 @@ async function bootstrap() {
         viewport.innerHTML = "";
         renderPiecesAtPositions(viewport, state.pieces);
       }
-      captureInitialMargins();
       updateProgress();
       // Sync controller after rendering existing positions
       gameTableController.syncAllPositions();
@@ -780,7 +738,6 @@ export {
   getViewportState,
   applyViewportState,
   ensureRectInView,
-  captureInitialMargins,
   calculatePiecesBounds,
 };
 
@@ -820,16 +777,10 @@ function fitAllPiecesInView() {
   // Compute zoom to fit entire rectangle.
   const fitZoom = Math.min(contW / rectW, contH / rectH);
   const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, fitZoom));
-  setZoomLevel(newZoom);
+  setZoom(newZoom);
 
   // Align top-left of bounding rect with viewport origin.
   setPanOffset(new Point(-minX * newZoom, -minY * newZoom));
-
-  updateViewportTransform();
-  updateZoomDisplay();
-
-  // Reset initial margins so margin enforcement logic does not shift us later.
-  setInitialMargins(new Point(0, 0));
 }
 
 export { fitAllPiecesInView };

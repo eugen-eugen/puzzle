@@ -81,6 +81,11 @@ export class Piece {
       this.sPoints = convertToPoints(data.sPoints);
     }
 
+    // Generate path if not provided and geometry is available
+    if (!this.path && this.corners && this.sPoints) {
+      this.path = this.generatePath();
+    }
+
     // Register position with GameTableController
     gameTableController.setPiecePosition(this.id, initialPosition);
   }
@@ -211,11 +216,10 @@ export class Piece {
   }
 
   /**
-   * Generate Path2D for this piece using the standardized path generation
+   * Generate Path2D for this piece from corners and side points
    * @returns {Path2D} Generated path for this piece
    */
   generatePath() {
-    // Use the same logic as Geometry.createPiecePath to avoid circular dependency
     const path = new Path2D();
     const pts = [];
 
