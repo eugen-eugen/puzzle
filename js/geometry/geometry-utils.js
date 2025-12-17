@@ -61,3 +61,4 @@ export function convertToPoints(xyObject) {
 
   return result;
 }
+

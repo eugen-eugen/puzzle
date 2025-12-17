@@ -217,6 +217,7 @@ export class Piece {
 
   /**
    * Generate Path2D for this piece from corners and side points
+   * Path is shrunk to 0.8 to create a gap between pieces
    * @returns {Path2D} Generated path for this piece
    */
   generatePath() {
@@ -251,7 +252,9 @@ export class Piece {
 
     // Build path
     path.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) path.lineTo(pts[i].x, pts[i].y);
+    for (let i = 1; i < pts.length; i++) {
+      path.lineTo(pts[i].x, pts[i].y);
+    }
     path.closePath();
     return path;
   }

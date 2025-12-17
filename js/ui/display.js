@@ -33,6 +33,15 @@ let lastPanPosition = new Point(0, 0);
 // Piece elements reference for z-index management
 let pieceElementsMap = null;
 
+// Cached debug outline width (calculated once per game)
+let debugOutlineWidth = 4;
+
+// Listen for pieces generation event to calculate debug outline width
+window.addEventListener("piecesGenerated", (event) => {
+  const totalPieces = event.detail.totalPieces || 20;
+  debugOutlineWidth = 8 * Math.sqrt(Math.sqrt(20 / totalPieces));
+});
+
 // Initialize the viewport element reference
 export function initViewport() {
   piecesViewport = document.getElementById("piecesViewport");
@@ -219,7 +228,7 @@ export function clearPieceOutline(piece) {
 
   // Clear and redraw the piece without outline
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.scale(piece.scale, scapiece.scalele);
+  ctx.scale(piece.scale, piece.scale);
   ctx.drawImage(piece.bitmap, 0, 0);
 
   // Restore context state
@@ -283,8 +292,35 @@ export function applyHighlight(pieceId) {
 }
 
 // Drawing Constants
-const DEBUG_OUTLINE_COLOR = "#ff00aa";
-const DEBUG_OUTLINE_WIDTH = 1.25;
+const DEBUG_OUTLINE_COLOR = "#D2691E"; // Ahorn (maple) autumn color
+
+/**
+ * Darken a hex color by a given amount
+ * @param {string} color - Hex color string (e.g., "#ff00aa")
+ * @param {number} amount - Amount to darken (0-1)
+ * @returns {string} RGB color string
+ */
+function darkenColor(color, amount) {
+  const hex = color.replace("#", "");
+  const r = Math.max(0, parseInt(hex.substring(0, 2), 16) * (1 - amount));
+  const g = Math.max(0, parseInt(hex.substring(2, 4), 16) * (1 - amount));
+  const b = Math.max(0, parseInt(hex.substring(4, 6), 16) * (1 - amount));
+  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+}
+
+/**
+ * Lighten a hex color by a given amount
+ * @param {string} color - Hex color string (e.g., "#ff00aa")
+ * @param {number} amount - Amount to lighten (0-1)
+ * @returns {string} RGB color string
+ */
+function lightenColor(color, amount) {
+  const hex = color.replace("#", "");
+  const r = Math.min(255, parseInt(hex.substring(0, 2), 16) + 255 * amount);
+  const g = Math.min(255, parseInt(hex.substring(2, 4), 16) + 255 * amount);
+  const b = Math.min(255, parseInt(hex.substring(4, 6), 16) + 255 * amount);
+  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+}
 
 /**
  * Draw a piece to a canvas using its bounding frame and path.
@@ -320,21 +356,48 @@ export function drawPiece(tempPiece, nw, master) {
   const dx = clipX - nw.x;
   const dy = clipY - nw.y;
   const canvas = document.createElement("canvas");
-  canvas.width = pw;
-  canvas.height = ph;
+  canvas.width = pw + 2 * debugOutlineWidth;
+  canvas.height = ph + 2 * debugOutlineWidth;
   const ctx = canvas.getContext("2d");
+  ctx.translate(
+    -boundingFrame.topLeft.x + debugOutlineWidth,
+    -boundingFrame.topLeft.y + debugOutlineWidth
+  );
   ctx.save();
   // Center the bounding frame in the canvas
-  ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
   ctx.clip(path);
   ctx.drawImage(master, clipX, clipY, clipW, clipH, dx, dy, clipW, clipH);
   ctx.restore();
-  // Debug outline (optional)
-  ctx.save();
-  ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
-  ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
-  ctx.lineWidth = DEBUG_OUTLINE_WIDTH;
+
+  // Round the path vertices
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  // Dark shadow/bottom edge
+  ctx.strokeStyle = darkenColor(DEBUG_OUTLINE_COLOR, 0.4);
+  ctx.lineWidth = debugOutlineWidth;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 2;
+  ctx.shadowOffsetY = 2;
   ctx.stroke(path);
+
+  // Reset shadow
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+
+  // Main color
+  ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
+  ctx.lineWidth = debugOutlineWidth;
+  ctx.stroke(path);
+
+  // Light highlight/top edge
+  ctx.strokeStyle = lightenColor(DEBUG_OUTLINE_COLOR, 0.3);
+  ctx.lineWidth = debugOutlineWidth / 2;
+  ctx.stroke(path);
+
   ctx.restore();
   return canvas;
 }

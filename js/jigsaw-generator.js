@@ -37,6 +37,11 @@ export function generateJigsawPieces(img, targetCount) {
   while (rows * cols < targetCount) cols++;
   const actualCount = rows * cols;
 
+  // Dispatch custom event immediately with total piece count for UI setup
+  window.dispatchEvent(new CustomEvent('piecesGenerated', {
+    detail: { totalPieces: actualCount }
+  }));
+
   const pieceW = img.width / cols;
   const pieceH = img.height / rows;
 
