@@ -10,7 +10,6 @@ import {
 import { applyHighlight as displayApplyHighlight } from "./display.js";
 import { handleDragMove } from "../connection-manager.js";
 import { state } from "../game-engine.js";
-import { dragMonitor } from "../interaction/drag.js";
 import { groupManager } from "../group-manager.js";
 import * as hlHandler from "../interaction/hl-interaction-handler.js";
 import { gameTableController } from "../game-table-controller.js";
@@ -21,6 +20,8 @@ const LONG_PRESS_DURATION_MS = 1000; // Duration for long press to trigger detac
 
 export class UIInteractionManager {
   constructor(pieceElementsMap) {
+    // Implement singleton pattern
+
     this.pieceElements = pieceElementsMap;
     this.activeTouchIds = new Set();
     this.longPressTimer = null;
@@ -34,34 +35,41 @@ export class UIInteractionManager {
   }
 
   _initialize() {
-    const pieceElements = this.pieceElements;
-
     // Initialize high-level handler with listeners for visual feedback
     hlHandler.initialize({
       onPieceSelectedVisual: (pieceId, prevPieceId) => {
         // Remove selection from previous piece
         if (prevPieceId != null) {
-          const prev = pieceElements.get(prevPieceId);
-          if (prev) prev.classList.remove("selected");
+          document.dispatchEvent(
+            new CustomEvent("piece:deselect", {
+              detail: { pieceId: prevPieceId },
+            })
+          );
         }
         // Add selection to new piece
-        const el = pieceElements.get(pieceId);
-        if (el) el.classList.add("selected");
+        document.dispatchEvent(
+          new CustomEvent("piece:select", {
+            detail: { pieceId },
+          })
+        );
       },
       onPieceDeselectedVisual: (pieceId) => {
-        const el = pieceElements.get(pieceId);
-        if (el) el.classList.remove("selected");
+        document.dispatchEvent(
+          new CustomEvent("piece:deselect", {
+            detail: { pieceId },
+          })
+        );
       },
       onPieceDetachedVisual: (pieceId) => {
-        const el = pieceElements.get(pieceId);
-        if (el) {
-          el.classList.add("detached-piece");
-          setTimeout(() => el.classList.remove("detached-piece"), 1000);
-        }
+        document.dispatchEvent(
+          new CustomEvent("piece:detach-animation", {
+            detail: { pieceId },
+          })
+        );
       },
       onEnsurePieceInView: (pieceId) => {
         const piece = state.pieces.find((p) => p.id === pieceId);
-        const el = pieceElements.get(pieceId);
+        const el = this.pieceElements.get(pieceId);
         if (piece && el) {
           const position =
             gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
@@ -76,16 +84,9 @@ export class UIInteractionManager {
       },
     });
 
-    if (!window.interact) {
-      console.error(
-        "[interactionManager] interact.js is not loaded! Interaction functionality will not work."
-      );
-      return;
-    }
-
     try {
       // Configure interact.js for each piece individually
-      pieceElements.forEach((element, pieceId) => {
+      this.pieceElements.forEach((element, pieceId) => {
         // Unset existing interactable to avoid duplicate listeners
         var interactable = window.interact(element);
         interactable.unset();
@@ -117,8 +118,6 @@ export class UIInteractionManager {
       containerInteractable.unset();
       containerInteractable = window.interact("#piecesContainer");
       containerInteractable.on("tap", (event) => this._onContainerTap(event));
-
-      console.log("[interactionManager] interact.js configured successfully");
     } catch (error) {
       console.error(
         "[interactionManager] Error configuring interact.js:",
@@ -127,43 +126,13 @@ export class UIInteractionManager {
       throw error;
     }
 
-    // Register curvature callback for shuffle-based detachment
-    const curvatureThreshold = 8;
-    console.log(
-      `[interactionManager] Curvature threshold for detachment: ${curvatureThreshold}`
-    );
-
-    dragMonitor.registerCurvatureCallback(curvatureThreshold, (data) => {
+    // Listen for high curvature detection from drag monitor
+    document.addEventListener("drag:high-curvature", (event) => {
       this.highCurvatureDetach = true;
-      console.log(
-        `[DragMonitor] HIGH curvature detected (shuffle motion)! Curvature: ${data.curvature.toFixed(
-          2
-        )} (threshold: ${data.threshold}) - enabling detachment mode`
-      );
-    });
-
-    // Install keyboard event listeners
-    this._installKeyboardListeners();
-  }
-
-  _installKeyboardListeners() {
-    window.addEventListener("keydown", (e) => {
-      const selectedPiece = hlHandler.getSelectedPiece();
-      if (!selectedPiece) return;
-
-      if (e.key === "r" || e.key === "R") {
-        const rotationAmount = e.shiftKey ? 270 : 90;
-        hlHandler.onPieceRotated(selectedPiece.id, rotationAmount);
-      }
     });
   }
 
   addPieceInteraction(element) {
-    if (!window.interact) {
-      console.error("[interactionManager] interact.js is not loaded!");
-      return;
-    }
-
     const interactable = window.interact(element);
 
     interactable
@@ -189,11 +158,9 @@ export class UIInteractionManager {
   }
 
   _onDragStart(event) {
-    const element = event.target.closest(".piece") || event.target;
-    const pieceId = element.dataset.id;
-    const numericId = parseInt(pieceId, 10);
+    const { element, pieceId } = this.getNearestPieceId(event);
 
-    hlHandler.onPieceSelected(numericId);
+    hlHandler.onPieceSelected(pieceId);
 
     if (event.interaction.pointerType === "touch") {
       this.activeTouchIds.add(event.interaction.id);
@@ -215,11 +182,14 @@ export class UIInteractionManager {
       performance.now() - this.longPressStartTime >= LONG_PRESS_DURATION_MS;
 
     if (isShiftPressed || multiTouchDetach || longPressDetach) {
-      hlHandler.onPieceDetached(numericId);
-      element.setAttribute("data-detached", "true");
+      hlHandler.onPieceDetached(pieceId);
     }
 
-    element.classList.remove("long-press-active");
+    document.dispatchEvent(
+      new CustomEvent("piece:long-press-end", {
+        detail: { pieceId },
+      })
+    );
 
     this._clearLongPressTimer();
     this.longPressStartTime = null;
@@ -227,45 +197,57 @@ export class UIInteractionManager {
   }
 
   _onDragMove(event) {
-    const element = event.target.closest(".piece") || event.target;
-    const pieceId = element.dataset.id;
-    const numericId = parseInt(pieceId, 10);
-    const piece = state.pieces.find((p) => p.id === numericId);
+    const { element, pieceId } = this.getNearestPieceId(event);
+    const piece = state.pieces.find((p) => p.id === pieceId);
 
     if (!piece) return;
 
-    dragMonitor.dragEvent({
-      x: event.client.x,
-      y: event.client.y,
-      timestamp: performance.now(),
-    });
+    document.dispatchEvent(
+      new CustomEvent("drag:move", {
+        detail: {
+          x: event.client.x,
+          y: event.client.y,
+          timestamp: performance.now(),
+        },
+      })
+    );
 
     const viewportState = getViewportState();
 
     const deltaX = event.dx / viewportState.zoomLevel;
     const deltaY = event.dy / viewportState.zoomLevel;
 
-    if (this.highCurvatureDetach && !element.hasAttribute("data-detached")) {
+    if (this.highCurvatureDetach) {
       const group = groupManager.getGroup(piece.groupId);
       if (group && group.size() > 1) {
         hlHandler.onPieceDetached(piece.id);
-        element.setAttribute("data-detached", "true");
       }
       this.highCurvatureDetach = false;
     }
 
     this._clearDragPauseTimer();
-    element.classList.remove("long-press-active");
+    document.dispatchEvent(
+      new CustomEvent("piece:long-press-end", {
+        detail: { pieceId },
+      })
+    );
 
-    if (!element.hasAttribute("data-detached") && piece.groupId) {
+    if (piece.groupId) {
       const group = groupManager.getGroup(piece.groupId);
       if (group && group.size() > 1) {
         this.dragPauseTimer = setTimeout(() => {
-          element.classList.add("long-press-active");
+          document.dispatchEvent(
+            new CustomEvent("piece:long-press-start", {
+              detail: { pieceId: piece.id },
+            })
+          );
           hlHandler.onPieceDetached(piece.id);
-          element.setAttribute("data-detached", "true");
           setTimeout(() => {
-            element.classList.remove("long-press-active");
+            document.dispatchEvent(
+              new CustomEvent("piece:long-press-end", {
+                detail: { pieceId: piece.id },
+              })
+            );
           }, 300);
         }, LONG_PRESS_DURATION_MS);
       }
@@ -277,9 +259,7 @@ export class UIInteractionManager {
   }
 
   _onDragEnd(event) {
-    const element = event.target.closest(".piece") || event.target;
-    const pieceId = element.dataset.id;
-    const numericId = parseInt(pieceId, 10);
+    const { element, pieceId } = this.getNearestPieceId(event);
 
     if (event.interaction.pointerType === "touch") {
       this.activeTouchIds.delete(event.interaction.id);
@@ -287,24 +267,27 @@ export class UIInteractionManager {
 
     this.isDragging = false;
     this._clearDragPauseTimer();
-    element.classList.remove("long-press-active");
+    document.dispatchEvent(
+      new CustomEvent("piece:long-press-end", {
+        detail: { pieceId },
+      })
+    );
     this.highCurvatureDetach = false;
-
-    dragMonitor.endDrag();
-
-    element.removeAttribute("data-detached");
 
     const wentOutside = element.hasAttribute("data-outside");
     if (wentOutside) {
       element.removeAttribute("data-outside");
     }
 
-    hlHandler.onPieceDragEnded(numericId, wentOutside);
+    document.dispatchEvent(
+      new CustomEvent("drag:end", {
+        detail: { pieceId, wentOutside },
+      })
+    );
   }
 
   _onPointerDown(event) {
-    const element = event.target.closest(".piece") || event.target;
-    const pieceId = element.dataset.id;
+    const { pieceId } = this.getNearestPieceId(event);
 
     this.longPressStartTime = performance.now();
     this.longPressPieceId = pieceId;
@@ -312,17 +295,22 @@ export class UIInteractionManager {
     this._clearLongPressTimer();
 
     this.longPressTimer = setTimeout(() => {
-      const el = this.pieceElements.get(parseInt(pieceId, 10));
-      if (el) {
-        el.classList.add("long-press-active");
-      }
+      document.dispatchEvent(
+        new CustomEvent("piece:long-press-start", {
+          detail: { pieceId: parseInt(pieceId, 10) },
+        })
+      );
     }, LONG_PRESS_DURATION_MS);
   }
 
   _onPointerUp(event) {
-    const element = event.target.closest(".piece") || event.target;
+    const { pieceId } = this.getNearestPieceId(event);
 
-    element.classList.remove("long-press-active");
+    document.dispatchEvent(
+      new CustomEvent("piece:long-press-end", {
+        detail: { pieceId },
+      })
+    );
 
     this._clearLongPressTimer();
     this.longPressStartTime = null;
@@ -330,19 +318,19 @@ export class UIInteractionManager {
   }
 
   _onTap(event) {
-    const element = event.target.closest(".piece") || event.target;
-    const pieceId = element.dataset.id;
-    const numericId = parseInt(pieceId, 10);
+    const { pieceId } = this.getNearestPieceId(event);
 
-    hlHandler.onPieceSelected(numericId);
+    hlHandler.onPieceSelected(pieceId);
   }
 
   _onDoubleTap(event) {
-    const element = event.target.closest(".piece") || event.target;
-    const pieceId = element.dataset.id;
-    const numericId = parseInt(pieceId, 10);
+    const { pieceId } = this.getNearestPieceId(event);
 
-    element.classList.remove("long-press-active");
+    document.dispatchEvent(
+      new CustomEvent("piece:long-press-end", {
+        detail: { pieceId },
+      })
+    );
     this._clearLongPressTimer();
     this.longPressStartTime = null;
     this.longPressPieceId = null;
@@ -350,7 +338,17 @@ export class UIInteractionManager {
     event.preventDefault();
     event.stopPropagation();
 
-    hlHandler.onPieceRotated(numericId, 90);
+    document.dispatchEvent(
+      new CustomEvent("piece:rotate", {
+        detail: { pieceId, rotation: 90 },
+      })
+    );
+  }
+
+  getNearestPieceId(event) {
+    const element = event.target.closest(".piece") || event.target;
+    const pieceId = parseInt(element.dataset.id, 10);
+    return { element, pieceId };
   }
 
   _onContainerTap(event) {
@@ -386,10 +384,6 @@ export class UIInteractionManager {
     } else if (!isOutside && element.hasAttribute("data-outside")) {
       element.removeAttribute("data-outside");
     }
-  }
-
-  getSelectedPiece() {
-    return hlHandler.getSelectedPiece();
   }
 
   fixSelectedPieceOrientation() {

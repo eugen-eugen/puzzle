@@ -19,6 +19,18 @@ let visualListeners = null;
  */
 export function initialize(listeners) {
   visualListeners = listeners;
+
+  // Listen for piece rotation events
+  document.addEventListener("piece:rotate", (event) => {
+    const { pieceId, rotation } = event.detail;
+    onPieceRotated(pieceId, rotation);
+  });
+
+  // Listen for drag end events
+  document.addEventListener("drag:end", (event) => {
+    const { pieceId, wentOutside } = event.detail;
+    onPieceDragEnded(pieceId, wentOutside);
+  });
 }
 
 /**

@@ -42,6 +42,40 @@ window.addEventListener("piecesGenerated", (event) => {
   debugOutlineWidth = 8 * Math.sqrt(Math.sqrt(20 / totalPieces));
 });
 
+// Register listeners for piece UI events
+document.addEventListener("piece:select", (event) => {
+  const { pieceId } = event.detail;
+  const el = pieceElementsMap?.get(pieceId);
+  if (el) el.classList.add("selected");
+});
+
+document.addEventListener("piece:deselect", (event) => {
+  const { pieceId } = event.detail;
+  const el = pieceElementsMap?.get(pieceId);
+  if (el) el.classList.remove("selected");
+});
+
+document.addEventListener("piece:detach-animation", (event) => {
+  const { pieceId } = event.detail;
+  const el = pieceElementsMap?.get(pieceId);
+  if (el) {
+    el.classList.add("detached-piece");
+    setTimeout(() => el.classList.remove("detached-piece"), 1000);
+  }
+});
+
+document.addEventListener("piece:long-press-start", (event) => {
+  const { pieceId } = event.detail;
+  const el = pieceElementsMap?.get(pieceId);
+  if (el) el.classList.add("long-press-active");
+});
+
+document.addEventListener("piece:long-press-end", (event) => {
+  const { pieceId } = event.detail;
+  const el = pieceElementsMap?.get(pieceId);
+  if (el) el.classList.remove("long-press-active");
+});
+
 // Initialize the viewport element reference
 export function initViewport() {
   piecesViewport = document.getElementById("piecesViewport");

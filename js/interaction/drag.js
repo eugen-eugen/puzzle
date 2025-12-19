@@ -36,11 +36,31 @@ export class DragMonitor {
     this.positionWindow = []; // Sliding window of recent positions
     this.maxPositionSamples = 10; // Keep last 10 positions for curvature calculation
 
+    // Curvature threshold for high curvature detection
+    this.curvatureThreshold = 8;
+
     // Threshold callbacks: { threshold: N, callback: fn }
     this.curvatureCallbacks = []; // Path curvature thresholds for shuffle detection
 
     // Active drag state
     this.isDragging = false;
+
+    // Set up event listeners
+    this._setupEventListeners();
+  }
+
+  /**
+   * Set up event listeners for drag events from UIInteractionManager
+   * @private
+   */
+  _setupEventListeners() {
+    document.addEventListener("drag:move", (event) => {
+      this.dragEvent(event.detail);
+    });
+
+    document.addEventListener("drag:end", () => {
+      this.endDrag();
+    });
   }
 
   /**
@@ -200,8 +220,21 @@ export class DragMonitor {
    * @private
    */
   checkCurvatureCallbacks() {
-    const now = performance.now();
+    // Check if curvature exceeds the threshold and dispatch event
+    if (this.currentCurvature >= this.curvatureThreshold) {
+      document.dispatchEvent(
+        new CustomEvent("drag:high-curvature", {
+          detail: {
+            curvature: this.currentCurvature,
+            threshold: this.curvatureThreshold,
+            positionCount: this.positionWindow.length,
+          },
+        })
+      );
+    }
 
+    // Also support legacy callbacks for backward compatibility
+    const now = performance.now();
     for (const registration of this.curvatureCallbacks) {
       // Check if curvature exceeds threshold
       if (this.currentCurvature >= registration.threshold) {

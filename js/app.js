@@ -21,6 +21,9 @@ import "../css/piece-box.css";
 import "../css/animations.css";
 import "../css/picture-gallery.css";
 
+// Initialize DragMonitor on load
+import { dragMonitor } from "./interaction/drag.js";
+
 // Register service worker
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
@@ -606,7 +609,12 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+// Ensure bootstrap only runs once even if module is imported multiple times
+// Use window object to persist flag across module imports
+if (!window.__puzzleBootstrapExecuted) {
+  window.__puzzleBootstrapExecuted = true;
+  bootstrap();
+}
 
 // Apply grayscale filter from localStorage if set
 const removeColorSetting = localStorage.getItem("removeColor");

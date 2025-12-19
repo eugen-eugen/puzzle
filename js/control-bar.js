@@ -5,9 +5,9 @@ import { processImage } from "./image-processor.js";
 import { generateJigsawPieces } from "./jigsaw-generator.js";
 import {
   scatterInitialPieces,
-  getSelectedPiece,
   fixSelectedPieceOrientation,
 } from "./piece-renderer.js";
+import { getSelectedPiece } from "./interaction/hl-interaction-handler.js";
 import { state } from "./game-engine.js";
 import { groupManager } from "./group-manager.js";
 import { t } from "./i18n.js";
@@ -392,7 +392,7 @@ function handleWheelZoom(e) {
   setZoom(getZoomLevel() * zoomFactor, new Point(e.clientX, e.clientY));
 }
 
-// Keyboard shortcuts for zoom
+// Keyboard shortcuts for zoom and piece rotation
 function handleKeyboardShortcuts(e) {
   // Only if not in modal and not typing in input
   const helpModal = document.getElementById("helpModal");
@@ -415,6 +415,19 @@ function handleKeyboardShortcuts(e) {
     case "0":
       e.preventDefault();
       resetZoomAndPan();
+      break;
+    case "r":
+    case "R":
+      // Dispatch piece rotation event
+      const selectedPiece = getSelectedPiece();
+      if (selectedPiece) {
+        const rotationAmount = e.shiftKey ? 270 : 90;
+        document.dispatchEvent(
+          new CustomEvent("piece:rotate", {
+            detail: { pieceId: selectedPiece.id, rotation: rotationAmount },
+          })
+        );
+      }
       break;
   }
 }
