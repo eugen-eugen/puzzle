@@ -1,7 +1,6 @@
 // controlBar.js - Control bar elements and event handlers
 // Centralizes all UI control elements including sliders, buttons, and their functionality
 
-import { processImage } from "./image-processor.js";
 import { generateJigsawPieces } from "./jigsaw-generator.js";
 import {
   scatterInitialPieces,
@@ -34,7 +33,6 @@ const MAX_PIECES = 1000; // Clamp maximum piece count for UI
 // ================================
 // DOM Elements
 // ================================
-const imageInput = document.getElementById("imageInput");
 const pieceSlider = document.getElementById("pieceSlider");
 const pieceDisplay = document.getElementById("pieceDisplay");
 const progressDisplay = document.getElementById("progressDisplay");
@@ -269,71 +267,6 @@ async function generatePuzzle(noRotate = false) {
 // Event Handlers
 // ================================
 
-// Handle image upload
-async function handleImageUpload(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
-
-  try {
-    progressDisplay.textContent = t("status.loadingImage");
-    currentImage = await processImage(file);
-
-    // Try to store the file using IndexedDB if supported
-    currentImageId = null;
-    if (isIndexedDBSupported()) {
-      try {
-        console.log("[controlBar] Attempting to store file in IndexedDB");
-        const result = await storeImageInDB(file);
-        currentImageId = result.imageId;
-        currentImageSource = `idb:${result.imageId}`; // 'idb:img_timestamp_randomid'
-        console.log(
-          "[controlBar] File stored successfully in IndexedDB:",
-          result.imageId
-        );
-      } catch (error) {
-        console.warn(
-          "[controlBar] Failed to store file in IndexedDB:",
-          error.message
-        );
-        // Fallback to regular filename storage
-        currentImageSource = file.webkitRelativePath || file.name;
-      }
-    } else {
-      // Store filename with directory path if available (webkitRelativePath) or just filename
-      currentImageSource = file.webkitRelativePath || file.name;
-    }
-
-    // Reset slider to 0 and show original image
-    pieceSlider.value = 0;
-    updatePieceDisplay();
-
-    // Show original image (with license if present)
-    const viewport = getViewport();
-    if (viewport) {
-      const displayImage = await applyLicenseIfPresent(
-        currentImage,
-        currentImageLicense
-      );
-      viewport.innerHTML = `
-        <div class="original-image-container">
-          <img src="${displayImage.src}" alt="${t(
-        "alt.originalImage"
-      )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
-        </div>
-      `;
-    }
-
-    state.pieces = [];
-    state.totalPieces = 0;
-    updateProgress();
-    if (persistence && persistence.markDirty) persistence.markDirty();
-  } catch (e) {
-    console.error(e);
-    alert(t("error.loadImage", { error: e.message }));
-    progressDisplay.textContent = t("status.error");
-  }
-}
-
 // Handle slider changes - generate puzzle in real-time
 function handleSliderChange() {
   updatePieceDisplay();
@@ -440,9 +373,6 @@ function handleKeyboardShortcuts(e) {
 // ================================
 
 function initControlBar() {
-  // Image upload handler
-  imageInput.addEventListener("change", handleImageUpload);
-
   // Slider handler
   pieceSlider.addEventListener("input", handleSliderChange);
 
@@ -494,6 +424,4 @@ export {
   setCurrentImageLicense,
   pieceCountToSlider,
   setPersistence,
-  // Expose image input for programmatic access
-  imageInput,
 };

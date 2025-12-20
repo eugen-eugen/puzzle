@@ -254,18 +254,18 @@ describe("Util", () => {
     it("should scale linearly with maxDeviation", () => {
       const maxDeviation1 = 10;
       const maxDeviation2 = 20;
-      
+
       const results1 = [];
       const results2 = [];
-      
+
       for (let i = 0; i < 1000; i++) {
         results1.push(Math.abs(Util.symmetricRandomDeviation(maxDeviation1)));
         results2.push(Math.abs(Util.symmetricRandomDeviation(maxDeviation2)));
       }
-      
+
       const avg1 = results1.reduce((a, b) => a + b, 0) / results1.length;
       const avg2 = results2.reduce((a, b) => a + b, 0) / results2.length;
-      
+
       // avg2 should be roughly twice avg1 (with some tolerance for randomness)
       const ratio = avg2 / avg1;
       expect(ratio).toBeGreaterThan(1.5);

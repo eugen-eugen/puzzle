@@ -4,14 +4,9 @@ document.addEventListener("DOMContentLoaded", () => {
   if (logo) {
     logo.style.cursor = "pointer";
     logo.addEventListener("click", () => {
-      showPictureGallery(
-        (deepLinkUrl) => {
-          window.location.href = deepLinkUrl;
-        },
-        () => {
-          imageInput.click();
-        }
-      );
+      showPictureGallery((deepLinkUrl) => {
+        window.location.href = deepLinkUrl;
+      });
     });
   }
 });
@@ -51,7 +46,7 @@ import { initI18n, t, applyTranslations } from "./i18n.js";
 import { Point } from "./geometry/point.js";
 import { Rectangle } from "./geometry/rectangle.js";
 import { Util } from "./utils/numeric-util.js";
-import { loadRemoteImageWithTimeout } from "./image-processor.js";
+import { loadRemoteImageWithTimeout } from "./utils/image-util.js";
 import { gameTableController } from "./game-table-controller.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
 import {
@@ -90,7 +85,6 @@ import {
   pieceCountToSlider,
   setPersistence,
   updatePieceDisplay,
-  imageInput,
 } from "./control-bar.js";
 import { showPictureGallery, hidePictureGallery } from "./picture-gallery.js";
 
@@ -580,16 +574,10 @@ async function bootstrap() {
       updateProgress();
       // Show picture gallery when user selects "new session" (unless in deep link mode)
       if (!deepLinkActive) {
-        showPictureGallery(
-          (deepLinkUrl) => {
-            // User selected a picture - navigate to deep link
-            window.location.href = deepLinkUrl;
-          },
-          () => {
-            // User closed gallery - show file picker
-            imageInput.click();
-          }
-        );
+        showPictureGallery((deepLinkUrl) => {
+          // User selected a picture - navigate to deep link
+          window.location.href = deepLinkUrl;
+        });
       }
     },
   });

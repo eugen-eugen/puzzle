@@ -167,3 +167,52 @@ export function loadImage(url, crossOrigin = true) {
     img.src = url;
   });
 }
+
+/**
+ * Load remote image with timeout and callbacks
+ * @param {string} imageUrl - Image URL to load
+ * @param {Object} options - Configuration options
+ * @param {number} options.timeout - Timeout in milliseconds (default: 10000)
+ * @param {Function} options.onLoad - Callback when image loads
+ * @param {Function} options.onError - Callback on error
+ * @param {Function} options.onTimeout - Callback on timeout
+ * @returns {Promise<HTMLImageElement>} Loaded image
+ */
+export function loadRemoteImageWithTimeout(imageUrl, options = {}) {
+  const {
+    timeout = 10000,
+    onLoad = () => {},
+    onError = () => {},
+    onTimeout = () => {},
+  } = options;
+
+  return new Promise((resolve, reject) => {
+    // Load remote image with timeout
+    const img = new Image();
+    img.crossOrigin = "anonymous"; // allow canvas usage when CORS permits
+    img.decoding = "async";
+
+    // Set up timeout fallback
+    const timeoutId = setTimeout(() => {
+      console.warn("[remote-image] Image load timeout for:", imageUrl);
+      onTimeout();
+      reject(new Error(`Image load timeout: ${imageUrl}`));
+    }, timeout);
+
+    img.onload = async () => {
+      clearTimeout(timeoutId);
+      console.info("[remote-image] Image loaded successfully:", imageUrl);
+      onLoad(img);
+      resolve(img);
+    };
+
+    img.onerror = () => {
+      clearTimeout(timeoutId);
+      console.warn("[remote-image] Failed to load image URL:", imageUrl);
+      onError();
+      reject(new Error(`Failed to load image: ${imageUrl}`));
+    };
+
+    img.src = imageUrl;
+  });
+}

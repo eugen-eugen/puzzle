@@ -40,7 +40,7 @@
 | `js/model/group.js` | Group data model with border piece tracking and fragmentation detection |
 | `js/model/piece.js` | Piece data model with geometry, transforms, and protected groupId property |
 | `js/persistence.js` | Serialize / deserialize puzzle state into `localStorage` (light mode by default) |
-| `js/image-processor.js` | Image normalization & downscaling pipeline |
+| `js/utils/image-util.js` | Image manipulation utilities (grayscale, license text, remote loading) |
 | `js/i18n.js` | Internationalization system with dynamic JSON locale loading |
 
 > The design favors small focused modules over a monolithic engine to keep iteration fast.
@@ -320,10 +320,10 @@ puzzle/
     piece-renderer.js
     connection-manager.js
     game-engine.js
-    image-processor.js
     utils/
       spatial-index.js
       sparse-grid.js
+      image-util.js
   css/
     (stylesheets)
 ```

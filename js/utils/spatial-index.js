@@ -116,4 +116,3 @@ export class SpatialIndex {
     pieces.forEach((p) => this.insert(p));
   }
 }
-
