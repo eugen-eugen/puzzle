@@ -23,7 +23,7 @@ import {
   WHEEL_ZOOM_OUT_FACTOR,
 } from "./ui/display.js";
 import { isIndexedDBSupported, storeImageInDB } from "./indexed-db-storage.js";
-import { addLicenseToImage } from "./utils/image-util.js";
+import { applyLicenseIfPresent } from "./utils/image-util.js";
 
 // ================================
 // Module Constants
@@ -206,9 +206,10 @@ async function generatePuzzle(noRotate = false) {
     // Show original image when slider is at 0
     const viewport = getViewport();
     if (viewport) {
-      const displayImage = currentImageLicense
-        ? await addLicenseToImage(currentImage, currentImageLicense)
-        : currentImage;
+      const displayImage = await applyLicenseIfPresent(
+        currentImage,
+        currentImageLicense
+      );
       viewport.innerHTML = `
         <div class="original-image-container">
           <img src="${displayImage.src}" alt="${t(
@@ -232,9 +233,10 @@ async function generatePuzzle(noRotate = false) {
 
   try {
     // Add license text to image if present
-    const imageWithLicense = currentImageLicense
-      ? await addLicenseToImage(currentImage, currentImageLicense)
-      : currentImage;
+    const imageWithLicense = await applyLicenseIfPresent(
+      currentImage,
+      currentImageLicense
+    );
 
     const { pieces, rows, cols } = generateJigsawPieces(
       imageWithLicense,
@@ -308,9 +310,10 @@ async function handleImageUpload(e) {
     // Show original image (with license if present)
     const viewport = getViewport();
     if (viewport) {
-      const displayImage = currentImageLicense
-        ? await addLicenseToImage(currentImage, currentImageLicense)
-        : currentImage;
+      const displayImage = await applyLicenseIfPresent(
+        currentImage,
+        currentImageLicense
+      );
       viewport.innerHTML = `
         <div class="original-image-container">
           <img src="${displayImage.src}" alt="${t(

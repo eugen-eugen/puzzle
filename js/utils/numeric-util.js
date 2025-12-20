@@ -1,4 +1,4 @@
-// Util.js - Utility class for common checks and calculations
+// numeric-util.js - Utility class for common checks and calculations
 export class Util {
   /**
    * Check if an array is empty or undefined

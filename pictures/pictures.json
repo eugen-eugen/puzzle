@@ -1,7 +1,10 @@
 {
   "pictures": [
     "A320.jpg",
-    "kleidung.png",
+    {
+      "filename": "kleidung.png",
+      "license": "© Frau Locke (Grundschultante) / Worksheet Crafter"
+    },
     {
       "filename": "regenbogen-hintergrund-mit-sternen-1101110-1920x1280.jpg",
       "title": "Regenbogen Hintergrund mit Sternen",

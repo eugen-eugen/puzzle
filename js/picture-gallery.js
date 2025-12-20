@@ -1,6 +1,6 @@
 // picture-gallery.js - Picture selection gallery for game start
 import { t } from "./i18n.js";
-import { addLicenseToImage } from "./utils/image-util.js";
+import { applyLicenseIfPresent, toGrayscale } from "./utils/image-util.js";
 
 const PICTURES_PATH = "pictures/";
 const DEFAULT_PIECES = 20;
@@ -194,33 +194,33 @@ export async function showPictureGallery(onSelect, onClose) {
       img.loading = "lazy";
 
       // Load image and add license if present
-      if (picture.license) {
-        addLicenseToImage(picture.url, picture.license, {
-          removeColor: picture.removeColor,
-          centered: true,
-          fontSizePercent: 4,
-          minFontSize: 20,
-          returnDataUrl: true,
+      applyLicenseIfPresent(picture.url, picture.license, {
+        removeColor: picture.removeColor,
+        centered: true,
+        fontSizePercent: 4,
+        minFontSize: 20,
+        returnDataUrl: true,
+      })
+        .then((dataUrl) => {
+          img.src = dataUrl;
         })
-          .then((dataUrl) => {
-            img.src = dataUrl;
-          })
-          .catch((error) => {
-            console.warn(
-              `[picture-gallery] Failed to add license to preview: ${error.message}`
-            );
+        .catch((error) => {
+          console.warn(
+            `[picture-gallery] Failed to add license to preview: ${error.message}`
+          );
+          // Fallback: try grayscale conversion or plain image
+          if (picture.removeColor) {
+            toGrayscale(picture.url, { returnDataUrl: true })
+              .then((dataUrl) => {
+                img.src = dataUrl;
+              })
+              .catch(() => {
+                img.src = picture.url;
+              });
+          } else {
             img.src = picture.url;
-            if (picture.removeColor) {
-              img.style.filter = "grayscale(100%)";
-            }
-          });
-      } else {
-        img.src = picture.url;
-        // Apply grayscale filter if removeColor is set
-        if (picture.removeColor) {
-          img.style.filter = "grayscale(100%)";
-        }
-      }
+          }
+        });
 
       // Hide item if image fails to load
       img.addEventListener("error", () => {

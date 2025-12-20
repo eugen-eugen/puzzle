@@ -9,7 +9,7 @@
 
 import { Point } from "../geometry/point.js";
 import { getPieceElement } from "../piece-renderer.js";
-import { Util } from "../utils/util.js";
+import { Util } from "../utils/numeric-util.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "../game-table-controller.js";
 

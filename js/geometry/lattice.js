@@ -2,7 +2,7 @@
 // Handles corner lattice building, side waypoint generation, and related calculations
 
 import { Point } from "./point.js";
-import { Util } from "../utils/util.js";
+import { Util } from "../utils/numeric-util.js";
 
 // ================================
 // Lattice Constants

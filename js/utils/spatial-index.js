@@ -1,42 +1,34 @@
 // spatialIndex.js - uniform grid spatial index for pieces
 // Provides efficient neighbor queries for proximity checks & potential connection detection.
 
-import { Point } from "../geometry/point.js";
 import { SparseGrid } from "./sparse-grid.js";
 
 // ================================
 // Module Constants
 // ================================
-const DEFAULT_CELL_SIZE = 180; // Fallback cell size in pixels
 const MIN_CELL_SIZE = 80; // Lower bound for dynamic heuristic
 const CELL_SIZE_MULTIPLIER = 2.5; // avg piece size * multiplier
 
 export class SpatialIndex {
-  constructor(boundsWidth, boundsHeight, cellSize = DEFAULT_CELL_SIZE) {
-    this.cellSize = cellSize;
+  constructor(boundsWidth, boundsHeight, avgPieceSize) {
+    // Compute cell size from average piece size
+    // Rough heuristic: MULTIPLIER * average size clamped to minimum
+    this.cellSize = Math.max(
+      MIN_CELL_SIZE,
+      Math.round(avgPieceSize * CELL_SIZE_MULTIPLIER)
+    );
     this.grid = new SparseGrid();
     this.itemMap = new Map(); // id -> {col, row, point}
   }
 
-  _cellFor(x, y) {
-    if (typeof x === "object" && x !== null) {
-      y = x.y;
-      x = x.x;
-    }
-    const col = Math.floor(x / this.cellSize);
-    const row = Math.floor(y / this.cellSize);
+  _cellFor(point) {
+    const col = Math.floor(point.x / this.cellSize);
+    const row = Math.floor(point.y / this.cellSize);
     return { col, row };
   }
 
   insert(item) {
-    const point =
-      item.position instanceof Point
-        ? item.position
-        : item.pos instanceof Point
-        ? item.pos
-        : new Point(item.x, item.y);
-
-    const { col, row } = this._cellFor(point);
+    const { col, row } = this._cellFor(item.position);
 
     // Get or create Set for this cell
     let cellSet = this.grid.get(col, row);
@@ -46,19 +38,12 @@ export class SpatialIndex {
     }
 
     cellSet.add(item.id);
-    this.itemMap.set(item.id, { col, row, point });
+    this.itemMap.set(item.id, { col, row, point: item.position });
   }
 
   update(item) {
-    const point =
-      item.position instanceof Point
-        ? item.position
-        : item.pos instanceof Point
-        ? item.pos
-        : new Point(item.x, item.y);
-
     const oldCell = this.itemMap.get(item.id);
-    const { col: newCol, row: newRow } = this._cellFor(point);
+    const { col: newCol, row: newRow } = this._cellFor(item.position);
 
     // Debug: Log spatial index coordinates
     if (!oldCell || oldCell.col !== newCol || oldCell.row !== newRow) {
@@ -82,7 +67,11 @@ export class SpatialIndex {
       }
       newCellSet.add(item.id);
 
-      this.itemMap.set(item.id, { col: newCol, row: newRow, point });
+      this.itemMap.set(item.id, {
+        col: newCol,
+        row: newRow,
+        point: item.position,
+      });
     }
   }
 
@@ -128,10 +117,3 @@ export class SpatialIndex {
   }
 }
 
-export function chooseCellSize(avgPieceSize) {
-  // Rough heuristic: MULTIPLIER * average size clamped to minimum
-  return Math.max(
-    MIN_CELL_SIZE,
-    Math.round(avgPieceSize * CELL_SIZE_MULTIPLIER)
-  );
-}

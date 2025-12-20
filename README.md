@@ -34,7 +34,7 @@
 | `js/jigsaw-generator.js` | Generates pieces via lattice + side waypoints & geometry |
 | `js/piece-renderer.js` | Renders canvases inside absolutely positioned DIV wrappers and handles drag / rotate |
 | `js/connection-manager.js` | Geometric side matching (corner + sPoint waypoint checks) + group merging with border piece detection |
-| `js/spatial-index.js` | Uniform grid spatial index for coarse candidate lookup |
+| `js/utils/spatial-index.js` | Uniform grid spatial index for coarse candidate lookup |
 | `js/game-engine.js` | Central mutable state container (pieces, totals, snap settings) |
 | `js/group-manager.js` | Group lifecycle management, merging, detachment, and connectivity validation |
 | `js/model/group.js` | Group data model with border piece tracking and fragmentation detection |
@@ -319,9 +319,11 @@ puzzle/
     jigsaw-generator.js
     piece-renderer.js
     connection-manager.js
-    spatial-index.js
     game-engine.js
     image-processor.js
+    utils/
+      spatial-index.js
+      sparse-grid.js
   css/
     (stylesheets)
 ```

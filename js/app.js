@@ -50,7 +50,7 @@ import { state } from "./game-engine.js";
 import { initI18n, t, applyTranslations } from "./i18n.js";
 import { Point } from "./geometry/point.js";
 import { Rectangle } from "./geometry/rectangle.js";
-import { Util } from "./utils/util.js";
+import { Util } from "./utils/numeric-util.js";
 import { loadRemoteImageWithTimeout } from "./image-processor.js";
 import { gameTableController } from "./game-table-controller.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";

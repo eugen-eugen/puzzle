@@ -15,7 +15,7 @@ import {
 import { groupManager } from "./group-manager.js";
 import { state } from "./game-engine.js";
 // Spatial index now fully managed here
-import { SpatialIndex, chooseCellSize } from "./utils/spatial-index.js";
+import { SpatialIndex } from "./utils/spatial-index.js";
 
 /**
  * Contract (Phase 1)
@@ -197,7 +197,7 @@ export class GameTableController {
       this.spatialIndex = new SpatialIndex(
         this._indexAreaW,
         this._indexAreaH,
-        chooseCellSize(avgSize)
+        avgSize
       );
       this._rebuildSpatialIndex();
       this._lastIndexSignature = signature;
