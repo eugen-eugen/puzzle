@@ -12,9 +12,3 @@ export const state = {
   settings: { snapNearPx: SNAP_NEAR_PX, snapReadyPx: SNAP_READY_PX },
   noRotate: false, // When true, rotation is disabled for all pieces
 };
-
-export function connectPieces(ids) {
-  // Placeholder: group creation logic
-  // In future: union-find + group creation
-  // Progress is now calculated dynamically based on groups and ungrouped pieces
-}

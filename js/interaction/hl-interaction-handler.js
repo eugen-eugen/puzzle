@@ -7,6 +7,9 @@ import { groupManager } from "../group-manager.js";
 import { gameTableController } from "../game-table-controller.js";
 import { handleDragEnd } from "../connection-manager.js";
 import { state } from "../game-engine.js";
+// Import drag monitor for gesture-based piece detachment functionality
+// This module registers event listeners globally and must be loaded
+import { dragMonitor as gestureDetectionSystem } from "./drag.js";
 
 // State management
 let selectedPiece = null;
@@ -19,6 +22,10 @@ let visualListeners = null;
  */
 export function initialize(listeners) {
   visualListeners = listeners;
+
+  // Ensure gesture detection system is loaded (imported for side effects)
+  // The dragMonitor registers global event listeners for shake/shuffle gesture detection
+  void gestureDetectionSystem;
 
   // Listen for piece rotation events
   document.addEventListener("piece:rotate", (event) => {

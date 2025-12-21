@@ -23,6 +23,7 @@ import {
 } from "./ui/display.js";
 import { isIndexedDBSupported, storeImageInDB } from "./indexed-db-storage.js";
 import { applyLicenseIfPresent } from "./utils/image-util.js";
+import { showPictureGallery } from "./picture-gallery.js";
 
 // ================================
 // Module Constants
@@ -373,6 +374,17 @@ function handleKeyboardShortcuts(e) {
 // ================================
 
 function initControlBar() {
+  // Logo handler
+  const logo = document.getElementById("logo");
+  if (logo) {
+    logo.style.cursor = "pointer";
+    logo.addEventListener("click", () => {
+      showPictureGallery((deepLinkUrl) => {
+        window.location.href = deepLinkUrl;
+      });
+    });
+  }
+
   // Slider handler
   pieceSlider.addEventListener("input", handleSliderChange);
 

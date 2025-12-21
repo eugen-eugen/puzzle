@@ -273,3 +273,16 @@ self.addEventListener("fetch", function (event) {
 
   // Cross-origin: just go to network
 });
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    const base = import.meta.env.BASE_URL;
+    navigator.serviceWorker
+      .register(`${base}service-worker.js`, {
+        type: "module",
+      })
+      .catch((err) => {
+        console.warn("SW registration failed", err);
+      });
+  });
+}

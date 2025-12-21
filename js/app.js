@@ -1,37 +1,11 @@
-// Logo click opens gallery
-document.addEventListener("DOMContentLoaded", () => {
-  const logo = document.getElementById("logo");
-  if (logo) {
-    logo.style.cursor = "pointer";
-    logo.addEventListener("click", () => {
-      showPictureGallery((deepLinkUrl) => {
-        window.location.href = deepLinkUrl;
-      });
-    });
-  }
-});
 // app.js - bootstrap for piece box window
 import "../css/main.css";
 import "../css/piece-box.css";
 import "../css/animations.css";
 import "../css/picture-gallery.css";
 
-// Initialize DragMonitor on load
-import { dragMonitor } from "./interaction/drag.js";
-
 // Register service worker
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    const base = import.meta.env.BASE_URL;
-    navigator.serviceWorker
-      .register(`${base}service-worker.js`, {
-        type: "module",
-      })
-      .catch((err) => {
-        console.warn("SW registration failed", err);
-      });
-  });
-}
+import "../public/service-worker.js";
 
 import { renderPiecesAtPositions } from "./piece-renderer.js";
 import { setSelectionChangeCallback } from "./interaction/hl-interaction-handler.js";
