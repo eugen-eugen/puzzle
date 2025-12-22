@@ -5,8 +5,7 @@
 // CACHE BUST: 2025-11-13-14:30:00 - All getGroupPieces() calls eliminated
 
 import { state } from "./game-engine.js";
-import { getCurrentZoom } from "./app.js";
-import { applyPieceTransform } from "./ui/display.js";
+import { applyPieceTransform, getZoomLevel } from "./ui/display.js";
 import { gameTableController } from "./game-table-controller.js";
 // Geometry utilities (new Point-based refactor)
 import { Point, dist2 as pointDist2 } from "./geometry/point.js";
@@ -135,7 +134,7 @@ function matchWaypoints(
 
 function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
   // Adjust tolerances based on current zoom level
-  const zoomLevel = getCurrentZoom();
+  const zoomLevel = getZoomLevel();
   const positionTolerance =
     CONFIG.CONNECTION_TOLERANCE / (zoomLevel * zoomLevel);
   const profileTolerance = CONFIG.PROFILE_TOLERANCE / (zoomLevel * zoomLevel);
@@ -239,7 +238,7 @@ function findCandidate(movingPiece) {
   const movingWD = movingPiece.worldData;
 
   // Adjust tolerance based on current zoom level to maintain consistent feel
-  const zoomLevel = getCurrentZoom();
+  const zoomLevel = getZoomLevel();
   const adjustedTolerance =
     CONFIG.CONNECTION_TOLERANCE / (zoomLevel * zoomLevel);
 

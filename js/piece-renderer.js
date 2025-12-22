@@ -146,7 +146,7 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
     }
   }
 
-  const uiManager = new UIInteractionManager(pieceElements);
+  uiManager = new UIInteractionManager(pieceElements);
 
   // Step 4: Apply final positions and transforms
   pieces.forEach((p, index) => {

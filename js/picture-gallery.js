@@ -1,6 +1,8 @@
 // picture-gallery.js - Picture selection gallery for game start
 import { t } from "./i18n.js";
 import { applyLicenseIfPresent, toGrayscale } from "./utils/image-util.js";
+import { handleImageUpload } from "./control-bar.js";
+import { state } from "./game-engine.js";
 
 const PICTURES_PATH = "pictures/";
 const DEFAULT_PIECES = 20;
@@ -42,7 +44,7 @@ async function loadAvailablePictures() {
             pic.title ||
             pic.filename.replace(/\.(png|jpg|jpeg|gif|webp)$/i, ""),
           pieces: pic.pieces ?? DEFAULT_PIECES,
-          removeColor: pic.removeColor ?? false,
+          removeColor: pic.removeColor ?? "n",
           ...pic, // Spread all other fields as-is
         };
       });
@@ -65,7 +67,7 @@ async function loadAvailablePictures() {
         url: item.url,
         title: item.title ?? "Remote Image",
         pieces: item.pieces ?? DEFAULT_PIECES,
-        removeColor: item.removeColor ?? false,
+        removeColor: item.removeColor ?? "n",
         ...item, // Spread all other fields as-is
       }));
       allPictures.push(...remotePictures);
@@ -172,13 +174,14 @@ export async function showPictureGallery(onSelect, onClose) {
       const item = document.createElement("a");
       item.className = "picture-gallery-item";
       const numPieces = picture.pieces || DEFAULT_PIECES;
-      const removeColor = picture.removeColor ? "true" : "false";
+      const removeColor = picture.removeColor || "n";
       const license = picture.license
         ? `&license=${encodeURIComponent(picture.license)}`
         : "";
+      const removeColorParam = removeColor ? `&removeColor=${removeColor}` : "";
       const deepLinkUrl = `?image=${encodeURIComponent(
         picture.url
-      )}&pieces=${numPieces}&norotate=y&removeColor=${removeColor}${license}`;
+      )}&pieces=${numPieces}&norotate=y${removeColorParam}${license}`;
       item.href = deepLinkUrl;
       item.title = t("gallery.itemTooltip", {
         title: picture.title,
@@ -194,8 +197,15 @@ export async function showPictureGallery(onSelect, onClose) {
       img.loading = "lazy";
 
       // Load image and add license if present
-      applyLicenseIfPresent(picture.url, picture.license, {
+      // Temporarily set license and removeColor in state for applyLicenseIfPresent
+      const originalDeepLinkConfig = state.deepLinkConfig;
+      state.deepLinkConfig = {
+        ...state.deepLinkConfig,
+        license: picture.license,
         removeColor: picture.removeColor,
+      };
+
+      applyLicenseIfPresent(picture.url, {
         centered: true,
         fontSizePercent: 4,
         minFontSize: 20,
@@ -203,13 +213,17 @@ export async function showPictureGallery(onSelect, onClose) {
       })
         .then((dataUrl) => {
           img.src = dataUrl;
+          // Restore original state
+          state.deepLinkConfig = originalDeepLinkConfig;
         })
         .catch((error) => {
+          // Restore original state on error
+          state.deepLinkConfig = originalDeepLinkConfig;
           console.warn(
             `[picture-gallery] Failed to add license to preview: ${error.message}`
           );
           // Fallback: try grayscale conversion or plain image
-          if (picture.removeColor) {
+          if (picture.removeColor === "y") {
             toGrayscale(picture.url, { returnDataUrl: true })
               .then((dataUrl) => {
                 img.src = dataUrl;
@@ -281,8 +295,18 @@ export async function showPictureGallery(onSelect, onClose) {
     uploadItem.style.cursor = "pointer";
     uploadItem.style.padding = "0";
     uploadItem.addEventListener("click", () => {
-      hidePictureGallery();
-      if (onClose) onClose();
+      // Create and trigger file input
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = "image/png,image/jpeg,image/jpg,image/gif,image/webp";
+      fileInput.addEventListener("change", async (e) => {
+        const file = e.target.files?.[0];
+        if (file) {
+          hidePictureGallery();
+          await handleImageUpload(file);
+        }
+      });
+      fileInput.click();
     });
     grid.appendChild(uploadItem);
   }

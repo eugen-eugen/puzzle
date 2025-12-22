@@ -3,35 +3,35 @@
     {
       "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Structure_of_animal_cell.JPG/2560px-Structure_of_animal_cell.JPG",
       "title": "Animal Cell Structure",
-      "removeColor": false,
+      "removeColor": "n",
       "license": "CC BY-SA 3.0 - Wikimedia Commons"
     },
     {
       "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Airbus_A320-200_Airbus_Industries_%28AIB%29_%27House_colors%27_F-WWBA_-_MSN_001_%2810276181983%29_crop.jpg/1920px-Airbus_A320-200_Airbus_Industries_%28AIB%29_%27House_colors%27_F-WWBA_-_MSN_001_%2810276181983%29_crop.jpg",
       "title": "Airbus A320-200",
       "pieces": 30,
-      "removeColor": false,
+      "removeColor": "n",
       "license": "© Laurent ERRERA / Wikimedia Commons / CC BY-SA 2.0"
     },
     {
       "url": "https://static.tildacdn.com/tild6634-6535-4636-b938-333935393465/Group_297-min.jpg",
       "title": "Blauer Traktor",
       "pieces": 4,
-      "removeColor": false,
+      "removeColor": "n",
       "license": "Image source: tildacdn.com"
     },
     {
       "url": "https://static.kinoafisha.info/k/articles/1200/upload/editor/articles/542647252404.jpg.webp",
       "title": "Blauer Traktor",
       "pieces": 8,
-      "removeColor": false,
+      "removeColor": "n",
       "license": "Image source: kinoafisha.info"
     },
     {
       "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/BRD.png/1200px-BRD.png",
       "title": "Deutschland Karte",
       "pieces": 40,
-      "removeColor": false,
+      "removeColor": "n",
       "license": "© kgberger / Wikimedia Commons / CC BY-SA 3.0"
     },
 
@@ -39,14 +39,14 @@
       "url": "https://cdn.pixabay.com/photo/2016/07/20/03/08/bubbles-1529553_1280.jpg",
       "title": "Rainbow Soap Bubbles",
       "pieces": 15,
-      "removeColor": false,
+      "removeColor": "n",
       "license": "© zjazjazoie / Pixabay"
     },
     {
       "url": "https://cdn.pixabay.com/photo/2016/07/20/03/08/bubbles-1529553_1280.jpg",
       "title": "Rainbow Soap Bubbles",
       "pieces": 15,
-      "removeColor": true,
+      "removeColor": "y",
       "license": "© zjazjazoie / Pixabay"
     }
   ]

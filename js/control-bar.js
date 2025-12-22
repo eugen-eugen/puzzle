@@ -2,21 +2,27 @@
 // Centralizes all UI control elements including sliders, buttons, and their functionality
 
 import { generateJigsawPieces } from "./jigsaw-generator.js";
-import {
-  scatterInitialPieces,
-  fixSelectedPieceOrientation,
-} from "./piece-renderer.js";
+import { scatterInitialPieces } from "./piece-renderer.js";
 import { getSelectedPiece } from "./interaction/hl-interaction-handler.js";
 import { state } from "./game-engine.js";
 import { groupManager } from "./group-manager.js";
 import { t } from "./i18n.js";
+import { isHelpOpen } from "./components/help.js";
 import { Point } from "./geometry/point.js";
 import { checkPuzzleCorrectness } from "./app.js";
+import {
+  PIECE_NORTH,
+  PIECE_ROTATE,
+  PIECE_SELECT,
+  PIECE_DESELECT,
+} from "./constants/custom-events.js";
+import { registerGlobalEvent } from "./utils/event-util.js";
 import {
   getViewport,
   setZoom,
   getZoomLevel,
   updateZoomDisplay,
+  updateOrientationTipButton,
   ZOOM_STEP_FACTOR,
   WHEEL_ZOOM_IN_FACTOR,
   WHEEL_ZOOM_OUT_FACTOR,
@@ -38,9 +44,6 @@ const pieceSlider = document.getElementById("pieceSlider");
 const pieceDisplay = document.getElementById("pieceDisplay");
 const progressDisplay = document.getElementById("progressDisplay");
 const orientationTipButton = document.getElementById("orientationTipButton");
-const helpButton = document.getElementById("helpButton");
-const helpModal = document.getElementById("helpModal");
-const closeHelp = document.getElementById("closeHelp");
 const zoomInButton = document.getElementById("zoomInButton");
 const zoomOutButton = document.getElementById("zoomOutButton");
 const zoomResetButton = document.getElementById("zoomResetButton");
@@ -194,10 +197,14 @@ function updateProgress() {
 // ================================
 
 // Generate puzzle with current slider value
-async function generatePuzzle(noRotate = false) {
+async function generatePuzzle() {
   if (!currentImage || isGenerating) return;
 
-  console.log("[control-bar] generatePuzzle called with noRotate:", noRotate);
+  const noRotate = state.noRotate || false;
+  console.log(
+    "[control-bar] generatePuzzle called with noRotate from state:",
+    noRotate
+  );
 
   const pieceCount = sliderToPieceCount(parseInt(pieceSlider.value));
 
@@ -205,10 +212,17 @@ async function generatePuzzle(noRotate = false) {
     // Show original image when slider is at 0
     const viewport = getViewport();
     if (viewport) {
-      const displayImage = await applyLicenseIfPresent(
-        currentImage,
-        currentImageLicense
-      );
+      // Temporarily set currentImageLicense in state
+      const originalLicense = state.deepLinkConfig?.license;
+      if (!state.deepLinkConfig) {
+        state.deepLinkConfig = {};
+      }
+      state.deepLinkConfig.license = currentImageLicense;
+
+      const displayImage = await applyLicenseIfPresent(currentImage);
+
+      // Restore original license
+      state.deepLinkConfig.license = originalLicense;
       viewport.innerHTML = `
         <div class="original-image-container">
           <img src="${displayImage.src}" alt="${t(
@@ -232,10 +246,7 @@ async function generatePuzzle(noRotate = false) {
 
   try {
     // Add license text to image if present
-    const imageWithLicense = await applyLicenseIfPresent(
-      currentImage,
-      currentImageLicense
-    );
+    const imageWithLicense = await applyLicenseIfPresent(currentImage);
 
     const { pieces, rows, cols } = generateJigsawPieces(
       imageWithLicense,
@@ -283,28 +294,16 @@ function handleOrientationTip() {
   }
   const selectedPiece = getSelectedPiece();
   if (selectedPiece) {
-    fixSelectedPieceOrientation();
+    // Dispatch custom event for orientation alignment
+    document.dispatchEvent(
+      new CustomEvent(PIECE_NORTH, {
+        detail: { pieceId: selectedPiece.id },
+      })
+    );
     // Trigger persistence save after orientation change
     if (persistence && persistence.requestAutoSave) {
       persistence.requestAutoSave();
     }
-  }
-}
-
-// Handle Help button click
-function handleHelpOpen() {
-  helpModal.style.display = "flex";
-}
-
-// Handle closing help modal
-function handleHelpClose() {
-  helpModal.style.display = "none";
-}
-
-// Handle clicking outside help modal
-function handleHelpModalClick(e) {
-  if (e.target === helpModal) {
-    helpModal.style.display = "none";
   }
 }
 
@@ -332,12 +331,7 @@ function handleWheelZoom(e) {
 // Keyboard shortcuts for zoom and piece rotation
 function handleKeyboardShortcuts(e) {
   // Only if not in modal and not typing in input
-  const helpModal = document.getElementById("helpModal");
-  if (
-    (helpModal && helpModal.style.display === "flex") ||
-    e.target.tagName === "INPUT"
-  )
-    return;
+  if (isHelpOpen() || e.target.tagName === "INPUT") return;
 
   switch (e.key) {
     case "+":
@@ -360,7 +354,7 @@ function handleKeyboardShortcuts(e) {
       if (selectedPiece) {
         const rotationAmount = e.shiftKey ? 270 : 90;
         document.dispatchEvent(
-          new CustomEvent("piece:rotate", {
+          new CustomEvent(PIECE_ROTATE, {
             detail: { pieceId: selectedPiece.id, rotation: rotationAmount },
           })
         );
@@ -390,20 +384,25 @@ function initControlBar() {
 
   // Button handlers
   orientationTipButton.addEventListener("click", handleOrientationTip);
-  helpButton.addEventListener("click", handleHelpOpen);
-  closeHelp.addEventListener("click", handleHelpClose);
   zoomInButton.addEventListener("click", handleZoomIn);
   zoomOutButton.addEventListener("click", handleZoomOut);
   zoomResetButton.addEventListener("click", handleZoomReset);
-
-  // Modal handlers
-  helpModal.addEventListener("click", handleHelpModalClick);
 
   // Mouse wheel zoom
   piecesContainer.addEventListener("wheel", handleWheelZoom);
 
   // Keyboard shortcuts
   document.addEventListener("keydown", handleKeyboardShortcuts);
+
+  // Piece selection listeners for orientation tip button
+  registerGlobalEvent(PIECE_SELECT, (event) => {
+    const { piece } = event.detail;
+    updateOrientationTipButton(piece);
+  });
+
+  registerGlobalEvent(PIECE_DESELECT, () => {
+    updateOrientationTipButton(null);
+  });
 
   // Initialize displays
   updatePieceDisplay();
@@ -413,6 +412,92 @@ function initControlBar() {
 // Set persistence module reference
 function setPersistence(persistenceModule) {
   persistence = persistenceModule;
+}
+
+async function handleImageUpload(file) {
+  if (!file) return;
+
+  try {
+    progressDisplay.textContent = t("status.loadingImage");
+
+    // Load the image from file
+    const img = new Image();
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = dataUrl;
+    });
+
+    currentImage = img;
+
+    // Try to store the file using IndexedDB if supported
+    currentImageId = null;
+    if (isIndexedDBSupported()) {
+      try {
+        console.log("[controlBar] Attempting to store file in IndexedDB");
+        const result = await storeImageInDB(file);
+        currentImageId = result.imageId;
+        currentImageSource = `idb:${result.imageId}`; // 'idb:img_timestamp_randomid'
+        console.log(
+          "[controlBar] File stored successfully in IndexedDB:",
+          result.imageId
+        );
+      } catch (error) {
+        console.warn(
+          "[controlBar] Failed to store file in IndexedDB:",
+          error.message
+        );
+        // Fallback to regular filename storage
+        currentImageSource = file.webkitRelativePath || file.name;
+      }
+    } else {
+      // Store filename with directory path if available (webkitRelativePath) or just filename
+      currentImageSource = file.webkitRelativePath || file.name;
+    }
+
+    // Reset slider to 0 and show original image
+    pieceSlider.value = 0;
+    updatePieceDisplay();
+
+    // Show original image (with license if present)
+    const viewport = getViewport();
+    if (viewport) {
+      // Temporarily set currentImageLicense in state
+      const originalLicense = state.deepLinkConfig?.license;
+      if (!state.deepLinkConfig) {
+        state.deepLinkConfig = {};
+      }
+      state.deepLinkConfig.license = currentImageLicense;
+
+      const displayImage = await applyLicenseIfPresent(currentImage);
+
+      // Restore original license
+      state.deepLinkConfig.license = originalLicense;
+      viewport.innerHTML = `
+        <div class="original-image-container">
+          <img src="${displayImage.src}" alt="${t(
+        "alt.originalImage"
+      )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
+        </div>
+      `;
+    }
+
+    state.pieces = [];
+    state.totalPieces = 0;
+    updateProgress();
+    if (persistence && persistence.markDirty) persistence.markDirty();
+  } catch (e) {
+    console.error(e);
+    alert(t("error.loadImage", { error: e.message }));
+    progressDisplay.textContent = t("status.error");
+  }
 }
 
 // ================================
@@ -436,4 +521,5 @@ export {
   setCurrentImageLicense,
   pieceCountToSlider,
   setPersistence,
+  handleImageUpload,
 };

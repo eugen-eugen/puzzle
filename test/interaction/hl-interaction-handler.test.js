@@ -3,13 +3,8 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import * as hlHandler from "@/js/interaction/hl-interaction-handler.js";
 
 // Mock dependencies
-vi.mock("@/js/app.js", () => ({
+vi.mock("@/js/ui/display.js", () => ({
   fitAllPiecesInView: vi.fn(),
-  calculatePiecesBounds: vi.fn(() => ({
-    min: { x: 0, y: 0 },
-    max: { x: 100, y: 100 },
-  })),
-  getCurrentZoom: vi.fn(() => 1),
 }));
 
 vi.mock("@/js/group-manager.js", () => ({
@@ -42,7 +37,7 @@ vi.mock("@/js/game-engine.js", () => ({
   },
 }));
 
-import { fitAllPiecesInView, calculatePiecesBounds } from "@/js/app.js";
+import { fitAllPiecesInView } from "@/js/ui/display.js";
 import { groupManager } from "@/js/group-manager.js";
 import { gameTableController } from "@/js/game-table-controller.js";
 import { handleDragEnd } from "@/js/connection-manager.js";
@@ -78,9 +73,8 @@ describe("hl-interaction-handler", () => {
     // Initialize the handler
     hlHandler.initialize(visualListeners);
 
-    // Clear any previously selected piece and callback
+    // Clear any previously selected piece
     hlHandler.onPieceDeselected();
-    hlHandler.setSelectionChangeCallback(null);
   });
 
   describe("initialize", () => {
@@ -156,15 +150,6 @@ describe("hl-interaction-handler", () => {
       // Should remain unselected (null) since ID is invalid
       expect(hlHandler.getSelectedPiece()).toBeNull();
     });
-
-    it("should call selection change callback", () => {
-      const callback = vi.fn();
-      hlHandler.setSelectionChangeCallback(callback);
-
-      hlHandler.onPieceSelected(1);
-
-      expect(callback).toHaveBeenCalledWith(mockPieces[0]);
-    });
   });
 
   describe("onPieceDeselected", () => {
@@ -174,17 +159,6 @@ describe("hl-interaction-handler", () => {
 
       expect(hlHandler.getSelectedPiece()).toBeNull();
       expect(visualListeners.onPieceDeselectedVisual).toHaveBeenCalledWith(1);
-    });
-
-    it("should call selection change callback with null", () => {
-      const callback = vi.fn();
-      hlHandler.setSelectionChangeCallback(callback);
-      hlHandler.onPieceSelected(1);
-      callback.mockClear();
-
-      hlHandler.onPieceDeselected();
-
-      expect(callback).toHaveBeenCalledWith(null);
     });
 
     it("should handle deselecting when no piece is selected", () => {
@@ -368,31 +342,6 @@ describe("hl-interaction-handler", () => {
 
       expect(hlHandler.fixSelectedPieceOrientation()).toBe(true);
       expect(gameTableController.rotatePiece).toHaveBeenCalledWith(1, 90);
-    });
-  });
-
-  describe("setSelectionChangeCallback", () => {
-    it("should set and call selection change callback", () => {
-      const callback = vi.fn();
-      hlHandler.setSelectionChangeCallback(callback);
-
-      hlHandler.onPieceSelected(1);
-
-      expect(callback).toHaveBeenCalledWith(mockPieces[0]);
-    });
-
-    it("should allow replacing the callback", () => {
-      const callback1 = vi.fn();
-      const callback2 = vi.fn();
-
-      hlHandler.setSelectionChangeCallback(callback1);
-      hlHandler.onPieceSelected(1);
-
-      hlHandler.setSelectionChangeCallback(callback2);
-      hlHandler.onPieceSelected(2);
-
-      expect(callback1).toHaveBeenCalledTimes(1);
-      expect(callback2).toHaveBeenCalledTimes(1);
     });
   });
 

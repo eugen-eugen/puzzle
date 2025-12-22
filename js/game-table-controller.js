@@ -7,6 +7,8 @@
 //                   Piece.isNeighbor / isAnyNeighbor.
 
 import { Point } from "./geometry/point.js";
+import { Rectangle } from "./geometry/rectangle.js";
+import { Util } from "./utils/numeric-util.js";
 import {
   applyPieceTransform,
   applyPieceZIndex,
@@ -511,6 +513,41 @@ export class GameTableController {
   // ----------------------------
   // Neighbor / Connectivity (Phase 1 duplication of Piece logic)
   // ----------------------------
+
+  /**
+   * Calculate bounding box for all pieces using their individual calculateBoundingFrame method
+   * This accounts for piece rotation and actual geometry, unlike Point.computeBounds which only uses positions
+   * @param {Array} pieces - Array of pieces to calculate bounds for
+   * @returns {Rectangle|null} Rectangle with topLeft and bottomRight properties, or null if no valid pieces
+   */
+  calculatePiecesBounds(pieces) {
+    if (Util.isArrayEmpty(pieces)) return null;
+
+    let bounds = new Rectangle();
+
+    for (const piece of pieces) {
+      if (!piece) continue;
+
+      const boundingFrame = piece.calculateBoundingFrame();
+      if (!boundingFrame) continue;
+
+      // Create rectangle from bounding frame at piece position
+      const position = this.getPiecePosition(piece.id) || new Point(0, 0);
+      const worldMin = position.add(boundingFrame.topLeft);
+      const worldMax = position.add(boundingFrame.bottomRight);
+      const pieceRect = Rectangle.fromPoints(worldMin, worldMax);
+
+      if (!pieceRect.isEmpty()) {
+        bounds = bounds.plus(pieceRect);
+      }
+    }
+
+    // Return null for empty bounds instead of empty rectangle
+    if (bounds.isEmpty()) return null;
+
+    return bounds;
+  }
+
   arePiecesNeighbors(pieceA, pieceB) {
     if (!pieceA || !pieceB) return false;
     if (!pieceA.worldData || !pieceB.worldData) return false;

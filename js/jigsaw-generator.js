@@ -11,6 +11,7 @@ import { Piece } from "./model/piece.js";
 import { Lattice } from "./geometry/lattice.js";
 import { Point } from "./geometry/point.js";
 import { drawPiece } from "./ui/display.js";
+import { PIECES_GENERATED } from "./constants/custom-events.js";
 
 // ================================
 // Generation Constants (avoid magic numbers)
@@ -39,7 +40,7 @@ export function generateJigsawPieces(img, targetCount) {
 
   // Dispatch custom event immediately with total piece count for UI setup
   window.dispatchEvent(
-    new CustomEvent("piecesGenerated", {
+    new CustomEvent(PIECES_GENERATED, {
       detail: { totalPieces: actualCount },
     })
   );

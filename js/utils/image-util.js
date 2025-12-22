@@ -1,5 +1,7 @@
 // image-util.js - Image manipulation utilities
 
+import { state } from "../game-engine.js";
+
 /**
  * Convert an image to grayscale
  * @param {HTMLImageElement|string} imageSource - Image element or URL
@@ -41,26 +43,24 @@ export async function toGrayscale(imageSource, options = {}) {
 
 /**
  * Apply license text to an image if license is provided, otherwise return original image
+ * Reads license text and removeColor from application state
  * @param {HTMLImageElement|string} imageSource - Image element or URL
- * @param {string|null|undefined} licenseText - License text to add (if null/undefined, returns original)
  * @param {Object} options - Configuration options
- * @param {boolean} options.removeColor - Apply grayscale filter
  * @param {boolean} options.centered - Center text at bottom (default: false, left-aligned)
  * @param {number} options.fontSizePercent - Font size as percentage of image height (default: 2)
  * @param {number} options.minFontSize - Minimum font size in pixels (default: 12)
  * @param {boolean} options.returnDataUrl - Return data URL instead of Image element (default: false)
  * @returns {Promise<HTMLImageElement|string>} Image with license text or original image
  */
-export async function applyLicenseIfPresent(
-  imageSource,
-  licenseText,
-  options = {}
-) {
+export async function applyLicenseIfPresent(imageSource, options = {}) {
   // Load image if URL provided
   const img =
     typeof imageSource === "string"
       ? await loadImage(imageSource)
       : imageSource;
+
+  // Read license from state (deep link config or current image license)
+  const licenseText = state.deepLinkConfig?.license || null;
 
   // Return original image if no license text
   if (!licenseText) {
@@ -69,12 +69,14 @@ export async function applyLicenseIfPresent(
 
   // Add license text to image
   const {
-    removeColor = false,
     centered = false,
     fontSizePercent = 2,
     minFontSize = 12,
     returnDataUrl = false,
   } = options;
+
+  // Read removeColor from state
+  const removeColor = state.deepLinkConfig?.removeColor || "n";
 
   const canvas = document.createElement("canvas");
   canvas.width = img.width;
@@ -82,7 +84,7 @@ export async function applyLicenseIfPresent(
   const ctx = canvas.getContext("2d");
 
   // Apply grayscale filter if needed
-  if (removeColor) {
+  if (removeColor === "y") {
     ctx.filter = "grayscale(100%)";
   }
 

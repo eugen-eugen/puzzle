@@ -3,16 +3,35 @@
 
 import { Point } from "../geometry/point.js";
 import {
-  clearAllPieceOutlines,
-  getViewportState,
+  applyHighlight as displayApplyHighlight,
   ensureRectInView,
-} from "../app.js";
-import { applyHighlight as displayApplyHighlight } from "./display.js";
+  getViewportState,
+  clearAllPieceOutlines,
+  getPanOffset,
+  setPanOffset,
+  setIsPanning,
+  getIsPanning,
+  setLastPanPosition,
+  getLastPanPosition,
+} from "./display.js";
 import { handleDragMove } from "../connection-manager.js";
 import { state } from "../game-engine.js";
+import { requestAutoSave } from "../persistence.js";
 import { groupManager } from "../group-manager.js";
 import * as hlHandler from "../interaction/hl-interaction-handler.js";
 import { gameTableController } from "../game-table-controller.js";
+import {
+  PIECE_SELECT,
+  PIECE_DESELECT,
+  PIECE_DETACH_ANIMATION,
+  PIECE_LONG_PRESS_START,
+  PIECE_LONG_PRESS_END,
+  PIECE_ROTATE,
+  DRAG_MOVE,
+  DRAG_END,
+  DRAG_HIGH_CURVATURE,
+} from "../constants/custom-events.js";
+import { registerGlobalEvent } from "../utils/event-util.js";
 
 // Constants for interaction behavior
 const OUTSIDE_THRESHOLD_PX = 40;
@@ -41,28 +60,28 @@ export class UIInteractionManager {
         // Remove selection from previous piece
         if (prevPieceId != null) {
           document.dispatchEvent(
-            new CustomEvent("piece:deselect", {
+            new CustomEvent(PIECE_DESELECT, {
               detail: { pieceId: prevPieceId },
             })
           );
         }
         // Add selection to new piece
         document.dispatchEvent(
-          new CustomEvent("piece:select", {
+          new CustomEvent(PIECE_SELECT, {
             detail: { pieceId },
           })
         );
       },
       onPieceDeselectedVisual: (pieceId) => {
         document.dispatchEvent(
-          new CustomEvent("piece:deselect", {
+          new CustomEvent(PIECE_DESELECT, {
             detail: { pieceId },
           })
         );
       },
       onPieceDetachedVisual: (pieceId) => {
         document.dispatchEvent(
-          new CustomEvent("piece:detach-animation", {
+          new CustomEvent(PIECE_DETACH_ANIMATION, {
             detail: { pieceId },
           })
         );
@@ -117,7 +136,16 @@ export class UIInteractionManager {
       var containerInteractable = window.interact("#piecesContainer");
       containerInteractable.unset();
       containerInteractable = window.interact("#piecesContainer");
-      containerInteractable.on("tap", (event) => this._onContainerTap(event));
+      containerInteractable
+        .on("tap", (event) => this._onContainerTap(event))
+        .draggable({
+          ignoreFrom: ".piece",
+          listeners: {
+            start: (event) => this._onViewportDragStart(event),
+            move: (event) => this._onViewportDragMove(event),
+            end: (event) => this._onViewportDragEnd(event),
+          },
+        });
     } catch (error) {
       console.error(
         "[interactionManager] Error configuring interact.js:",
@@ -127,7 +155,7 @@ export class UIInteractionManager {
     }
 
     // Listen for high curvature detection from drag monitor
-    document.addEventListener("drag:high-curvature", (event) => {
+    registerGlobalEvent(DRAG_HIGH_CURVATURE, (event) => {
       this.highCurvatureDetach = true;
     });
   }
@@ -186,7 +214,7 @@ export class UIInteractionManager {
     }
 
     document.dispatchEvent(
-      new CustomEvent("piece:long-press-end", {
+      new CustomEvent(PIECE_LONG_PRESS_END, {
         detail: { pieceId },
       })
     );
@@ -203,7 +231,7 @@ export class UIInteractionManager {
     if (!piece) return;
 
     document.dispatchEvent(
-      new CustomEvent("drag:move", {
+      new CustomEvent(DRAG_MOVE, {
         detail: {
           x: event.client.x,
           y: event.client.y,
@@ -227,7 +255,7 @@ export class UIInteractionManager {
 
     this._clearDragPauseTimer();
     document.dispatchEvent(
-      new CustomEvent("piece:long-press-end", {
+      new CustomEvent(PIECE_LONG_PRESS_END, {
         detail: { pieceId },
       })
     );
@@ -237,14 +265,14 @@ export class UIInteractionManager {
       if (group && group.size() > 1) {
         this.dragPauseTimer = setTimeout(() => {
           document.dispatchEvent(
-            new CustomEvent("piece:long-press-start", {
+            new CustomEvent(PIECE_LONG_PRESS_START, {
               detail: { pieceId: piece.id },
             })
           );
           hlHandler.onPieceDetached(piece.id);
           setTimeout(() => {
             document.dispatchEvent(
-              new CustomEvent("piece:long-press-end", {
+              new CustomEvent(PIECE_LONG_PRESS_END, {
                 detail: { pieceId: piece.id },
               })
             );
@@ -268,7 +296,7 @@ export class UIInteractionManager {
     this.isDragging = false;
     this._clearDragPauseTimer();
     document.dispatchEvent(
-      new CustomEvent("piece:long-press-end", {
+      new CustomEvent(PIECE_LONG_PRESS_END, {
         detail: { pieceId },
       })
     );
@@ -280,7 +308,7 @@ export class UIInteractionManager {
     }
 
     document.dispatchEvent(
-      new CustomEvent("drag:end", {
+      new CustomEvent(DRAG_END, {
         detail: { pieceId, wentOutside },
       })
     );
@@ -296,7 +324,7 @@ export class UIInteractionManager {
 
     this.longPressTimer = setTimeout(() => {
       document.dispatchEvent(
-        new CustomEvent("piece:long-press-start", {
+        new CustomEvent(PIECE_LONG_PRESS_START, {
           detail: { pieceId: parseInt(pieceId, 10) },
         })
       );
@@ -307,7 +335,7 @@ export class UIInteractionManager {
     const { pieceId } = this.getNearestPieceId(event);
 
     document.dispatchEvent(
-      new CustomEvent("piece:long-press-end", {
+      new CustomEvent(PIECE_LONG_PRESS_END, {
         detail: { pieceId },
       })
     );
@@ -327,7 +355,7 @@ export class UIInteractionManager {
     const { pieceId } = this.getNearestPieceId(event);
 
     document.dispatchEvent(
-      new CustomEvent("piece:long-press-end", {
+      new CustomEvent(PIECE_LONG_PRESS_END, {
         detail: { pieceId },
       })
     );
@@ -339,7 +367,7 @@ export class UIInteractionManager {
     event.stopPropagation();
 
     document.dispatchEvent(
-      new CustomEvent("piece:rotate", {
+      new CustomEvent(PIECE_ROTATE, {
         detail: { pieceId, rotation: 90 },
       })
     );
@@ -386,10 +414,6 @@ export class UIInteractionManager {
     }
   }
 
-  fixSelectedPieceOrientation() {
-    return hlHandler.fixSelectedPieceOrientation();
-  }
-
   getPieceElement(id) {
     return this.pieceElements.get(id);
   }
@@ -410,5 +434,30 @@ export class UIInteractionManager {
       clearTimeout(this.dragPauseTimer);
       this.dragPauseTimer = null;
     }
+  }
+
+  // Viewport panning handlers
+  _onViewportDragStart(event) {
+    // Pan with left mouse button when clicking on empty container space (not on pieces)
+    const piecesContainer = document.getElementById("piecesContainer");
+    event.preventDefault();
+    setIsPanning(true);
+    setLastPanPosition(new Point(event.client.x, event.client.y));
+    piecesContainer.style.cursor = "grabbing";
+  }
+
+  _onViewportDragMove(event) {
+    event.preventDefault();
+    const currentPosition = new Point(event.client.x, event.client.y);
+    const delta = currentPosition.sub(getLastPanPosition());
+    setPanOffset(getPanOffset().add(delta));
+    setLastPanPosition(currentPosition);
+  }
+
+  _onViewportDragEnd(event) {
+    const piecesContainer = document.getElementById("piecesContainer");
+    setIsPanning(false);
+    piecesContainer.style.cursor = "grab";
+    requestAutoSave();
   }
 }

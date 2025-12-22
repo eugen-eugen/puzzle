@@ -1,4 +1,10 @@
 // drag.js - Drag motion analysis for gesture-based piece detachment
+import {
+  DRAG_MOVE,
+  DRAG_END,
+  DRAG_HIGH_CURVATURE,
+} from "../constants/custom-events.js";
+import { registerGlobalEvent } from "../utils/event-util.js";
 
 /**
  * DragMonitor analyzes pointer motion during puzzle piece dragging to detect shuffle/shake gestures.
@@ -54,11 +60,11 @@ export class DragMonitor {
    * @private
    */
   _setupEventListeners() {
-    document.addEventListener("drag:move", (event) => {
+    registerGlobalEvent(DRAG_MOVE, (event) => {
       this.dragEvent(event.detail);
     });
 
-    document.addEventListener("drag:end", () => {
+    registerGlobalEvent(DRAG_END, () => {
       this.endDrag();
     });
   }
@@ -223,7 +229,7 @@ export class DragMonitor {
     // Check if curvature exceeds the threshold and dispatch event
     if (this.currentCurvature >= this.curvatureThreshold) {
       document.dispatchEvent(
-        new CustomEvent("drag:high-curvature", {
+        new CustomEvent(DRAG_HIGH_CURVATURE, {
           detail: {
             curvature: this.currentCurvature,
             threshold: this.curvatureThreshold,

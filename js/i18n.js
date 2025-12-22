@@ -1,4 +1,6 @@
 // i18n.js - lightweight translation loader
+import { refreshResumeModalTranslations } from "./components/resume.js";
+
 export let currentLanguage = "en";
 let messages = {};
 
@@ -59,21 +61,7 @@ export function applyTranslations() {
     helpBody.innerHTML = messages["help.bodyHtml"];
   }
   // Resume modal (if open) dynamic refresh
-  const resumeModal = document.getElementById("resume-modal-overlay");
-  if (resumeModal) {
-    const title = resumeModal.querySelector("#resume-modal-title");
-    if (title) title.textContent = t("resume.title");
-    const msg = resumeModal.querySelector(".resume-modal p");
-    if (msg) msg.textContent = t("resume.message");
-    resumeModal.querySelectorAll("button").forEach((btn) => {
-      const act = btn.dataset.action;
-      if (act === "resume") btn.textContent = t("resume.resume");
-      else if (act === "cancel") btn.textContent = t("resume.cancel");
-      else if (act === "discard") btn.textContent = t("resume.discard");
-    });
-    const meta = resumeModal.querySelector(".resume-meta");
-    if (meta) meta.textContent = t("resume.meta");
-  }
+  refreshResumeModalTranslations();
 }
 
 export async function initI18n() {

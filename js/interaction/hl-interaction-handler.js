@@ -2,7 +2,15 @@
 // Handles game logic, piece/group operations, and state management
 
 import { Point } from "../geometry/point.js";
-import { fitAllPiecesInView, calculatePiecesBounds } from "../app.js";
+import {
+  PIECE_ROTATE,
+  PIECE_SELECT,
+  PIECE_DESELECT,
+  DRAG_END,
+  PIECE_NORTH,
+} from "../constants/custom-events.js";
+import { registerGlobalEvent } from "../utils/event-util.js";
+import { fitAllPiecesInView } from "../ui/display.js";
 import { groupManager } from "../group-manager.js";
 import { gameTableController } from "../game-table-controller.js";
 import { handleDragEnd } from "../connection-manager.js";
@@ -13,7 +21,6 @@ import { dragMonitor as gestureDetectionSystem } from "./drag.js";
 
 // State management
 let selectedPiece = null;
-let onSelectionChangeCallback = null;
 let visualListeners = null;
 
 /**
@@ -28,15 +35,20 @@ export function initialize(listeners) {
   void gestureDetectionSystem;
 
   // Listen for piece rotation events
-  document.addEventListener("piece:rotate", (event) => {
+  registerGlobalEvent(PIECE_ROTATE, (event) => {
     const { pieceId, rotation } = event.detail;
     onPieceRotated(pieceId, rotation);
   });
 
   // Listen for drag end events
-  document.addEventListener("drag:end", (event) => {
+  registerGlobalEvent(DRAG_END, (event) => {
     const { pieceId, wentOutside } = event.detail;
     onPieceDragEnded(pieceId, wentOutside);
+  });
+
+  // Listen for piece:north event (orientation tip button)
+  registerGlobalEvent(PIECE_NORTH, (event) => {
+    fixSelectedPieceOrientation();
   });
 }
 
@@ -78,10 +90,12 @@ export function onPieceSelected(pieceId) {
     visualListeners.onPieceSelectedVisual(numericId, prevPieceId);
   }
 
-  // Notify callback
-  if (onSelectionChangeCallback) {
-    onSelectionChangeCallback(piece);
-  }
+  // Dispatch custom event for piece selection
+  document.dispatchEvent(
+    new CustomEvent(PIECE_SELECT, {
+      detail: { pieceId: numericId, piece },
+    })
+  );
 }
 
 /**
@@ -97,9 +111,12 @@ export function onPieceDeselected() {
       visualListeners.onPieceDeselectedVisual(pieceId);
     }
 
-    if (onSelectionChangeCallback) {
-      onSelectionChangeCallback(null);
-    }
+    // Dispatch custom event for piece deselection
+    document.dispatchEvent(
+      new CustomEvent(PIECE_DESELECT, {
+        detail: { pieceId },
+      })
+    );
   }
 }
 
@@ -226,13 +243,6 @@ export function fixSelectedPieceOrientation() {
   }
 
   return true;
-}
-/**
- * Set callback for selection changes
- * @param {Function} callback - Callback function to call on selection change
- */
-export function setSelectionChangeCallback(callback) {
-  onSelectionChangeCallback = callback;
 }
 
 /**

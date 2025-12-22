@@ -8,10 +8,20 @@
 // - Returns the element for chaining.
 
 import { Point } from "../geometry/point.js";
+import { Rectangle } from "../geometry/rectangle.js";
 import { getPieceElement } from "../piece-renderer.js";
 import { Util } from "../utils/numeric-util.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "../game-table-controller.js";
+import {
+  PIECES_GENERATED,
+  PIECE_SELECT,
+  PIECE_DESELECT,
+  PIECE_DETACH_ANIMATION,
+  PIECE_LONG_PRESS_START,
+  PIECE_LONG_PRESS_END,
+} from "../constants/custom-events.js";
+import { registerGlobalEvent } from "../utils/event-util.js";
 
 // Display Constants
 const MIN_ZOOM = 0.1;
@@ -37,25 +47,29 @@ let pieceElementsMap = null;
 let debugOutlineWidth = 4;
 
 // Listen for pieces generation event to calculate debug outline width
-window.addEventListener("piecesGenerated", (event) => {
-  const totalPieces = event.detail.totalPieces || 20;
-  debugOutlineWidth = 8 * Math.sqrt(Math.sqrt(20 / totalPieces));
-});
+registerGlobalEvent(
+  PIECES_GENERATED,
+  (event) => {
+    const totalPieces = event.detail.totalPieces || 20;
+    debugOutlineWidth = 8 * Math.sqrt(Math.sqrt(20 / totalPieces));
+  },
+  window
+);
 
 // Register listeners for piece UI events
-document.addEventListener("piece:select", (event) => {
+registerGlobalEvent(PIECE_SELECT, (event) => {
   const { pieceId } = event.detail;
   const el = pieceElementsMap?.get(pieceId);
   if (el) el.classList.add("selected");
 });
 
-document.addEventListener("piece:deselect", (event) => {
+registerGlobalEvent(PIECE_DESELECT, (event) => {
   const { pieceId } = event.detail;
   const el = pieceElementsMap?.get(pieceId);
   if (el) el.classList.remove("selected");
 });
 
-document.addEventListener("piece:detach-animation", (event) => {
+registerGlobalEvent(PIECE_DETACH_ANIMATION, (event) => {
   const { pieceId } = event.detail;
   const el = pieceElementsMap?.get(pieceId);
   if (el) {
@@ -64,13 +78,13 @@ document.addEventListener("piece:detach-animation", (event) => {
   }
 });
 
-document.addEventListener("piece:long-press-start", (event) => {
+registerGlobalEvent(PIECE_LONG_PRESS_START, (event) => {
   const { pieceId } = event.detail;
   const el = pieceElementsMap?.get(pieceId);
   if (el) el.classList.add("long-press-active");
 });
 
-document.addEventListener("piece:long-press-end", (event) => {
+registerGlobalEvent(PIECE_LONG_PRESS_END, (event) => {
   const { pieceId } = event.detail;
   const el = pieceElementsMap?.get(pieceId);
   if (el) el.classList.remove("long-press-active");
@@ -88,6 +102,40 @@ export function initViewport() {
 // Get the current viewport element
 export function getViewport() {
   return piecesViewport;
+}
+
+/**
+ * Get current viewport state (zoom and pan)
+ * @returns {Object} Viewport state with zoomLevel, panX, panY
+ */
+export function getViewportState() {
+  return {
+    zoomLevel: zoomLevel,
+    panX: panOffset.x,
+    panY: panOffset.y,
+  };
+}
+
+/**
+ * Apply viewport state (zoom and pan)
+ * @param {Object} v - Viewport state with zoomLevel, panX, panY
+ */
+export function applyViewportState(v) {
+  setZoom(v.zoomLevel);
+  panOffset = new Point(v.panX, v.panY);
+  updateViewportTransform();
+  updateZoomDisplay();
+}
+
+/**
+ * Clear all piece outlines
+ */
+export function clearAllPieceOutlines() {
+  if (Util.isArrayEmpty(state.pieces)) return;
+
+  state.pieces.forEach((piece) => {
+    clearPieceOutline(piece);
+  });
 }
 
 /**
@@ -146,11 +194,16 @@ export function applyPieceZIndex(pieceId, zIndex) {
 
 /**
  * Apply grayscale filter to the viewport
- * @param {boolean} removeColor - Whether to apply grayscale (true) or remove it (false)
+ * Reads removeColor setting from state.deepLinkConfig or localStorage
  */
-export function applyViewportGrayscaleFilter(removeColor) {
+export function applyViewportGrayscaleFilter() {
   if (!piecesViewport) return;
-  if (removeColor) {
+  // Check state first, fallback to localStorage
+  const removeColorFromState = state.deepLinkConfig?.removeColor;
+  const removeColorFromStorage = localStorage.getItem("removeColor");
+  const removeColor = removeColorFromState || removeColorFromStorage;
+
+  if (removeColor === "y") {
     piecesViewport.style.filter = "grayscale(100%)";
   } else {
     piecesViewport.style.filter = "none";
@@ -434,6 +487,159 @@ export function drawPiece(tempPiece, nw, master) {
 
   ctx.restore();
   return canvas;
+}
+
+/**
+ * Ensure a rectangle (position + size) is visible in the viewport
+ * Adjusts zoom and pan as needed to fit the rectangle
+ * @param {Point} position - Top-left position of the rectangle in world coordinates
+ * @param {Point} size - Size of the rectangle
+ * @param {Object} options - Options including forceZoom flag
+ */
+export function ensureRectInView(position, size, options = {}) {
+  const { forceZoom = false } = options;
+  if (!Util.isElementValid(piecesContainer)) return;
+  const contW = piecesContainer.clientWidth;
+  const contH = piecesContainer.clientHeight;
+
+  // Helper to compute screen coords under current transform
+  function rectOnScreen() {
+    const scaledPosition = position.scaled(zoomLevel);
+    const screenPosition = panOffset.add(scaledPosition);
+    const scaledSize = size.scaled(zoomLevel);
+
+    const topLeft = screenPosition;
+    const bottomRight = screenPosition.add(scaledSize);
+    return { topLeft, bottomRight };
+  }
+
+  // Special overflow-based zoom logic when forceZoom is requested:
+  // We intentionally skip the initial pan so the raw overflow drives a proportional zoom-out.
+  let r = rectOnScreen();
+  if (forceZoom) {
+    const overflowLeft = Math.max(0, -r.topLeft.x);
+    const overflowRight = Math.max(0, r.bottomRight.x - contW);
+    const overflowTop = Math.max(0, -r.topLeft.y);
+    const overflowBottom = Math.max(0, r.bottomRight.y - contH);
+    const horizOverflow = overflowLeft + overflowRight;
+    const vertOverflow = overflowTop + overflowBottom;
+    const anyOverflow = horizOverflow > 0 || vertOverflow > 0;
+
+    if (anyOverflow) {
+      // Compute shrink factors based on total span = visible + overflow
+      const factorH = horizOverflow > 0 ? contW / (contW + horizOverflow) : 1;
+      const factorV = vertOverflow > 0 ? contH / (contH + vertOverflow) : 1;
+      const minFactor = Math.min(factorH, factorV);
+      if (minFactor < 0.999) {
+        // avoid micro adjustments
+        const targetZoom = Math.max(MIN_ZOOM, zoomLevel * minFactor);
+        if (targetZoom < zoomLevel - 0.0001) {
+          setZoom(targetZoom);
+          r = rectOnScreen();
+        }
+      }
+    }
+    // After potential zoom, clamp pan to fit the rectangle fully.
+    if (r.topLeft.x < 0) panOffset = panOffset.add(new Point(-r.topLeft.x, 0));
+    if (r.topLeft.y < 0) panOffset = panOffset.add(new Point(0, -r.topLeft.y));
+    if (r.bottomRight.x > contW)
+      panOffset = panOffset.sub(new Point(r.bottomRight.x - contW, 0));
+    if (r.bottomRight.y > contH)
+      panOffset = panOffset.sub(new Point(0, r.bottomRight.y - contH));
+    updateViewportTransform();
+    return; // Done for forceZoom path
+  }
+
+  // Normal path (not forceZoom): try panning first, then fallback to simple zoom-fit only if still overflowing.
+  let panAdjusted = false;
+  if (r.topLeft.x < 0) {
+    panOffset = panOffset.add(new Point(-r.topLeft.x, 0));
+    panAdjusted = true;
+  }
+  if (r.topLeft.y < 0) {
+    panOffset = panOffset.add(new Point(0, -r.topLeft.y));
+    panAdjusted = true;
+  }
+  if (r.bottomRight.x > contW) {
+    panOffset = panOffset.sub(new Point(r.bottomRight.x - contW, 0));
+    panAdjusted = true;
+  }
+  if (r.bottomRight.y > contH) {
+    panOffset = panOffset.sub(new Point(0, r.bottomRight.y - contH));
+    panAdjusted = true;
+  }
+  if (panAdjusted) {
+    updateViewportTransform();
+    r = rectOnScreen();
+  }
+  const overflow =
+    r.topLeft.x < 0 ||
+    r.topLeft.y < 0 ||
+    r.bottomRight.x > contW ||
+    r.bottomRight.y > contH;
+  if (overflow) {
+    // Fit logic (piece-centric) — only shrink if needed; no margin here.
+    const fitZoomW = contW / size.x;
+    const fitZoomH = contH / size.y;
+    const targetZoom = Math.min(zoomLevel, fitZoomW, fitZoomH);
+    if (targetZoom < zoomLevel - 0.0005) {
+      setZoom(Math.max(MIN_ZOOM, targetZoom));
+      r = rectOnScreen();
+      if (r.topLeft.x < 0)
+        panOffset = panOffset.add(new Point(-r.topLeft.x, 0));
+      if (r.topLeft.y < 0)
+        panOffset = panOffset.add(new Point(0, -r.topLeft.y));
+      if (r.bottomRight.x > contW)
+        panOffset = panOffset.sub(new Point(r.bottomRight.x - contW, 0));
+      if (r.bottomRight.y > contH)
+        panOffset = panOffset.sub(new Point(0, r.bottomRight.y - contH));
+      updateViewportTransform();
+      updateZoomDisplay();
+    }
+  }
+}
+
+/**
+ * Fit ALL current pieces into the visible viewport by:
+ * 1. Computing the bounding rectangle R of every piece's (position.x, position.y, width, height)
+ *    (rotation is ignored; we use the element's unrotated box which is usually adequate).
+ * 2. Determining the zoom that allows R to fully fit (preserving aspect ratio) inside the container.
+ *    This zoom may increase or decrease the current zoom but is clamped to [MIN_ZOOM, MAX_ZOOM].
+ * 3. Applying that zoom.
+ * 4. Positioning (pan) so that the top‑left of R aligns exactly with the top‑left of the viewport
+ *    (i.e. R.left = 0, R.top = 0 in screen coordinates).
+ * 5. Resetting the preserved initial margins so subsequent margin enforcement does not undo this alignment.
+ *
+ * Typical trigger: a moved piece exits the visible window bounds and the caller wants to refocus
+ * the entire puzzle instead of only the moved piece.
+ */
+export function fitAllPiecesInView() {
+  if (Util.isArrayEmpty(state.pieces)) return;
+  const contW = piecesContainer?.clientWidth || 0;
+  const contH = piecesContainer?.clientHeight || 0;
+  if (contW === 0 || contH === 0) return;
+
+  const bounds = gameTableController.calculatePiecesBounds(state.pieces);
+
+  if (!bounds) return;
+  const minX = bounds.topLeft.x;
+  const minY = bounds.topLeft.y;
+  const maxX = bounds.bottomRight.x;
+  const maxY = bounds.bottomRight.y;
+
+  if (!isFinite(minX) || !isFinite(minY) || !isFinite(maxX) || !isFinite(maxY))
+    return;
+  const rectW = Math.max(1, maxX - minX);
+  const rectH = Math.max(1, maxY - minY);
+
+  // Compute zoom to fit entire rectangle.
+  const fitZoom = Math.min(contW / rectW, contH / rectH);
+  const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, fitZoom));
+  setZoom(newZoom);
+
+  // Align top-left of bounding rect with viewport origin.
+  panOffset = new Point(-minX * newZoom, -minY * newZoom);
+  updateViewportTransform();
 }
 
 // Optional future ideas:
