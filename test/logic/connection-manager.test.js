@@ -133,7 +133,7 @@ describe("validateProfileAlignment", () => {
 
   it("should correctly calculate spread with negative values", () => {
     const distances = [-5, 0, 5];
-    const spread = 5 - (-5); // 10
+    const spread = 5 - -5; // 10
     const result = validateProfileAlignment(distances, 15);
     expect(result).toBe(true);
   });
@@ -436,12 +436,7 @@ describe("matchWaypoints", () => {
         { x: 100, y: 100 },
         { x: 900, y: 900 },
       ];
-      const result = matchWaypoints(
-        mWaypoints,
-        sWaypoints,
-        1000000,
-        1000000
-      );
+      const result = matchWaypoints(mWaypoints, sWaypoints, 1000000, 1000000);
       expect(result).not.toBeNull();
     });
 
