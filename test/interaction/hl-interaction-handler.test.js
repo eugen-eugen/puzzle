@@ -15,7 +15,7 @@ vi.mock("@/js/group-manager.js", () => ({
   },
 }));
 
-vi.mock("@/js/game-table-controller.js", () => ({
+vi.mock("@/js/logic/game-table-controller.js", () => ({
   gameTableController: {
     movePiece: vi.fn(),
     moveGroup: vi.fn(),
@@ -26,7 +26,7 @@ vi.mock("@/js/game-table-controller.js", () => ({
   },
 }));
 
-vi.mock("@/js/connection-manager.js", () => ({
+vi.mock("@/js/logic/connection-manager.js", () => ({
   handleDragEnd: vi.fn(),
 }));
 
@@ -39,8 +39,8 @@ vi.mock("@/js/game-engine.js", () => ({
 
 import { fitAllPiecesInView } from "@/js/ui/display.js";
 import { groupManager } from "@/js/group-manager.js";
-import { gameTableController } from "@/js/game-table-controller.js";
-import { handleDragEnd } from "@/js/connection-manager.js";
+import { gameTableController } from "@/js/logic/game-table-controller.js";
+import { handleDragEnd } from "@/js/logic/connection-manager.js";
 import { state } from "@/js/game-engine.js";
 import { Point } from "@/js/geometry/point.js";
 

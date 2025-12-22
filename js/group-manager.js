@@ -5,8 +5,8 @@
 
 import { Group } from "./model/group.js";
 import { state } from "./game-engine.js";
-import { updateProgress } from "./control-bar.js";
-import { gameTableController } from "./game-table-controller.js";
+import { updateProgress } from "./components/control-bar.js";
+import { gameTableController } from "./logic/game-table-controller.js";
 
 class GroupManager {
   constructor() {

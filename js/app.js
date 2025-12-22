@@ -21,7 +21,7 @@ import { Point } from "./geometry/point.js";
 import { Rectangle } from "./geometry/rectangle.js";
 import { Util } from "./utils/numeric-util.js";
 import { loadRemoteImageWithTimeout } from "./utils/image-util.js";
-import { gameTableController } from "./game-table-controller.js";
+import { gameTableController } from "./logic/game-table-controller.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
 import {
   initViewport,
@@ -55,7 +55,7 @@ import {
   pieceCountToSlider,
   setPersistence,
   updatePieceDisplay,
-} from "./control-bar.js";
+} from "./components/control-bar.js";
 import { showPictureGallery, hidePictureGallery } from "./picture-gallery.js";
 import { DRAG_END } from "./constants/custom-events.js";
 import { registerGlobalEvent } from "./utils/event-util.js";
@@ -198,31 +198,31 @@ async function bootstrap() {
   // Parse and save to state
   parseDeepLinkParams();
 
-  if (state.deepLinkConfig) {
+  if (state.deepLinkImageUrl) {
     deepLinkActive = true; // mark so persistence skip resume
     if (topBar) topBar.classList.add("deep-link-mode"); // Hide controls in deep link mode
 
     // Persist removeColor setting
     localStorage.setItem(
       "removeColor",
-      state.deepLinkConfig.removeColor ? "y" : "n"
+      state.deepLinkRemoveColor ? "y" : "n"
     );
 
     // Load remote image with timeout
-    loadRemoteImageWithTimeout(state.deepLinkConfig.imageUrl, {
+    loadRemoteImageWithTimeout(state.deepLinkImageUrl, {
       timeout: 10000,
       onLoad: async (img) => {
         setCurrentImage(img);
-        setCurrentImageSource(state.deepLinkConfig.imageUrl); // Store URL for persistence
-        setCurrentImageLicense(state.deepLinkConfig.license); // Store license if provided
+        setCurrentImageSource(state.deepLinkImageUrl); // Store URL for persistence
+        setCurrentImageLicense(state.deepLinkLicense); // Store license if provided
         // Map piece count to slider position
-        const sliderVal = pieceCountToSlider(state.deepLinkConfig.pieceCount);
+        const sliderVal = pieceCountToSlider(state.deepLinkPieceCount);
         // Use exported setter instead of accessing internal DOM element
         setSliderValue(sliderVal);
         updatePieceDisplay();
 
         // Apply grayscale filter if removeColor is set
-        applyViewportGrayscaleFilter(state.deepLinkConfig.removeColor);
+        applyViewportGrayscaleFilter(state.deepLinkRemoveColor);
 
         await generatePuzzle();
         // Reset deep link flag so persistence can start saving changes

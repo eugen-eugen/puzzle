@@ -6,7 +6,7 @@
 import { Point } from "../geometry/point.js";
 import { Rectangle } from "../geometry/rectangle.js";
 import { Graph, alg } from "graphlib";
-import { gameTableController } from "../game-table-controller.js";
+import { gameTableController } from "../logic/game-table-controller.js";
 
 export class Group {
   /**

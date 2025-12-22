@@ -7,11 +7,11 @@
 // Edge metadata (top/right/bottom/left) continues to use: +1 = bump (knob outward),
 // -1 = dent (cavity inward), 0 = flat (outer border).
 
-import { Piece } from "./model/piece.js";
-import { Lattice } from "./geometry/lattice.js";
-import { Point } from "./geometry/point.js";
-import { drawPiece } from "./ui/display.js";
-import { PIECES_GENERATED } from "./constants/custom-events.js";
+import { Piece } from "../model/piece.js";
+import { Lattice } from "../geometry/lattice.js";
+import { Point } from "../geometry/point.js";
+import { drawPiece } from "../ui/display.js";
+import { PIECES_GENERATED } from "../constants/custom-events.js";
 
 // ================================
 // Generation Constants (avoid magic numbers)

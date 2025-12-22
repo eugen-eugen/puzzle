@@ -14,12 +14,12 @@ import {
   setLastPanPosition,
   getLastPanPosition,
 } from "./display.js";
-import { handleDragMove } from "../connection-manager.js";
+import { handleDragMove } from "../logic/connection-manager.js";
 import { state } from "../game-engine.js";
 import { requestAutoSave } from "../persistence.js";
 import { groupManager } from "../group-manager.js";
 import * as hlHandler from "../interaction/hl-interaction-handler.js";
-import { gameTableController } from "../game-table-controller.js";
+import { gameTableController } from "../logic/game-table-controller.js";
 import {
   PIECE_SELECT,
   PIECE_DESELECT,

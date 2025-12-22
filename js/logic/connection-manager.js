@@ -4,12 +4,12 @@
 // Updated: 2025-11-13 - Removed legacy mergeWithGroup calls, fixed getGroupPieces() calls
 // CACHE BUST: 2025-11-13-14:30:00 - All getGroupPieces() calls eliminated
 
-import { state } from "./game-engine.js";
-import { applyPieceTransform, getZoomLevel } from "./ui/display.js";
+import { state } from "../game-engine.js";
+import { applyPieceTransform, getZoomLevel } from "../ui/display.js";
 import { gameTableController } from "./game-table-controller.js";
 // Geometry utilities (new Point-based refactor)
-import { Point, dist2 as pointDist2 } from "./geometry/point.js";
-import { groupManager } from "./group-manager.js";
+import { Point, dist2 as pointDist2 } from "../geometry/point.js";
+import { groupManager } from "../group-manager.js";
 
 // ================================
 // Module Constants

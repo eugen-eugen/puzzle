@@ -12,8 +12,8 @@ import {
 import { registerGlobalEvent } from "../utils/event-util.js";
 import { fitAllPiecesInView } from "../ui/display.js";
 import { groupManager } from "../group-manager.js";
-import { gameTableController } from "../game-table-controller.js";
-import { handleDragEnd } from "../connection-manager.js";
+import { gameTableController } from "../logic/game-table-controller.js";
+import { handleDragEnd } from "../logic/connection-manager.js";
 import { state } from "../game-engine.js";
 // Import drag monitor for gesture-based piece detachment functionality
 // This module registers event listeners globally and must be loaded

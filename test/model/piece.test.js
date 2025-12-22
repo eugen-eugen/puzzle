@@ -4,10 +4,10 @@ import { Piece } from "@/js/model/piece.js";
 import { Point } from "@/js/geometry/point.js";
 import { Rectangle } from "@/js/geometry/rectangle.js";
 import { DEFAULT_PIECE_SCALE } from "@/js/constants/piece-constants.js";
-import { gameTableController } from "@/js/game-table-controller.js";
+import { gameTableController } from "@/js/logic/game-table-controller.js";
 
 // Mock dependencies
-vi.mock("@/js/game-table-controller.js", () => ({
+vi.mock("@/js/logic/game-table-controller.js", () => ({
   gameTableController: {
     setPiecePosition: vi.fn(),
     getPiecePosition: vi.fn((id) => new Point(100, 200)),

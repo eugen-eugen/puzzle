@@ -1,7 +1,7 @@
 // picture-gallery.js - Picture selection gallery for game start
 import { t } from "./i18n.js";
 import { applyLicenseIfPresent, toGrayscale } from "./utils/image-util.js";
-import { handleImageUpload } from "./control-bar.js";
+import { handleImageUpload } from "./components/control-bar.js";
 import { state } from "./game-engine.js";
 
 const PICTURES_PATH = "pictures/";
@@ -197,28 +197,18 @@ export async function showPictureGallery(onSelect, onClose) {
       img.loading = "lazy";
 
       // Load image and add license if present
-      // Temporarily set license and removeColor in state for applyLicenseIfPresent
-      const originalDeepLinkConfig = state.deepLinkConfig;
-      state.deepLinkConfig = {
-        ...state.deepLinkConfig,
-        license: picture.license,
-        removeColor: picture.removeColor,
-      };
-
       applyLicenseIfPresent(picture.url, {
         centered: true,
         fontSizePercent: 4,
         minFontSize: 20,
         returnDataUrl: true,
+        removeColor: picture.removeColor,
+        license: picture.license,
       })
         .then((dataUrl) => {
           img.src = dataUrl;
-          // Restore original state
-          state.deepLinkConfig = originalDeepLinkConfig;
         })
         .catch((error) => {
-          // Restore original state on error
-          state.deepLinkConfig = originalDeepLinkConfig;
           console.warn(
             `[picture-gallery] Failed to add license to preview: ${error.message}`
           );

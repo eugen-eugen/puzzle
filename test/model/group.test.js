@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Group } from "@/js/model/group.js";
 
 // Mock dependencies
-vi.mock("@/js/game-table-controller.js", () => ({
+vi.mock("@/js/logic/game-table-controller.js", () => ({
   gameTableController: {
     arePiecesNeighbors: vi.fn((piece1, piece2) => {
       // Mock neighbor logic based on grid positions

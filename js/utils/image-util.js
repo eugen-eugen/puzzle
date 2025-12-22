@@ -59,24 +59,27 @@ export async function applyLicenseIfPresent(imageSource, options = {}) {
       ? await loadImage(imageSource)
       : imageSource;
 
-  // Read license from state (deep link config or current image license)
-  const licenseText = state.deepLinkConfig?.license || null;
-
-  // Return original image if no license text
-  if (!licenseText) {
-    return img;
-  }
-
   // Add license text to image
   const {
     centered = false,
     fontSizePercent = 2,
     minFontSize = 12,
     returnDataUrl = false,
+    removeColor = null,
+    license = null,
   } = options;
 
-  // Read removeColor from state
-  const removeColor = state.deepLinkConfig?.removeColor || "n";
+  // Read license from options (overrides state) or state
+  const licenseText = license ?? state.deepLinkLicense ?? null;
+
+  // Return original image if no license text
+  if (!licenseText) {
+    return img;
+  }
+
+  // Read removeColor from options (overrides state) or state
+  const removeColorValue =
+    removeColor ?? state.deepLinkRemoveColor ?? "n";
 
   const canvas = document.createElement("canvas");
   canvas.width = img.width;
@@ -84,7 +87,7 @@ export async function applyLicenseIfPresent(imageSource, options = {}) {
   const ctx = canvas.getContext("2d");
 
   // Apply grayscale filter if needed
-  if (removeColor === "y") {
+  if (removeColorValue === "y") {
     ctx.filter = "grayscale(100%)";
   }
 

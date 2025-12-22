@@ -12,7 +12,7 @@ import { Rectangle } from "../geometry/rectangle.js";
 import { getPieceElement } from "../piece-renderer.js";
 import { Util } from "../utils/numeric-util.js";
 import { state } from "../game-engine.js";
-import { gameTableController } from "../game-table-controller.js";
+import { gameTableController } from "../logic/game-table-controller.js";
 import {
   PIECES_GENERATED,
   PIECE_SELECT,
@@ -194,12 +194,12 @@ export function applyPieceZIndex(pieceId, zIndex) {
 
 /**
  * Apply grayscale filter to the viewport
- * Reads removeColor setting from state.deepLinkConfig or localStorage
+ * Reads removeColor setting from state or localStorage
  */
 export function applyViewportGrayscaleFilter() {
   if (!piecesViewport) return;
   // Check state first, fallback to localStorage
-  const removeColorFromState = state.deepLinkConfig?.removeColor;
+  const removeColorFromState = state.deepLinkRemoveColor;
   const removeColorFromStorage = localStorage.getItem("removeColor");
   const removeColor = removeColorFromState || removeColorFromStorage;
 

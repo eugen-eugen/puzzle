@@ -10,7 +10,7 @@ import {
   convertToPoints,
 } from "../geometry/geometry-utils.js";
 import { DEFAULT_PIECE_SCALE } from "../constants/piece-constants.js";
-import { gameTableController } from "../game-table-controller.js";
+import { gameTableController } from "../logic/game-table-controller.js";
 
 /**
  * Jigsaw puzzle piece class
