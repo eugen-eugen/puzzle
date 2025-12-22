@@ -13,7 +13,6 @@ import { registerGlobalEvent } from "../utils/event-util.js";
 import { fitAllPiecesInView } from "../ui/display.js";
 import { groupManager } from "../logic/group-manager.js";
 import { gameTableController } from "../logic/game-table-controller.js";
-import { handleDragEnd } from "../logic/connection-manager.js";
 import { state } from "../game-engine.js";
 // Import drag monitor for gesture-based piece detachment functionality
 // This module registers event listeners globally and must be loaded
@@ -146,8 +145,7 @@ export function onPieceDragEnded(pieceId, wentOutside) {
   const piece = findPiece(pieceId);
   if (!piece) return;
 
-  // Handle connection logic
-  handleDragEnd(piece, false);
+  // Connection logic is now handled via DRAG_END event in connection-manager
 
   if (wentOutside) {
     fitAllPiecesInView();

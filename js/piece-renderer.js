@@ -157,12 +157,7 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
 
   groupManager.initialize();
 
-  initConnectionManager({
-    getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
-    onHighlightChange: (pieceId, data) =>
-      uiManager.applyHighlight(pieceId, data),
-    getPieceElement: (id) => pieceElements.get(id),
-  });
+  initConnectionManager({});
 
   gameTableController.updateViewportArea(areaW, areaH);
   gameTableController.syncAllPositions();
@@ -218,11 +213,7 @@ export function renderPiecesAtPositions(container, pieces) {
   groupManager.initialize();
 
   initConnectionManager({
-    getPieceById: (id) => state.pieces.find((pp) => pp.id === id),
     tolerance: 900,
-    onHighlightChange: (pieceId, data) =>
-      uiManager.applyHighlight(pieceId, data),
-    getPieceElement: (id) => pieceElements.get(id),
   });
 
   gameTableController.updateViewportArea(areaW, areaH);

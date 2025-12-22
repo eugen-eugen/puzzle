@@ -14,7 +14,6 @@ import {
   setLastPanPosition,
   getLastPanPosition,
 } from "./display.js";
-import { handleDragMove } from "../logic/connection-manager.js";
 import { state } from "../game-engine.js";
 import { requestAutoSave } from "../persistence.js";
 import { groupManager } from "../logic/group-manager.js";
@@ -233,6 +232,7 @@ export class UIInteractionManager {
     document.dispatchEvent(
       new CustomEvent(DRAG_MOVE, {
         detail: {
+          piece: piece,
           x: event.client.x,
           y: event.client.y,
           timestamp: performance.now(),
@@ -283,7 +283,6 @@ export class UIInteractionManager {
 
     hlHandler.onPieceDragged(piece.id, new Point(deltaX, deltaY));
     this._checkBoundaries(element, piece);
-    handleDragMove(piece);
   }
 
   _onDragEnd(event) {
@@ -307,9 +306,10 @@ export class UIInteractionManager {
       element.removeAttribute("data-outside");
     }
 
+    const piece = state.pieces.find((p) => p.id === pieceId);
     document.dispatchEvent(
       new CustomEvent(DRAG_END, {
-        detail: { pieceId, wentOutside },
+        detail: { pieceId, wentOutside, piece },
       })
     );
   }

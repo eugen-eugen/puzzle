@@ -4,12 +4,18 @@
 // Updated: 2025-11-13 - Removed legacy mergeWithGroup calls, fixed getGroupPieces() calls
 // CACHE BUST: 2025-11-13-14:30:00 - All getGroupPieces() calls eliminated
 
-import { state } from "../game-engine.js";
-import { applyPieceTransform, getZoomLevel } from "../ui/display.js";
+import {
+  applyPieceTransform,
+  getZoomLevel,
+  applyHighlight as displayApplyHighlight,
+} from "../ui/display.js";
 import { gameTableController } from "./game-table-controller.js";
 // Geometry utilities (new Point-based refactor)
-import { Point, dist2 as pointDist2 } from "../geometry/point.js";
+import { dist2 as pointDist2 } from "../geometry/point.js";
 import { groupManager } from "./group-manager.js";
+import { DRAG_MOVE, DRAG_END } from "../constants/custom-events.js";
+import { registerGlobalEvent } from "../utils/event-util.js";
+import { state } from "../game-engine.js";
 
 // ================================
 // Module Constants
@@ -43,31 +49,27 @@ const CONFIG = {
   PROFILE_TOLERANCE: PROFILE_TOLERANCE_SQ,
 };
 
-let getPieceById = null;
-let onHighlightChange = () => {};
-let pieceElementsAccessor = null; // function(id) -> HTMLElement
-
 let currentHighlight = null; // Array of { pieceId, data } or null
 
 function sideCornerKeys(side) {
   switch (side) {
     case NORTH:
-      return [NORTHWEST, NORTHEAST];
+      return { first: NORTHWEST, second: NORTHEAST };
     case EAST:
-      return [NORTHEAST, SOUTHEAST];
+      return { first: NORTHEAST, second: SOUTHEAST };
     case SOUTH:
-      return [SOUTHEAST, SOUTHWEST];
+      return { first: SOUTHEAST, second: SOUTHWEST };
     case WEST:
-      return [SOUTHWEST, NORTHWEST];
+      return { first: SOUTHWEST, second: NORTHWEST };
     default:
-      return [];
+      return { first: null, second: null };
   }
 }
 
-function validateProfileAlignment(distances, profileTolerance) {
-  if (distances.length === 0) return false;
-  const maxDist = Math.max(...distances);
-  const minDist = Math.min(...distances);
+function validateProfileAlignment(distances2, profileTolerance) {
+  if (distances2.length === 0) return false;
+  const maxDist = Math.max(...distances2);
+  const minDist = Math.min(...distances2);
   const spread = maxDist - minDist;
   return spread <= profileTolerance;
 }
@@ -90,16 +92,17 @@ function matchWaypoints(
   mWaypoints,
   sWaypoints,
   positionTolerance,
-  profileTolerance
+  profileTolerance,
+  reversed = false
 ) {
   if (mWaypoints.length !== sWaypoints.length) return null;
 
   // Try direct ordering first
-  let distances = [];
+  let distances2 = [];
   let allMatch = true;
   for (let i = 0; i < mWaypoints.length; i++) {
     const d2 = pointDist2(mWaypoints[i], sWaypoints[i]);
-    distances.push(d2);
+    distances2.push(d2);
     if (d2 > positionTolerance) {
       allMatch = false;
       break;
@@ -107,26 +110,8 @@ function matchWaypoints(
   }
 
   if (allMatch) {
-    const profileValid = validateProfileAlignment(distances, profileTolerance);
-    return { reversed: false, distances, profileValid };
-  }
-
-  // Try reversed ordering
-  distances = [];
-  allMatch = true;
-  const reversedS = [...sWaypoints].reverse();
-  for (let i = 0; i < mWaypoints.length; i++) {
-    const d2 = pointDist2(mWaypoints[i], reversedS[i]);
-    distances.push(d2);
-    if (d2 > positionTolerance) {
-      allMatch = false;
-      break;
-    }
-  }
-
-  if (allMatch) {
-    const profileValid = validateProfileAlignment(distances, profileTolerance);
-    return { reversed: true, distances, profileValid };
+    const profileValid = validateProfileAlignment(distances2, profileTolerance);
+    return { reversed, distances2, profileValid };
   }
 
   return null;
@@ -145,8 +130,8 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
     if (!mSPoint) return; // border side, no connection possible
 
     const mCornerNames = sideCornerKeys(mLogicalSide);
-    const mwcA = movingWD.worldCorners[mCornerNames[0]];
-    const mwcB = movingWD.worldCorners[mCornerNames[1]];
+    const mwcA = movingWD.worldCorners[mCornerNames.first];
+    const mwcB = movingWD.worldCorners[mCornerNames.second];
     const mwS = movingWD.worldSPoints[mLogicalSide];
 
     ALL_SIDES.forEach((sLogicalSide) => {
@@ -154,8 +139,8 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
       if (!sSPoint) return; // border side, no connection possible
 
       const sCornerNames = sideCornerKeys(sLogicalSide);
-      const swcA = stationaryWD.worldCorners[sCornerNames[0]];
-      const swcB = stationaryWD.worldCorners[sCornerNames[1]];
+      const swcA = stationaryWD.worldCorners[sCornerNames.first];
+      const swcB = stationaryWD.worldCorners[sCornerNames.second];
       const swS = stationaryWD.worldSPoints[sLogicalSide];
 
       // Create waypoint arrays: [corner1, sidePoint, corner2]
@@ -165,66 +150,42 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
       // Test waypoint matching with both direct and reversed ordering
       // Validates: (1) position tolerance - absolute distance match
       //            (2) profile tolerance - parallel alignment consistency
-      const waypointMatch = matchWaypoints(
-        mWaypoints,
-        sWaypoints,
-        positionTolerance,
-        profileTolerance
-      );
+      const waypointMatch =
+        matchWaypoints(
+          mWaypoints,
+          sWaypoints,
+          positionTolerance,
+          profileTolerance
+        ) ||
+        matchWaypoints(
+          mWaypoints,
+          [...sWaypoints].reverse(),
+          positionTolerance,
+          profileTolerance,
+          true
+        );
 
       if (waypointMatch && waypointMatch.profileValid) {
         // Calculate aggregate score and determine corner mapping
-        const agg = waypointMatch.distances.reduce((sum, d) => sum + d, 0);
+        const agg = waypointMatch.distances2.reduce((sum, d) => sum + d, 0);
 
-        let stationaryCornerA,
-          stationaryCornerB,
-          stationaryCornerWorldA,
-          stationaryCornerWorldB;
+        let stationaryCornerA;
         if (waypointMatch.reversed) {
-          // Reversed ordering: sCornerNames[1] -> sCornerNames[0]
-          stationaryCornerA = sCornerNames[1];
-          stationaryCornerB = sCornerNames[0];
-          stationaryCornerWorldA = swcB;
-          stationaryCornerWorldB = swcA;
+          // Reversed ordering: second -> first
+          stationaryCornerA = sCornerNames.second;
         } else {
-          // Direct ordering: sCornerNames[0] -> sCornerNames[1]
-          stationaryCornerA = sCornerNames[0];
-          stationaryCornerB = sCornerNames[1];
-          stationaryCornerWorldA = swcA;
-          stationaryCornerWorldB = swcB;
+          // Direct ordering: first -> second
+          stationaryCornerA = sCornerNames.first;
         }
 
         if (!best || agg < best.score) {
-          // Debug: Log successful matches for rotated pieces
-          if (
-            (movingPiece.rotation !== 0 || stationaryPiece.rotation !== 0) &&
-            movingPiece.gridX === 0 &&
-            movingPiece.gridY === 0
-          ) {
-            console.log("[matchSides] Found match with rotation:", {
-              movingPiece: movingPiece.id,
-              stationaryPiece: stationaryPiece.id,
-              movingRotation: movingPiece.rotation,
-              stationaryRotation: stationaryPiece.rotation,
-              mLogicalSide,
-              sLogicalSide,
-              score: agg,
-            });
-          }
-
           best = {
             score: agg,
             stationaryPieceId: stationaryPiece.id,
-            movingSide: mLogicalSide,
-            stationarySide: sLogicalSide,
             mapping: {
-              movingCornerA: mCornerNames[0],
-              movingCornerB: mCornerNames[1],
+              movingCornerA: mCornerNames.first,
               stationaryCornerA,
-              stationaryCornerB,
             },
-            stationaryCornerWorldA,
-            stationaryCornerWorldB,
           };
         }
       }
@@ -234,13 +195,9 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
 }
 
 function findCandidate(movingPiece) {
-  if (!gameTableController) return null;
   const movingWD = movingPiece.worldData;
 
   // Adjust tolerance based on current zoom level to maintain consistent feel
-  const zoomLevel = getZoomLevel();
-  const adjustedTolerance =
-    CONFIG.CONNECTION_TOLERANCE / (zoomLevel * zoomLevel);
 
   // Calculate radius based on 1.5 times the longest side of the moving piece
   const bmpW = movingPiece.bitmap.width * movingPiece.scale;
@@ -256,16 +213,19 @@ function findCandidate(movingPiece) {
   let best = null;
   neighborIds.forEach((id) => {
     if (id === movingPiece.id) return;
-    const candidate = getPieceById(id);
-    if (!candidate) return;
+    const candidate = state.pieces.find((p) => p.id === id);
 
     // Skip pieces that are already in the same group as the moving piece
     const candidateGroup = groupManager.getGroupForPiece(candidate);
     const movingGroup = groupManager.getGroupForPiece(movingPiece);
     if (candidateGroup && movingGroup && candidateGroup === movingGroup) return;
 
-    const candidateWD = candidate.worldData;
-    const match = matchSides(movingPiece, candidate, movingWD, candidateWD);
+    const match = matchSides(
+      movingPiece,
+      candidate,
+      movingWD,
+      candidate.worldData
+    );
 
     if (match && (!best || match.score < best.score)) best = match;
   });
@@ -277,7 +237,7 @@ function applyHighlight(candidates) {
   if (!candidates || candidates.length === 0) {
     if (currentHighlight) {
       currentHighlight = null;
-      onHighlightChange(null, null);
+      displayApplyHighlight(null);
     }
     return;
   }
@@ -304,70 +264,32 @@ function applyHighlight(candidates) {
   }));
 
   // Pass array of piece IDs to highlight
-  onHighlightChange(pieceIds, candidates);
+  displayApplyHighlight(pieceIds);
 }
 
 function clearHighlight() {
   applyHighlight(null);
 }
 
-function finePlace(movingPiece, highlightData) {
-  if (!highlightData) return;
+function finePlace(movingPiece, connection) {
+  if (!connection) return;
   // Align first moving corner to stationary corner A
-  const movingCornerKey = highlightData.mapping.movingCornerA;
-  const stationaryCornerKey = highlightData.mapping.stationaryCornerA;
-  const movingWD = movingPiece.worldData;
-  const stationaryPiece = getPieceById(highlightData.stationaryPieceId);
+  const stationaryPiece = state.pieces.find(
+    (p) => p.id === connection.stationaryPieceId
+  );
   if (!stationaryPiece) return;
-  const stationaryWD = stationaryPiece.worldData;
-  const mWorldCorner = movingWD.worldCorners[movingCornerKey];
-  const sWorldCorner = stationaryWD.worldCorners[stationaryCornerKey];
 
-  const delta = sWorldCorner.sub(mWorldCorner);
+  const delta = stationaryPiece.worldData.worldCorners[
+    connection.mapping.stationaryCornerA
+  ].sub(movingPiece.worldData.worldCorners[connection.mapping.movingCornerA]);
 
-  // Get all pieces in the moving group (including the moving piece itself)
-  const movingGroupPieces = getMovingGroupPieces(movingPiece); // Apply translation to all pieces in the moving group
-  movingGroupPieces.forEach((piece) => {
-    // Use controller to move piece (position is now delegated)
-    if (gameTableController) {
-      gameTableController.movePiece(piece.id, delta);
-    }
-    if (pieceElementsAccessor) {
-      const el = pieceElementsAccessor(piece.id);
-      if (el) applyPieceTransform(piece);
-    }
-  });
-}
-
-function getMovingGroupPieces(movingPiece) {
-  // Use GroupManager - offensive programming
-  const group = groupManager.getGroup(movingPiece.groupId);
-  return group ? group.allPieces : [movingPiece];
-}
-
-function mergeGroups(pieceA, pieceB) {
-  // Use GroupManager for proper connectivity validation
-  if (!groupManager) {
-    console.error(
-      "[connectionManager] GroupManager not available - cannot merge groups"
-    );
-    return;
-  }
-
-  const success = groupManager.mergeGroups(pieceA, pieceB);
-
-  if (!success) {
-    console.error(
-      "[connectionManager] Group merge failed - pieces cannot be merged (likely connectivity violation)"
-    );
-    // No fallback - respect GroupManager's connectivity validation
+  // Move the entire group (even lone pieces belong to their own group)
+  if (gameTableController && movingPiece.groupId) {
+    gameTableController.moveGroup(movingPiece.groupId, delta);
   }
 }
 
 export function initConnectionManager(opts) {
-  getPieceById = opts.getPieceById;
-  onHighlightChange = opts.onHighlightChange || onHighlightChange;
-  pieceElementsAccessor = opts.getPieceElement || null;
   if (opts.tolerance != null) {
     CONFIG.CONNECTION_TOLERANCE = opts.tolerance;
     CONFIG.ALIGNMENT_TOLERANCE = opts.tolerance;
@@ -377,7 +299,9 @@ export function initConnectionManager(opts) {
   }
 }
 
-export function handleDragMove(movingPiece) {
+// Listen for drag move events
+registerGlobalEvent(DRAG_MOVE, (event) => {
+  const movingPiece = event.detail.piece;
   if (!movingPiece) return;
 
   // Get all border pieces from the moving group
@@ -397,9 +321,11 @@ export function handleDragMove(movingPiece) {
   }
 
   applyHighlight(candidates.length > 0 ? candidates : null);
-}
+});
 
-export function handleDragEnd(movingPiece, wasDetached = false) {
+// Listen for drag end events
+registerGlobalEvent(DRAG_END, (event) => {
+  const movingPiece = event.detail.piece;
   if (!movingPiece) return;
 
   // Get all border pieces from the moving group
@@ -425,18 +351,18 @@ export function handleDragEnd(movingPiece, wasDetached = false) {
 
     // Apply the best connection
     const bestConnection = connections[0];
-    const stationaryPiece = getPieceById(
-      bestConnection.candidate.stationaryPieceId
+    const stationaryPiece = state.pieces.find(
+      (p) => p.id === bestConnection.candidate.stationaryPieceId
     );
 
     if (stationaryPiece) {
       finePlace(bestConnection.movingPiece, bestConnection.candidate);
-      mergeGroups(bestConnection.movingPiece, stationaryPiece);
+      groupManager.mergeGroups(bestConnection.movingPiece, stationaryPiece);
     }
   }
 
   clearHighlight();
-}
+});
 
 export function getCurrentHighlight() {
   return currentHighlight;

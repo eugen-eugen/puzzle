@@ -26,9 +26,7 @@ vi.mock("@/js/logic/game-table-controller.js", () => ({
   },
 }));
 
-vi.mock("@/js/logic/connection-manager.js", () => ({
-  handleDragEnd: vi.fn(),
-}));
+vi.mock("@/js/logic/connection-manager.js", () => ({}));
 
 vi.mock("@/js/game-engine.js", () => ({
   state: {
@@ -40,7 +38,6 @@ vi.mock("@/js/game-engine.js", () => ({
 import { fitAllPiecesInView } from "@/js/ui/display.js";
 import { groupManager } from "@/js/logic/group-manager.js";
 import { gameTableController } from "@/js/logic/game-table-controller.js";
-import { handleDragEnd } from "@/js/logic/connection-manager.js";
 import { state } from "@/js/game-engine.js";
 import { Point } from "@/js/geometry/point.js";
 
@@ -199,7 +196,7 @@ describe("hl-interaction-handler", () => {
     it("should handle drag end with piece going outside", () => {
       hlHandler.onPieceDragEnded(1, true);
 
-      expect(handleDragEnd).toHaveBeenCalledWith(mockPieces[0], false);
+      // Connection logic now handled via DRAG_END event
 
       expect(fitAllPiecesInView).toHaveBeenCalled();
       expect(visualListeners.onEnsurePieceInView).not.toHaveBeenCalled();
@@ -208,7 +205,7 @@ describe("hl-interaction-handler", () => {
     it("should handle drag end with piece staying inside", () => {
       hlHandler.onPieceDragEnded(1, false);
 
-      expect(handleDragEnd).toHaveBeenCalledWith(mockPieces[0], false);
+      // Connection logic now handled via DRAG_END event
 
       expect(fitAllPiecesInView).not.toHaveBeenCalled();
       expect(visualListeners.onEnsurePieceInView).toHaveBeenCalledWith(1);
@@ -217,7 +214,7 @@ describe("hl-interaction-handler", () => {
     it("should handle non-existent piece gracefully", () => {
       hlHandler.onPieceDragEnded(999, false);
 
-      expect(handleDragEnd).not.toHaveBeenCalled();
+      // Connection logic now handled via DRAG_END event
     });
   });
 
