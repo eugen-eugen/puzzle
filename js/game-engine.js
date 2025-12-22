@@ -20,16 +20,16 @@ export const state = {
   groups: [],
 
   // Snap settings - proximity thresholds
-  snapNearPx: SNAP_NEAR_PX,   // Proximity threshold for near-snap visualization
+  snapNearPx: SNAP_NEAR_PX, // Proximity threshold for near-snap visualization
   snapReadyPx: SNAP_READY_PX, // Tighter threshold for actual snap readiness
 
   // Flag indicating if rotation is disabled for all pieces
   noRotate: false,
 
   // Deep link parameters from URL (set by parseDeepLinkParams() in url-util.js)
-  deepLinkImageUrl: null,     // URL of the image to load
-  deepLinkPieceCount: null,   // Number of pieces in puzzle
-  deepLinkNoRotate: "n",      // String version of rotation disabled flag ("y" | "n")
-  deepLinkRemoveColor: "n",   // Grayscale filter enabled flag ("y" | "n")
-  deepLinkLicense: null,      // License text to overlay on image
+  deepLinkImageUrl: null, // URL of the image to load
+  deepLinkPieceCount: null, // Number of pieces in puzzle
+  deepLinkNoRotate: "n", // String version of rotation disabled flag ("y" | "n")
+  deepLinkRemoveColor: "n", // Grayscale filter enabled flag ("y" | "n")
+  deepLinkLicense: null, // License text to overlay on image
 };

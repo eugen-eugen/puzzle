@@ -78,8 +78,7 @@ export async function applyLicenseIfPresent(imageSource, options = {}) {
   }
 
   // Read removeColor from options (overrides state) or state
-  const removeColorValue =
-    removeColor ?? state.deepLinkRemoveColor ?? "n";
+  const removeColorValue = removeColor ?? state.deepLinkRemoveColor ?? "n";
 
   const canvas = document.createElement("canvas");
   canvas.width = img.width;

@@ -203,10 +203,7 @@ async function bootstrap() {
     if (topBar) topBar.classList.add("deep-link-mode"); // Hide controls in deep link mode
 
     // Persist removeColor setting
-    localStorage.setItem(
-      "removeColor",
-      state.deepLinkRemoveColor ? "y" : "n"
-    );
+    localStorage.setItem("removeColor", state.deepLinkRemoveColor ? "y" : "n");
 
     // Load remote image with timeout
     loadRemoteImageWithTimeout(state.deepLinkImageUrl, {
