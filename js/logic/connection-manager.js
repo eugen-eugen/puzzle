@@ -9,7 +9,7 @@ import { applyPieceTransform, getZoomLevel } from "../ui/display.js";
 import { gameTableController } from "./game-table-controller.js";
 // Geometry utilities (new Point-based refactor)
 import { Point, dist2 as pointDist2 } from "../geometry/point.js";
-import { groupManager } from "../group-manager.js";
+import { groupManager } from "./group-manager.js";
 
 // ================================
 // Module Constants

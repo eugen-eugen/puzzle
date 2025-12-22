@@ -11,7 +11,7 @@ import {
 } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
 import { fitAllPiecesInView } from "../ui/display.js";
-import { groupManager } from "../group-manager.js";
+import { groupManager } from "../logic/group-manager.js";
 import { gameTableController } from "../logic/game-table-controller.js";
 import { handleDragEnd } from "../logic/connection-manager.js";
 import { state } from "../game-engine.js";

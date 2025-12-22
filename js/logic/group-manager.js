@@ -3,10 +3,10 @@
 // Integrates the Group class with existing puzzle logic
 // Handles group creation, merging, detachment, and connectivity validation
 
-import { Group } from "./model/group.js";
-import { state } from "./game-engine.js";
-import { updateProgress } from "./components/control-bar.js";
-import { gameTableController } from "./logic/game-table-controller.js";
+import { Group } from "../model/group.js";
+import { state } from "../game-engine.js";
+import { updateProgress } from "../components/control-bar.js";
+import { gameTableController } from "./game-table-controller.js";
 
 class GroupManager {
   constructor() {

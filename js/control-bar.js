@@ -1,22 +1,22 @@
 // controlBar.js - Control bar elements and event handlers
 // Centralizes all UI control elements including sliders, buttons, and their functionality
 
-import { generateJigsawPieces } from "../logic/jigsaw-generator.js";
-import { scatterInitialPieces } from "../piece-renderer.js";
-import { getSelectedPiece } from "../interaction/hl-interaction-handler.js";
-import { state } from "../game-engine.js";
-import { groupManager } from "../logic/group-manager.js";
-import { t } from "../i18n.js";
-import { isHelpOpen } from "./help.js";
-import { Point } from "../geometry/point.js";
-import { checkPuzzleCorrectness } from "../app.js";
+import { generateJigsawPieces } from "./jigsaw-generator.js";
+import { scatterInitialPieces } from "./piece-renderer.js";
+import { getSelectedPiece } from "./interaction/hl-interaction-handler.js";
+import { state } from "./game-engine.js";
+import { groupManager } from "./logic/group-manager.js";
+import { t } from "./i18n.js";
+import { isHelpOpen } from "./components/help.js";
+import { Point } from "./geometry/point.js";
+import { checkPuzzleCorrectness } from "./app.js";
 import {
   PIECE_NORTH,
   PIECE_ROTATE,
   PIECE_SELECT,
   PIECE_DESELECT,
-} from "../constants/custom-events.js";
-import { registerGlobalEvent } from "../utils/event-util.js";
+} from "./constants/custom-events.js";
+import { registerGlobalEvent } from "./utils/event-util.js";
 import {
   getViewport,
   setZoom,
@@ -26,10 +26,10 @@ import {
   ZOOM_STEP_FACTOR,
   WHEEL_ZOOM_IN_FACTOR,
   WHEEL_ZOOM_OUT_FACTOR,
-} from "../ui/display.js";
-import { isIndexedDBSupported, storeImageInDB } from "../indexed-db-storage.js";
-import { applyLicenseIfPresent } from "../utils/image-util.js";
-import { showPictureGallery } from "../picture-gallery.js";
+} from "./ui/display.js";
+import { isIndexedDBSupported, storeImageInDB } from "./indexed-db-storage.js";
+import { applyLicenseIfPresent } from "./utils/image-util.js";
+import { showPictureGallery } from "./picture-gallery.js";
 
 // ================================
 // Module Constants
@@ -213,13 +213,16 @@ async function generatePuzzle() {
     const viewport = getViewport();
     if (viewport) {
       // Temporarily set currentImageLicense in state
-      const originalLicense = state.deepLinkLicense;
-      state.deepLinkLicense = currentImageLicense;
+      const originalLicense = state.deepLinkConfig?.license;
+      if (!state.deepLinkConfig) {
+        state.deepLinkConfig = {};
+      }
+      state.deepLinkConfig.license = currentImageLicense;
 
       const displayImage = await applyLicenseIfPresent(currentImage);
 
       // Restore original license
-      state.deepLinkLicense = originalLicense;
+      state.deepLinkConfig.license = originalLicense;
       viewport.innerHTML = `
         <div class="original-image-container">
           <img src="${displayImage.src}" alt="${t(
@@ -467,13 +470,16 @@ async function handleImageUpload(file) {
     const viewport = getViewport();
     if (viewport) {
       // Temporarily set currentImageLicense in state
-      const originalLicense = state.deepLinkLicense;
-      state.deepLinkLicense = currentImageLicense;
+      const originalLicense = state.deepLinkConfig?.license;
+      if (!state.deepLinkConfig) {
+        state.deepLinkConfig = {};
+      }
+      state.deepLinkConfig.license = currentImageLicense;
 
       const displayImage = await applyLicenseIfPresent(currentImage);
 
       // Restore original license
-      state.deepLinkLicense = originalLicense;
+      state.deepLinkConfig.license = originalLicense;
       viewport.innerHTML = `
         <div class="original-image-container">
           <img src="${displayImage.src}" alt="${t(

@@ -6,18 +6,18 @@
 // Phase 2 (future): Migrate position storage entirely here & deprecate
 //                   Piece.isNeighbor / isAnyNeighbor.
 
-import { Point } from "../geometry/point.js";
-import { Rectangle } from "../geometry/rectangle.js";
-import { Util } from "../utils/numeric-util.js";
+import { Point } from "./geometry/point.js";
+import { Rectangle } from "./geometry/rectangle.js";
+import { Util } from "./utils/numeric-util.js";
 import {
   applyPieceTransform,
   applyPieceZIndex,
   setPieceElements,
-} from "../ui/display.js";
-import { groupManager } from "./group-manager.js";
-import { state } from "../game-engine.js";
+} from "./ui/display.js";
+import { groupManager } from "./logic/group-manager.js";
+import { state } from "./game-engine.js";
 // Spatial index now fully managed here
-import { SpatialIndex } from "../utils/spatial-index.js";
+import { SpatialIndex } from "./utils/spatial-index.js";
 
 /**
  * Contract (Phase 1)
