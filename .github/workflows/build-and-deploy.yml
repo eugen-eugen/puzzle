@@ -113,6 +113,7 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: w2025
           directory: dist
+          branch: main
 
   build-restricted:
     needs: test
