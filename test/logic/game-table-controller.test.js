@@ -120,9 +120,7 @@ describe("GameTableController", () => {
     });
 
     it("should apply scale factor", () => {
-      mockState.pieces = [
-        { imgRect: { width: 100, height: 100 }, scale: 0.5 },
-      ];
+      mockState.pieces = [{ imgRect: { width: 100, height: 100 }, scale: 0.5 }];
       // min(100, 100) * 0.5 = 50
       expect(controller._computeAvgPieceSize()).toBe(50);
     });
