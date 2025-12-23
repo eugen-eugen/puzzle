@@ -180,12 +180,6 @@ function updateProgress() {
     percent: percentage,
   });
 
-  // Automatically check puzzle correctness when all pieces are in one group
-  if (numberOfGroups === 1 && totalPieces > 0) {
-    // Use setTimeout to avoid blocking and ensure UI updates first
-    setTimeout(() => checkPuzzleCorrectness(), 100);
-  }
-
   // Trigger debounced auto-save if persistence is active
   if (persistence && persistence.requestAutoSave) {
     persistence.requestAutoSave();

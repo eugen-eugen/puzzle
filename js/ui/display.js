@@ -456,34 +456,71 @@ export function drawPiece(tempPiece, nw, master) {
   ctx.drawImage(master, clipX, clipY, clipW, clipH, dx, dy, clipW, clipH);
   ctx.restore();
 
+  // Generate border paths for outer edges (sides without side points)
+  // Use local coordinates since piece doesn't have worldData yet
+  const corners = tempPiece.corners;
+  const sPoints = tempPiece.sPoints;
+  const borderPaths = [];
+
+  if (!sPoints.north) {
+    const path = new Path2D();
+    path.moveTo(corners.nw.x, corners.nw.y);
+    path.lineTo(corners.ne.x, corners.ne.y);
+    borderPaths.push(path);
+  }
+
+  if (!sPoints.east) {
+    const path = new Path2D();
+    path.moveTo(corners.ne.x, corners.ne.y);
+    path.lineTo(corners.se.x, corners.se.y);
+    borderPaths.push(path);
+  }
+
+  if (!sPoints.south) {
+    const path = new Path2D();
+    path.moveTo(corners.se.x, corners.se.y);
+    path.lineTo(corners.sw.x, corners.sw.y);
+    borderPaths.push(path);
+  }
+
+  if (!sPoints.west) {
+    const path = new Path2D();
+    path.moveTo(corners.sw.x, corners.sw.y);
+    path.lineTo(corners.nw.x, corners.nw.y);
+    borderPaths.push(path);
+  }
+
   // Round the path vertices
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
 
-  // Dark shadow/bottom edge
-  ctx.strokeStyle = darkenColor(DEBUG_OUTLINE_COLOR, 0.4);
-  ctx.lineWidth = debugOutlineWidth;
-  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-  ctx.shadowBlur = 4;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
-  ctx.stroke(path);
+  // Draw each border path with 3D effect
+  borderPaths.forEach((borderPath) => {
+    // Dark shadow/bottom edge
+    ctx.strokeStyle = darkenColor(DEBUG_OUTLINE_COLOR, 0.4);
+    ctx.lineWidth = debugOutlineWidth;
+    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    ctx.stroke(borderPath);
 
-  // Reset shadow
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
+    // Reset shadow
+    ctx.shadowColor = "transparent";
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
 
-  // Main color
-  ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
-  ctx.lineWidth = debugOutlineWidth;
-  ctx.stroke(path);
+    // Main color
+    ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
+    ctx.lineWidth = debugOutlineWidth;
+    ctx.stroke(borderPath);
 
-  // Light highlight/top edge
-  ctx.strokeStyle = lightenColor(DEBUG_OUTLINE_COLOR, 0.3);
-  ctx.lineWidth = debugOutlineWidth / 2;
-  ctx.stroke(path);
+    // Light highlight/top edge
+    ctx.strokeStyle = lightenColor(DEBUG_OUTLINE_COLOR, 0.3);
+    ctx.lineWidth = debugOutlineWidth / 2;
+    ctx.stroke(borderPath);
+  });
 
   ctx.restore();
   return canvas;

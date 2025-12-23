@@ -493,6 +493,56 @@ export class GameTableController {
     return false;
   }
 
+  /**
+   * Generate border paths for sides of a piece that are outer edges of the picture
+   * (sides without side points - straight edges)
+   * @param {Piece} piece - The piece to generate borders for
+   * @returns {Path2D[]} Array of Path2D objects, one for each outer edge
+   */
+  generateBorders(piece) {
+    if (!piece) return [];
+
+    const borders = [];
+    const worldData = piece.worldData;
+    if (!worldData || !worldData.worldCorners || !worldData.worldSPoints) {
+      return borders;
+    }
+
+    const corners = worldData.worldCorners;
+    const sPoints = worldData.worldSPoints;
+
+    // Generate Path2D for each side that has no side point (outer edge)
+    if (!sPoints.north) {
+      const path = new Path2D();
+      path.moveTo(corners.nw.x, corners.nw.y);
+      path.lineTo(corners.ne.x, corners.ne.y);
+      borders.push(path);
+    }
+
+    if (!sPoints.east) {
+      const path = new Path2D();
+      path.moveTo(corners.ne.x, corners.ne.y);
+      path.lineTo(corners.se.x, corners.se.y);
+      borders.push(path);
+    }
+
+    if (!sPoints.south) {
+      const path = new Path2D();
+      path.moveTo(corners.se.x, corners.se.y);
+      path.lineTo(corners.sw.x, corners.sw.y);
+      borders.push(path);
+    }
+
+    if (!sPoints.west) {
+      const path = new Path2D();
+      path.moveTo(corners.sw.x, corners.sw.y);
+      path.lineTo(corners.nw.x, corners.nw.y);
+      borders.push(path);
+    }
+
+    return borders;
+  }
+
   // ----------------------------
   // Internal Helpers
   // ----------------------------
