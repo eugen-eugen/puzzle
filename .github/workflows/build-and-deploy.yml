@@ -98,7 +98,7 @@ jobs:
         run: npm run generate-license
 
       - name: Build application
-        run: npm run build -- --base /
+        run: npm run build:restricted -- --base /
 
       - name: Create Cloudflare Pages project if needed
         run: npx wrangler pages project create w2025 --production-branch main || true
