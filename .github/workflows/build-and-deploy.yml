@@ -77,6 +77,7 @@ jobs:
           git push origin release --force
 
   build-cloudflare:
+    needs: test
     runs-on: ubuntu-latest
     
     steps:
@@ -99,7 +100,7 @@ jobs:
         run: npm run build -- --base /
 
       - name: Create Cloudflare Pages project if needed
-        run: npx wrangler pages project create puzzle || true
+        run: npx wrangler pages project create puzzle --production-branch main || true
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
