@@ -264,19 +264,13 @@ class GroupManager {
    * @param {string} groupId - ID of the group to rotate
    * @param {number} angleDegrees - Rotation angle in degrees
    * @param {Piece} pivotPiece - Piece to use as rotation pivot
-   * @param {Function} getPieceElement - Function to get DOM element by piece ID
    */
-  rotateGroup(groupId, angleDegrees, pivotPiece, getPieceElement) {
+  rotateGroup(groupId, angleDegrees, pivotPiece) {
     const group = this.getGroup(groupId);
     if (!group) return false;
 
     try {
-      gameTableController.rotateGroup(
-        groupId,
-        angleDegrees,
-        pivotPiece,
-        getPieceElement
-      );
+      gameTableController.rotateGroup(groupId, angleDegrees, pivotPiece);
       return true;
     } catch (error) {
       console.error("[GroupManager] Error rotating group:", error);

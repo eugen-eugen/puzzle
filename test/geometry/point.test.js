@@ -324,6 +324,77 @@ describe("Point", () => {
     });
   });
 
+  describe("equals", () => {
+    it("should return true for points with same coordinates", () => {
+      const p1 = new Point(3, 4);
+      const p2 = new Point(3, 4);
+
+      expect(p1.equals(p2)).toBe(true);
+    });
+
+    it("should return true when comparing point with itself", () => {
+      const p = new Point(5, 10);
+
+      expect(p.equals(p)).toBe(true);
+    });
+
+    it("should return false for points with different x coordinates", () => {
+      const p1 = new Point(3, 4);
+      const p2 = new Point(5, 4);
+
+      expect(p1.equals(p2)).toBe(false);
+    });
+
+    it("should return false for points with different y coordinates", () => {
+      const p1 = new Point(3, 4);
+      const p2 = new Point(3, 6);
+
+      expect(p1.equals(p2)).toBe(false);
+    });
+
+    it("should return false for points with both different coordinates", () => {
+      const p1 = new Point(3, 4);
+      const p2 = new Point(5, 6);
+
+      expect(p1.equals(p2)).toBe(false);
+    });
+
+    it("should handle negative coordinates", () => {
+      const p1 = new Point(-3, -4);
+      const p2 = new Point(-3, -4);
+
+      expect(p1.equals(p2)).toBe(true);
+    });
+
+    it("should handle zero coordinates", () => {
+      const p1 = new Point(0, 0);
+      const p2 = new Point(0, 0);
+
+      expect(p1.equals(p2)).toBe(true);
+    });
+
+    it("should handle floating point coordinates", () => {
+      const p1 = new Point(3.14, 2.71);
+      const p2 = new Point(3.14, 2.71);
+
+      expect(p1.equals(p2)).toBe(true);
+    });
+
+    it("should be strict with floating point precision", () => {
+      const p1 = new Point(3.14, 2.71);
+      const p2 = new Point(3.14000001, 2.71);
+
+      expect(p1.equals(p2)).toBe(false);
+    });
+
+    it("should be symmetric", () => {
+      const p1 = new Point(5, 10);
+      const p2 = new Point(5, 10);
+
+      expect(p1.equals(p2)).toBe(p2.equals(p1));
+    });
+  });
+
   describe("toString", () => {
     it("should return string representation", () => {
       const p = new Point(3, 4);

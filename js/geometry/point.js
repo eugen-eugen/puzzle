@@ -95,6 +95,11 @@ export class Point {
     return dx * dx + dy * dy;
   }
 
+  // ---------------- Comparison ----------------
+  equals(p) {
+    return this.x === p.x && this.y === p.y;
+  }
+
   toString() {
     return `Point(${this.x}, ${this.y})`;
   }

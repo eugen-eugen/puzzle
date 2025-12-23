@@ -11,6 +11,11 @@ const CELL_SIZE_MULTIPLIER = 2.5; // avg piece size * multiplier
 
 export class SpatialIndex {
   constructor(boundsWidth, boundsHeight, avgPieceSize) {
+    // Store area dimensions
+    this.boundsWidth = boundsWidth;
+    this.boundsHeight = boundsHeight;
+    this.avgPieceSize = avgPieceSize;
+
     // Compute cell size from average piece size
     // Rough heuristic: MULTIPLIER * average size clamped to minimum
     this.cellSize = Math.max(
@@ -19,6 +24,42 @@ export class SpatialIndex {
     );
     this.grid = new SparseGrid();
     this.itemMap = new Map(); // id -> {col, row, point}
+  }
+
+  /**
+   * Check if the index needs to be recreated due to changed dimensions or piece size
+   * @param {number} boundsWidth - New bounds width
+   * @param {number} boundsHeight - New bounds height
+   * @param {number} avgPieceSize - New average piece size
+   * @returns {boolean} True if rebuild is needed
+   */
+  needsRebuild(boundsWidth, boundsHeight, avgPieceSize) {
+    return (
+      this.boundsWidth !== boundsWidth ||
+      this.boundsHeight !== boundsHeight ||
+      Math.abs(this.avgPieceSize - avgPieceSize) > 0.01
+    );
+  }
+
+  /**
+   * Update the index dimensions and rebuild if needed
+   * @param {number} boundsWidth - New bounds width
+   * @param {number} boundsHeight - New bounds height
+   * @param {number} avgPieceSize - New average piece size
+   * @returns {boolean} True if dimensions were updated
+   */
+  updateDimensions(boundsWidth, boundsHeight, avgPieceSize) {
+    if (this.needsRebuild(boundsWidth, boundsHeight, avgPieceSize)) {
+      this.boundsWidth = boundsWidth;
+      this.boundsHeight = boundsHeight;
+      this.avgPieceSize = avgPieceSize;
+      this.cellSize = Math.max(
+        MIN_CELL_SIZE,
+        Math.round(avgPieceSize * CELL_SIZE_MULTIPLIER)
+      );
+      return true;
+    }
+    return false;
   }
 
   _cellFor(point) {

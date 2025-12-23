@@ -51,13 +51,7 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
   const groupPieces = group ? group.allPieces : [piece];
 
   if (groupPieces.length > 1) {
-    const getPieceElement = (id) => pieceElements.get(id);
-    groupManager.rotateGroup(
-      piece.groupId,
-      rotationDegrees,
-      piece,
-      getPieceElement
-    );
+    groupManager.rotateGroup(piece.groupId, rotationDegrees, piece);
   } else {
     piece.rotate(rotationDegrees);
     el.style.transform = `rotate(${piece.rotation}deg)`;

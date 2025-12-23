@@ -61,6 +61,7 @@ export class Piece {
     // Visual representation
     this.bitmap = data.bitmap;
     this.path = data.path;
+    //TODO: scale has to do with display size, not with piece geometry
     this.scale = data.scale || DEFAULT_PIECE_SCALE;
 
     // Position and orientation

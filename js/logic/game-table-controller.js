@@ -18,6 +18,8 @@ import { groupManager } from "./group-manager.js";
 import { state } from "../game-engine.js";
 // Spatial index now fully managed here
 import { SpatialIndex } from "../utils/spatial-index.js";
+//TODO: this modul is only pretended to work with pieces, not html-elements directly. Maybe rename pieceElements to piecePositions or so?
+// TODO: a sign for this architecture debt is that the scale is still stored in Piece, even though it has to do with display size, not piece geometry.
 
 /**
  * Contract (Phase 1)
@@ -37,45 +39,16 @@ export class GameTableController {
     this._piecePositions = new Map(); // id -> Point
 
     // worldData cache for pieces
-    this._worldDataCache = new Map(); // id -> { data, lastPositionX, lastPositionY, lastRotation, lastScale }
+    this._worldDataCache = new Map(); // id -> { data, lastPosition, lastRotation, lastScale }
 
     // Z-index management
     this.maxZIndex = 0;
 
-    // Cached area dimensions for spatial index initialization
-    this._indexAreaW = null;
-    this._indexAreaH = null;
-    this._lastIndexSignature = null; // pieceCount|avgSize|areaWxH for avoiding redundant rebuilds
-
     // Initial bootstrap (may be empty if pieces loaded later)
-    this._bootstrapPositions();
-  }
-
-  // ----------------------------
-  // Initialization
-  // ----------------------------
-  _bootstrapPositions() {
-    if (!state || !state.pieces) return;
-    state.pieces.forEach((p) => {
-      const position = this.getPiecePosition(p.id);
-      if (position instanceof Point) {
-        // Position already set during Piece construction
-        return;
-      }
-      // Fallback: if position not yet registered, use stored value
-      if (p.displayX !== undefined && p.displayY !== undefined) {
-        this._piecePositions.set(p.id, new Point(p.displayX, p.displayY));
-      }
-    });
-  }
-
-  // Full reset & rebuild (used when resuming game or regenerating pieces)
-  resetPositions() {
-    this._piecePositions.clear();
-    this._bootstrapPositions();
   }
 
   // Sync (non-destructive): update entries for existing pieces; add missing ones
+  //TODO: somekind odd, that we don't know about not positioned pieces here?
   syncAllPositions() {
     if (!state || !state.pieces) return;
     state.pieces.forEach((p) => {
@@ -86,25 +59,8 @@ export class GameTableController {
       }
     });
     // Auto manage spatial index lifecycle (create/rebuild if needed)
-    this._autoManageSpatialIndex();
-  }
-
-  // Register a single piece (called from Piece constructor)
-  registerPiece(piece) {
-    if (!piece) return;
-    // Position is already set via setPiecePosition in Piece constructor
-    // Ensure index exists or updated appropriately
-    const hadIndex = !!this.spatialIndex;
-    this._autoManageSpatialIndex();
-    if (hadIndex && this.spatialIndex) {
-      this._updateSpatialIndexFor(piece.id);
-    }
-  }
-
-  attachSpatialIndex() {
-    console.warn(
-      "GameTableController.attachSpatialIndex is deprecated – spatial index is internally managed."
-    );
+    // Pass null dimensions to preserve existing or skip if not yet initialized
+    this._autoManageSpatialIndex(null, null);
   }
 
   /**
@@ -126,10 +82,8 @@ export class GameTableController {
     const piece = state.pieces?.find((p) => p.id === pieceId);
     if (!piece) return;
 
-    const group = groupManager.getGroupForPiece(piece);
-    if (!group) return; // Should never happen - every piece belongs to a group
-
-    const piecesToUpdate = group.allPieces;
+    const group = groupManager.getGroup(piece.groupId);
+    const piecesToUpdate = group ? group.allPieces : [piece];
 
     // Increment maxZIndex to get a new layer on top
     this.maxZIndex++;
@@ -148,8 +102,6 @@ export class GameTableController {
    * Called when loading a saved game
    */
   initializeMaxZIndex() {
-    if (!state?.pieces) return;
-
     this.maxZIndex = 0;
     state.pieces.forEach((p) => {
       if (p.zIndex && p.zIndex > this.maxZIndex) {
@@ -162,10 +114,8 @@ export class GameTableController {
   // Spatial Index Lifecycle (centralized)
   // ----------------------------
   updateViewportArea(areaW, areaH) {
-    this._indexAreaW = areaW;
-    this._indexAreaH = areaH;
-    // Force recreation if dimensions changed or index missing
-    this._autoManageSpatialIndex(true);
+    // Create or update spatial index with new dimensions
+    this._autoManageSpatialIndex(areaW, areaH);
   }
 
   _computeAvgPieceSize() {
@@ -180,30 +130,29 @@ export class GameTableController {
     );
   }
 
-  _autoManageSpatialIndex(forceRecreate = false) {
-    // Need area and pieces
-    if (this._indexAreaW == null || this._indexAreaH == null) return;
+  _autoManageSpatialIndex(areaW = null, areaH = null) {
+    // Need area dimensions and pieces
+    if (areaW == null || areaH == null) {
+      // If no dimensions provided, can't create/update index
+      if (!this.spatialIndex) return;
+      // Keep existing index if already created
+      areaW = this.spatialIndex.boundsWidth;
+      areaH = this.spatialIndex.boundsHeight;
+    }
+
     if (!state || !state.pieces || state.pieces.length === 0) {
       this.spatialIndex = null;
-      this._lastIndexSignature = null;
       return;
     }
-    const pieceCount = state.pieces.length;
+
     const avgSize = this._computeAvgPieceSize();
-    const signature = `${pieceCount}|${avgSize.toFixed(2)}|${
-      this._indexAreaW
-    }x${this._indexAreaH}`;
-    const needsCreate = !this.spatialIndex;
-    const signatureChanged = this._lastIndexSignature !== signature;
-    if (forceRecreate || needsCreate || signatureChanged) {
-      this.spatialIndex = new SpatialIndex(
-        this._indexAreaW,
-        this._indexAreaH,
-        avgSize
-      );
+
+    if (!this.spatialIndex) {
+      this.spatialIndex = new SpatialIndex(areaW, areaH, avgSize);
       this._rebuildSpatialIndex();
-      this._lastIndexSignature = signature;
-      return;
+    } else if (this.spatialIndex.updateDimensions(areaW, areaH, avgSize)) {
+      // Dimensions changed, rebuild with new dimensions
+      this._rebuildSpatialIndex();
     }
     // Otherwise incremental updates handled per piece on mutation
   }
@@ -213,9 +162,7 @@ export class GameTableController {
     const items = [];
     state.pieces.forEach((p) => {
       const el = this._getElement(p.id);
-      const center = p.getCenter
-        ? p.getCenter(el)
-        : this.getPiecePosition(p.id);
+      const center = this.getCenter(p, el);
       if (center) items.push({ id: p.id, position: center });
     });
     this.spatialIndex.rebuild(items);
@@ -234,42 +181,35 @@ export class GameTableController {
    * @returns {Object} {worldCorners, worldSPoints}
    */
   getWorldData(piece) {
-    const pieceId = piece.id;
-    const currentPosition = this.getPiecePosition(pieceId);
+    const currentPosition = this.getPiecePosition(piece.id);
 
-    if (!currentPosition || !(currentPosition instanceof Point)) {
+    if (!currentPosition) {
       // Fallback for pieces not yet initialized
       return { worldCorners: {}, worldSPoints: {} };
     }
 
-    const currentRotation = piece.rotation;
-    const currentScale = piece.scale;
-
     // Get cached data
-    let cached = this._worldDataCache.get(pieceId);
+    let cached = this._worldDataCache.get(piece.id);
 
     // Check if cache is valid
     const positionChanged =
-      !cached ||
-      currentPosition.x !== cached.lastPositionX ||
-      currentPosition.y !== cached.lastPositionY;
+      !cached || !currentPosition.equals(cached.lastPosition);
 
     const otherPropsChanged =
       cached &&
-      (currentRotation !== cached.lastRotation ||
-        currentScale !== cached.lastScale);
+      (piece.rotation !== cached.lastRotation ||
+        piece.scale !== cached.lastScale);
 
     // Invalidate and recompute if needed
     if (!cached || positionChanged || otherPropsChanged) {
       const worldData = this._computeWorldDataInternal(piece);
       cached = {
         data: worldData,
-        lastPositionX: currentPosition.x,
-        lastPositionY: currentPosition.y,
-        lastRotation: currentRotation,
-        lastScale: currentScale,
+        lastPosition: currentPosition.clone(),
+        lastRotation: piece.rotation,
+        lastScale: piece.scale,
       };
-      this._worldDataCache.set(pieceId, cached);
+      this._worldDataCache.set(piece.id, cached);
     }
 
     return cached.data;
@@ -315,6 +255,7 @@ export class GameTableController {
    * @param {Object} piece - The piece object
    * @returns {Object} {worldCorners, worldSPoints}
    */
+  //TODO: worldData have to to with display size, not with piece geometry. Maybe move scale out of Piece?
   _computeWorldDataInternal(piece) {
     // Requires: piece.bitmap.width/height, position from controller, piece.rotation, piece.scale
     const scale = piece.scale;
@@ -334,18 +275,17 @@ export class GameTableController {
     const canvasTopLeft = position.sub(offset);
 
     // Pivot point for rotation should be the visual center of the piece
-    const pivot = piece.getCenter();
+    const pivot = this.getCenter(piece);
 
     const toCanvasLocalPoint = (pt) =>
       pt.sub(boundingFrame.topLeft).scaled(scale);
 
     // Corners
-    const c = piece.corners;
     const cornersLocal = {
-      nw: toCanvasLocalPoint(c.nw),
-      ne: toCanvasLocalPoint(c.ne),
-      se: toCanvasLocalPoint(c.se),
-      sw: toCanvasLocalPoint(c.sw),
+      nw: toCanvasLocalPoint(piece.corners.nw),
+      ne: toCanvasLocalPoint(piece.corners.ne),
+      se: toCanvasLocalPoint(piece.corners.se),
+      sw: toCanvasLocalPoint(piece.corners.sw),
     };
 
     const worldCorners = {};
@@ -375,12 +315,12 @@ export class GameTableController {
   }
 
   setPiecePosition(pieceId, position) {
-    if (!(position instanceof Point)) {
-      throw new Error("GameTableController.setPiecePosition expects Point");
-    }
     this._piecePositions.set(pieceId, position.clone());
     this._updateSpatialIndexFor(pieceId);
-    this._applyDomPosition(pieceId);
+    const piece = this._findPiece(pieceId);
+    if (piece) {
+      applyPieceTransform(piece);
+    }
   }
 
   // ----------------------------
@@ -389,18 +329,9 @@ export class GameTableController {
   movePiece(pieceId, delta) {
     const current = this.getPiecePosition(pieceId);
     if (!current) return;
-    const next = current.add(delta);
-    this.setPiecePosition(pieceId, next);
+    this.setPiecePosition(pieceId, current.add(delta));
   }
 
-  /**
-   * Move multiple pieces by the same delta (batch operation)
-   * @param {number[]} pieceIds - Array of piece IDs
-   * @param {Point} delta - Movement delta
-   */
-  movePieces(pieceIds, delta) {
-    pieceIds.forEach((id) => this.movePiece(id, delta));
-  }
   /**
    * Set piece position by specifying its center point
    * @param {number} pieceId - Piece ID
@@ -416,32 +347,18 @@ export class GameTableController {
     const h = element.offsetHeight;
 
     const boundingFrame = piece.calculateBoundingFrame();
-    const scale = piece.scale || 0.35;
+    const scale = piece.scale;
 
     const canvasCenter = new Point(w / 2, h / 2);
     const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
     const offset = scaledCenterOffset.sub(canvasCenter);
 
-    // getCenter() returns: position.sub(offset).add(canvasCenter)
-    // So to get position from centerPoint: centerPoint.sub(canvasCenter).add(offset)
-    const position = centerPoint.sub(canvasCenter).add(offset);
-    this.setPiecePosition(pieceId, position);
+    this.setPiecePosition(pieceId, centerPoint.sub(canvasCenter).add(offset));
   }
   moveGroup(groupId, delta) {
     const group = groupManager.getGroup(groupId);
     if (!group) return;
     group.allPieces.forEach((p) => this.movePiece(p.id, delta));
-  }
-
-  // High-level drag orchestration
-  dragMove(pieceId, delta, { detached = false } = {}) {
-    const piece = this._findPiece(pieceId);
-    if (!piece) return;
-    if (detached || !piece.groupId) {
-      this.movePiece(pieceId, delta);
-    } else {
-      this.moveGroup(piece.groupId, delta);
-    }
   }
 
   // ----------------------------
@@ -451,34 +368,30 @@ export class GameTableController {
     const piece = this._findPiece(pieceId);
     if (!piece) return;
     piece.rotate(angleDegrees);
-    const el = this._getElement(pieceId);
-    if (el) {
-      el.style.transform = `rotate(${piece.rotation}deg)`;
-    }
+    applyPieceTransform(piece);
   }
 
-  rotateGroup(groupId, angleDegrees, pivotPiece, getPieceElementFn) {
+  rotateGroup(groupId, angleDegrees, pivotPiece) {
     const group = groupManager.getGroup(groupId);
     if (!group || group.isEmpty()) return;
 
-    const getPieceElement = getPieceElementFn || ((id) => this._getElement(id));
-    const pivotEl = getPieceElement(pivotPiece.id);
+    const pivotEl = this._getElement(pivotPiece.id);
     if (!pivotEl) return;
 
     // Use the pivot piece's visual center as the rotation point
-    const pivot = pivotPiece.getCenter(pivotEl);
+    const pivot = this.getCenter(pivotPiece, pivotEl);
 
     group.allPieces.forEach((piece) => {
       if (!piece) return;
 
-      const pieceEl = getPieceElement(piece.id);
+      const pieceEl = this._getElement(piece.id);
       if (!pieceEl) return;
 
       // Rotate the piece itself
       piece.rotate(angleDegrees);
 
       // Get the current visual center of the piece
-      const preCenter = piece.getCenter(pieceEl);
+      const preCenter = this.getCenter(piece, pieceEl);
 
       // Rotate the center around the pivot
       const rotatedCenter = preCenter.rotatedAroundDeg(pivot, angleDegrees);
@@ -499,12 +412,12 @@ export class GameTableController {
     return this.spatialIndex.queryRadius(centerPoint, radius);
   }
 
-  rotatePieceOrGroup(pieceId, angleDegrees, getPieceElementFn) {
+  rotatePieceOrGroup(pieceId, angleDegrees) {
     const piece = this._findPiece(pieceId);
     if (!piece) return;
     const group = groupManager.getGroup(piece.groupId);
     if (group && group.size() > 1) {
-      this.rotateGroup(group.id, angleDegrees, piece, getPieceElementFn);
+      this.rotateGroup(group.id, angleDegrees, piece);
     } else {
       this.rotatePiece(pieceId, angleDegrees);
     }
@@ -556,9 +469,8 @@ export class GameTableController {
     if (!cA || !cB) return false;
 
     // Dynamic tolerance: base on average scaled bitmap dimension (allows for small float drift)
-    const scaleA = pieceA.scale || 0.35;
-    const scaleB = pieceB.scale || 0.35;
-    const avgScale = (scaleA + scaleB) * 0.5;
+
+    const avgScale = (pieceA.scale + pieceB.scale) * 0.5;
     // Empirical: 5 was too strict after center-based transform; widen window.
     const TOL = 18 * avgScale + 4; // ~10-11px at 0.35 scale, larger if scale grows
 
@@ -592,22 +504,13 @@ export class GameTableController {
     return this.pieceElements ? this.pieceElements.get(id) : null;
   }
 
-  _applyDomPosition(pieceId) {
-    const el = this._getElement(pieceId);
-    const piece = this._findPiece(pieceId);
-    if (el && piece) {
-      // Use unified transform application (accounts for true visual center)
-      applyPieceTransform(piece);
-    }
-  }
-
   _updateSpatialIndexFor(pieceId) {
     if (!this.spatialIndex) return;
     const piece = this._findPiece(pieceId);
     if (!piece) return;
     const el = this._getElement(pieceId);
-    // Prefer geometric center via piece.getCenter (uses bounding frame + rotation)
-    const centerPoint = piece.getCenter(el);
+    // Prefer geometric center via this.getCenter (uses bounding frame + rotation)
+    const centerPoint = this.getCenter(piece, el);
     this.spatialIndex.update({ id: piece.id, position: centerPoint });
   }
 }
