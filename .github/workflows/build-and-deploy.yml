@@ -60,7 +60,6 @@ jobs:
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           projectName: roll
           directory: dist
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy to release branch
         run: |
