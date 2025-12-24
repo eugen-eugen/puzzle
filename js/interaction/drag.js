@@ -6,31 +6,6 @@ import {
 } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
 
-/**
- * DragMonitor analyzes pointer motion during puzzle piece dragging to detect shuffle/shake gestures.
- *
- * Purpose in the game:
- * Enables intuitive piece detachment from groups through a natural shuffle gesture (rapid back-and-forth
- * motion). This provides a device-independent alternative to keyboard modifiers (Shift) or touch-specific
- * gestures (two-finger drag, long press).
- *
- * How it works:
- * - Tracks the last 10 pointer positions during a drag operation
- * - Calculates path curvature: ratio of total path length to direct displacement
- * - Straight drag: curvature ≈ 1.0
- * - Shuffle/shake motion: curvature > 3.5 (indicates back-and-forth movement)
- * - Triggers registered callbacks when curvature threshold is exceeded
- *
- * The curvature metric is device-independent and works consistently across different screen
- * resolutions, pixel densities, and input devices (mouse, trackpad, touchscreen).
- *
- * @example
- * // Register callback for piece detachment
- * dragMonitor.registerCurvatureCallback(3.5, (data) => {
- *   console.log(`Shuffle detected! Curvature: ${data.curvature}`);
- *   detachPieceFromGroup(piece);
- * });
- */
 export class DragMonitor {
   constructor() {
     // Position tracking state
@@ -169,26 +144,6 @@ export class DragMonitor {
     return this.currentCurvature;
   }
 
-  /**
-   * Register a callback to be called when curvature exceeds threshold
-   *
-   * Use this to detect shuffle/shake gestures for piece detachment or other game mechanics.
-   * The callback is debounced to 100ms to prevent multiple rapid triggers.
-   *
-   * @param {number} threshold - Curvature threshold (recommended: 3.5 for shuffle detection)
-   *   - Lower values (2-3) = more sensitive, may trigger on tight curves
-   *   - Higher values (4-5) = less sensitive, requires more pronounced shuffling
-   * @param {Function} callback - Function to call when threshold is exceeded
-   *   Receives object: {curvature, threshold, positionCount}
-   * @returns {Function} Unregister function to remove this callback
-   *
-   * @example
-   * const unregister = dragMonitor.registerCurvatureCallback(3.5, (data) => {
-   *   console.log(`Shuffle detected! Curvature: ${data.curvature.toFixed(2)}`);
-   *   detachPieceFromGroup(currentPiece);
-   * });
-   * // Later: unregister() to remove the callback
-   */
   registerCurvatureCallback(threshold, callback) {
     if (typeof threshold !== "number" || threshold <= 0) {
       console.warn("[DragMonitor] Invalid curvature threshold:", threshold);

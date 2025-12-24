@@ -40,7 +40,6 @@ import {
 } from "./ui/display.js";
 import {
   initControlBar,
-  updateProgress,
   generatePuzzle,
   getSliderValue,
   setSliderValue,
@@ -59,6 +58,7 @@ import {
 import { showPictureGallery, hidePictureGallery } from "./picture-gallery.js";
 import { DRAG_END } from "./constants/custom-events.js";
 import { registerGlobalEvent } from "./utils/event-util.js";
+import { PUZZLE_STATE_CHANGED } from "./constants/custom-events.js";
 import { parseDeepLinkParams } from "./utils/url-util.js";
 import { initHelp } from "./components/help.js";
 
@@ -277,7 +277,11 @@ async function bootstrap() {
         viewport.innerHTML = "";
         scatterInitialPieces(viewport, state.pieces);
       }
-      updateProgress();
+      document.dispatchEvent(
+        new CustomEvent(PUZZLE_STATE_CHANGED, {
+          detail: { action: "restored" },
+        })
+      );
     },
     renderPiecesFromState: () => {
       const viewport = getViewport();
@@ -285,14 +289,23 @@ async function bootstrap() {
         viewport.innerHTML = "";
         renderPiecesAtPositions(viewport, state.pieces);
       }
-      updateProgress();
+      document.dispatchEvent(
+        new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "loaded" } })
+      );
       // Sync controller after rendering existing positions
       gameTableController.syncAllPositions();
     },
-    markDirtyHook: () => updateProgress(),
+    markDirtyHook: () =>
+      document.dispatchEvent(
+        new CustomEvent(PUZZLE_STATE_CHANGED, {
+          detail: { action: "restored" },
+        })
+      ),
     showResumePrompt: showResumeModal,
     afterDiscard: () => {
-      updateProgress();
+      document.dispatchEvent(
+        new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "cleared" } })
+      );
       // Show picture gallery when user selects "new session" (unless in deep link mode)
       if (!deepLinkActive) {
         showPictureGallery((deepLinkUrl) => {

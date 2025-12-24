@@ -1,7 +1,6 @@
 // pieceRenderer.js - render real jigsaw piece bitmaps with interact.js
 import { state } from "./game-engine.js";
 import { initConnectionManager } from "./logic/connection-manager.js";
-import { updateProgress } from "./components/control-bar.js";
 import { Point } from "./geometry/point.js";
 import { applyPieceTransform } from "./ui/display.js";
 import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
@@ -51,7 +50,7 @@ function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
   const groupPieces = group ? group.allPieces : [piece];
 
   if (groupPieces.length > 1) {
-    groupManager.rotateGroup(piece.groupId, rotationDegrees, piece);
+    gameTableController.rotateGroup(piece.groupId, rotationDegrees, piece);
   } else {
     piece.rotate(rotationDegrees);
     el.style.transform = `rotate(${piece.rotation}deg)`;
@@ -222,50 +221,6 @@ function getGroupPieces(piece) {
   // Use GroupManager - offensive programming
   const group = groupManager.getGroup(piece.groupId);
   return group ? group.allPieces : [piece];
-}
-
-function detachPieceFromGroup(piece) {
-  const oldGroupId = piece.groupId;
-
-  console.debug(
-    "[pieceRenderer] Detaching piece",
-    piece.id,
-    "from group",
-    oldGroupId
-  );
-
-  // Create a new unique group for this piece using GroupManager
-  const newGroup = groupManager.detachPiece(piece);
-  if (!newGroup) {
-    console.error(
-      "[pieceRenderer] GroupManager detachment failed - piece cannot be detached"
-    );
-    return; // Exit early if detachment fails
-  }
-
-  // Add visual indication that this piece is detached
-  const el = pieceElements.get(piece.id);
-  if (el) {
-    el.classList.add("detached-piece");
-    // Remove the class after a short time to show the action
-    setTimeout(
-      () => el.classList.remove("detached-piece"),
-      DETACH_FLASH_DURATION_MS
-    );
-  }
-
-  console.debug(
-    "[pieceRenderer] Piece",
-    piece.id,
-    "moved to new group",
-    newGroupId
-  );
-
-  // Update progress after detachment
-  updateProgress();
-
-  // TODO: In the future, implement proper group splitting if the removal
-  // breaks the group into multiple disconnected components
 }
 
 function moveSinglePiece(piece, delta) {

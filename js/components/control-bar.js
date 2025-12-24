@@ -18,6 +18,10 @@ import {
 } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
 import {
+  GROUPS_CHANGED,
+  PUZZLE_STATE_CHANGED,
+} from "../constants/custom-events.js";
+import {
   getViewport,
   setZoom,
   getZoomLevel,
@@ -153,14 +157,7 @@ function updateProgress() {
   // Use GroupManager for accurate group counting
   let numberOfGroups;
   try {
-    const groups = groupManager.getAllGroups();
-    numberOfGroups = groups.length;
-
-    // Validate group connectivity for debugging
-    const issues = groupManager.validateAllGroups();
-    if (issues.length > 0) {
-      console.warn("[updateProgress] Group validation issues:", issues);
-    }
+    numberOfGroups = groupManager.getGroupCount();
   } catch (error) {
     console.warn(
       "[updateProgress] GroupManager not available, falling back to simple count"
@@ -230,7 +227,9 @@ async function generatePuzzle() {
     }
     state.pieces = [];
     state.totalPieces = 0;
-    updateProgress();
+    document.dispatchEvent(
+      new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "cleared" } })
+    );
     return;
   }
 
@@ -261,7 +260,9 @@ async function generatePuzzle() {
     if (viewport) {
       scatterInitialPieces(viewport, pieces, noRotate);
     }
-    updateProgress();
+    document.dispatchEvent(
+      new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "generated" } })
+    );
     if (persistence && persistence.markDirty) persistence.markDirty();
   } catch (e) {
     console.error(e);
@@ -401,6 +402,10 @@ function initControlBar() {
     updateOrientationTipButton(null);
   });
 
+  // Listen for group and puzzle state changes
+  registerGlobalEvent(GROUPS_CHANGED, updateProgress);
+  registerGlobalEvent(PUZZLE_STATE_CHANGED, updateProgress);
+
   // Initialize displays
   updatePieceDisplay();
   updateZoomDisplay();
@@ -485,7 +490,9 @@ async function handleImageUpload(file) {
 
     state.pieces = [];
     state.totalPieces = 0;
-    updateProgress();
+    document.dispatchEvent(
+      new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "cleared" } })
+    );
     if (persistence && persistence.markDirty) persistence.markDirty();
   } catch (e) {
     console.error(e);

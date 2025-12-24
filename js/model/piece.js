@@ -46,10 +46,9 @@ export class Piece {
     this.id = data.id;
     this.gridPos = new Point(data.gridX, data.gridY);
 
-    // GroupId will be set by GroupManager after construction
-    // Store the requested groupId for GroupManager to use
-    this._requestedGroupId = data.groupId;
-    this._groupId = null;
+    // GroupId - set from data if available (deserialization), otherwise null (new piece)
+    // GroupManager will set/update this during initialization
+    this._groupId = data.groupId || null;
 
     // Physical dimensions - Rectangle stores position (imgX, imgY) and size (w, h)
     this.imgRect = new Rectangle(

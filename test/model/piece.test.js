@@ -87,12 +87,11 @@ describe("Piece", () => {
       expect(piece.scale).toBe(DEFAULT_PIECE_SCALE);
     });
 
-    it("should initialize groupId as null and store requestedGroupId", () => {
+    it("should initialize groupId from data", () => {
       const data = createPieceData({ groupId: "group-123" });
       const piece = new Piece(data);
 
-      expect(piece.groupId).toBeNull();
-      expect(piece._requestedGroupId).toBe("group-123");
+      expect(piece.groupId).toBe("group-123");
     });
 
     it("should handle displayX/displayY for position", () => {
@@ -478,7 +477,7 @@ describe("Piece", () => {
       expect(piece.id).toBe("piece-2");
       expect(piece.gridPos).toEqual(new Point(2, 3));
       expect(piece.rotation).toBe(90);
-      expect(piece._requestedGroupId).toBe("group-abc");
+      expect(piece.groupId).toBe("group-abc");
       expect(piece.zIndex).toBe(15);
       expect(piece.bitmap).toBe(canvas);
       expect(piece.path).toBe(path);

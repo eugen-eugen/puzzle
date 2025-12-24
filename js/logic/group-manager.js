@@ -5,8 +5,11 @@
 
 import { Group } from "../model/group.js";
 import { state } from "../game-engine.js";
-import { updateProgress } from "../components/control-bar.js";
 import { gameTableController } from "./game-table-controller.js";
+import { GROUPS_CHANGED } from "../constants/custom-events.js";
+
+// Regular expression to match group ID format (e.g., "g123")
+const GROUP_ID_PATTERN = /^g(\d+)/;
 
 class GroupManager {
   constructor() {
@@ -30,44 +33,49 @@ class GroupManager {
     const piecesByGroup = new Map();
 
     state.pieces.forEach((piece) => {
-      // Get requested groupId from piece (from deserialized data or null)
-      let groupId = piece._requestedGroupId;
+      // Get groupId from piece (from deserialized data or null)
+      let groupId = piece.groupId;
 
-      // If no requested groupId, generate a unique one (new pieces)
+      // If no groupId, generate a unique one (new pieces)
       if (!groupId) {
         groupId = `g${piece.id}`;
+        piece._setGroupId(groupId);
       }
 
-      // Set the groupId via GroupManager's internal method
-      piece._setGroupId(groupId);
-
-      if (!piecesByGroup.has(groupId)) {
-        piecesByGroup.set(groupId, []);
+      // Get existing array or create new one
+      let groupPieces = piecesByGroup.get(groupId);
+      if (!groupPieces) {
+        groupPieces = [];
+        piecesByGroup.set(groupId, groupPieces);
       }
-      piecesByGroup.get(groupId).push(piece);
+      groupPieces.push(piece);
     });
 
     // Create Group instances for each group
     piecesByGroup.forEach((pieces, groupId) => {
-      try {
-        // Skip connectivity validation during initialization to allow persisted groups with minor float offsets.
-        const group = new Group(groupId, pieces, {
+      // Find connected components to handle potentially fragmented groups
+      const components = Group._findConnectedComponents(pieces);
+
+      if (components.length > 1) {
+        console.warn(
+          `[GroupManager] Group ${groupId} is fragmented into ${components.length} components`
+        );
+      }
+
+      // Create a new group for each component
+      components.forEach((componentPieces) => {
+        const newGroupId = this.generateGroupId();
+
+        // Update pieces with their new groupId
+        componentPieces.forEach((piece) => {
+          piece._setGroupId(newGroupId);
+        });
+
+        const group = new Group(newGroupId, componentPieces, {
           validateConnectivity: false,
         });
-        this.groups.set(groupId, group);
-      } catch (error) {
-        console.warn(
-          `[GroupManager] Failed to create group ${groupId}:`,
-          error
-        );
-        // Fallback: create individual groups for disconnected pieces
-        pieces.forEach((piece) => {
-          const newGroupId = this.generateGroupId();
-          piece._setGroupId(newGroupId);
-          const singleGroup = new Group(newGroupId, [piece]);
-          this.groups.set(newGroupId, singleGroup);
-        });
-      }
+        this.groups.set(newGroupId, group);
+      });
     });
 
     console.log(
@@ -79,6 +87,7 @@ class GroupManager {
 
   /**
    * Generate a unique group ID
+   * @returns {string} A unique group ID in the format "g<number>"
    */
   generateGroupId() {
     return `g${this.nextGroupId++}`;
@@ -88,47 +97,42 @@ class GroupManager {
    * Update nextGroupId based on existing groups and pieces
    */
   updateNextGroupId() {
-    let maxId = 0;
+    // Collect all groupIds from groups and pieces
+    const groupIds = [
+      ...Array.from(this.groups.keys()),
+      ...state.pieces.map((piece) => piece.groupId),
+    ];
 
-    // Check existing groups
-    this.groups.forEach((group, groupId) => {
-      const match = groupId.match(/^g(\d+)/);
-      if (match) {
-        const id = parseInt(match[1], 10);
-        if (id > maxId) maxId = id;
-      }
-    });
-
-    // Also check all piece groupIds to avoid conflicts
-    state.pieces.forEach((piece) => {
-      if (piece.groupId) {
-        const match = piece.groupId.match(/^g(\d+)/);
-        if (match) {
-          const id = parseInt(match[1], 10);
-          if (id > maxId) maxId = id;
-        }
-      }
-    });
+    // Filter valid group IDs, extract numbers, and find maximum
+    const maxId = groupIds
+      .filter((id) => id && id.match(GROUP_ID_PATTERN))
+      .map((id) => parseInt(id.match(GROUP_ID_PATTERN)[1], 10))
+      .reduce((max, id) => Math.max(max, id), 0);
 
     this.nextGroupId = maxId + 1;
   }
 
   /**
    * Get group by ID
+   * @param {string} groupId - The ID of the group to retrieve
+   * @returns {Group|undefined} The group instance or undefined if not found
    */
   getGroup(groupId) {
     return this.groups.get(groupId);
   }
 
   /**
-   * Get all groups
+   * Get the count of all groups
+   * @returns {number} The total number of groups
    */
-  getAllGroups() {
-    return Array.from(this.groups.values());
+  getGroupCount() {
+    return this.groups.size;
   }
 
   /**
    * Get group containing a specific piece
+   * @param {Piece} piece - The piece to find the group for
+   * @returns {Group|undefined} The group containing the piece or undefined if not found
    */
   getGroupForPiece(piece) {
     return this.groups.get(piece.groupId);
@@ -136,6 +140,8 @@ class GroupManager {
 
   /**
    * Create a new group with a single piece
+   * @param {Piece} piece - The piece to create a group for
+   * @returns {Group} The newly created group
    */
   createSinglePieceGroup(piece) {
     const newGroupId = this.generateGroupId();
@@ -144,29 +150,25 @@ class GroupManager {
     const group = new Group(newGroupId, [piece]);
     this.groups.set(newGroupId, group);
 
-    console.log(
-      `[GroupManager] Created single-piece group ${newGroupId} for piece ${piece.id}`
-    );
     return group;
   }
 
   /**
    * Merge two groups together
    * This is the main method called when pieces connect
+   * @param {Piece} pieceA - First piece whose group will be merged
+   * @param {Piece} pieceB - Second piece whose group will be merged
+   * @returns {boolean} True if merge was successful, false otherwise
    */
   mergeGroups(pieceA, pieceB) {
     const groupA = this.getGroupForPiece(pieceA);
     const groupB = this.getGroupForPiece(pieceB);
 
     if (!groupA || !groupB) {
-      console.warn(
-        "[GroupManager] Cannot merge - one or both pieces not in groups"
-      );
       return false;
     }
 
     if (groupA === groupB) {
-      console.log("[GroupManager] Pieces already in same group");
       return true; // Already merged
     }
 
@@ -191,10 +193,16 @@ class GroupManager {
       // Remove the merged group
       this.groups.delete(mergeGroup.id);
 
-      console.log(
-        `[GroupManager] Merged group ${mergeGroup.id} into ${keepGroup.id}`
+      // Dispatch group change event
+      document.dispatchEvent(
+        new CustomEvent(GROUPS_CHANGED, {
+          detail: {
+            type: "merged",
+            fromGroupId: mergeGroup.id,
+            toGroupId: keepGroup.id,
+          },
+        })
       );
-      updateProgress();
       return true;
     } catch (error) {
       console.error("[GroupManager] Error during group merge:", error);
@@ -205,16 +213,16 @@ class GroupManager {
   /**
    * Detach a piece from its group
    * Handles fragmentation and creates new groups as needed
+   * @param {Piece} piece - The piece to detach from its group
+   * @returns {Group|null} The new single-piece group or null if detachment failed
    */
   detachPiece(piece) {
     const currentGroup = this.getGroupForPiece(piece);
     if (!currentGroup) {
-      console.warn("[GroupManager] Cannot detach - piece not in a group");
       return null;
     }
 
     if (currentGroup.size() === 1) {
-      console.log("[GroupManager] Piece is already in single-piece group");
       return currentGroup;
     }
 
@@ -235,7 +243,16 @@ class GroupManager {
         );
       });
 
-      updateProgress();
+      // Dispatch group change event
+      document.dispatchEvent(
+        new CustomEvent(GROUPS_CHANGED, {
+          detail: {
+            type: "detached",
+            pieceId: piece.id,
+            newGroupId: newGroup.id,
+          },
+        })
+      );
       return newGroup;
     } catch (error) {
       console.error("[GroupManager] Error during piece detachment:", error);
@@ -244,161 +261,15 @@ class GroupManager {
   }
 
   /**
-   * Move an entire group by an offset
-   */
-  moveGroup(groupId, offset) {
-    const group = this.getGroup(groupId);
-    if (!group) return false;
-
-    try {
-      gameTableController.moveGroup(groupId, offset);
-      return true;
-    } catch (error) {
-      console.error("[GroupManager] Error moving group:", error);
-      return false;
-    }
-  }
-
-  /**
-   * Rotate an entire group around a pivot piece
-   * @param {string} groupId - ID of the group to rotate
-   * @param {number} angleDegrees - Rotation angle in degrees
-   * @param {Piece} pivotPiece - Piece to use as rotation pivot
-   */
-  rotateGroup(groupId, angleDegrees, pivotPiece) {
-    const group = this.getGroup(groupId);
-    if (!group) return false;
-
-    try {
-      gameTableController.rotateGroup(groupId, angleDegrees, pivotPiece);
-      return true;
-    } catch (error) {
-      console.error("[GroupManager] Error rotating group:", error);
-      return false;
-    }
-  }
-
-  /**
    * Validate connectivity of a set of pieces
+   * @param {Piece[]} pieces - Array of pieces to validate connectivity for
+   * @returns {boolean} True if all pieces are connected, false otherwise
    */
   validateConnectivity(pieces) {
     if (!pieces || pieces.length <= 1) return true;
 
-    // Use Group's connectivity validation
-    try {
-      const tempGroup = new Group("temp", pieces);
-      return tempGroup.isConnected();
-    } catch (error) {
-      // If Group constructor fails, pieces are not connected
-      return false;
-    }
-  }
-
-  /**
-   * Get group statistics for debugging/monitoring
-   */
-  getGroupStats() {
-    const stats = {
-      totalGroups: this.groups.size,
-      singlePieceGroups: 0,
-      multiPieceGroups: 0,
-      largestGroupSize: 0,
-      totalPieces: 0,
-      groups: [],
-    };
-
-    this.groups.forEach((group) => {
-      const groupStats = group.getStats();
-      stats.groups.push(groupStats);
-      stats.totalPieces += groupStats.pieceCount;
-
-      if (groupStats.pieceCount === 1) {
-        stats.singlePieceGroups++;
-      } else {
-        stats.multiPieceGroups++;
-      }
-
-      if (groupStats.pieceCount > stats.largestGroupSize) {
-        stats.largestGroupSize = groupStats.pieceCount;
-      }
-    });
-
-    return stats;
-  }
-
-  /**
-   * Validate all groups for integrity
-   */
-  validateAllGroups() {
-    let issues = [];
-
-    this.groups.forEach((group, groupId) => {
-      if (!group.validate()) {
-        issues.push(`Group ${groupId} has integrity issues`);
-      }
-
-      if (!group.isConnected()) {
-        issues.push(`Group ${groupId} is not connected`);
-      }
-    });
-
-    return issues;
-  }
-
-  /**
-   * Clean up empty groups
-   */
-  cleanup() {
-    const emptyGroups = [];
-
-    this.groups.forEach((group, groupId) => {
-      if (group.isEmpty()) {
-        emptyGroups.push(groupId);
-      }
-    });
-
-    emptyGroups.forEach((groupId) => {
-      this.groups.delete(groupId);
-      console.log(`[GroupManager] Removed empty group ${groupId}`);
-    });
-
-    return emptyGroups.length;
-  }
-
-  /**
-   * Debug method to check GroupManager status
-   */
-  debugStatus() {
-    console.log("=== GroupManager Debug Status ===");
-    console.log(`Total pieces in state: ${state.pieces.length}`);
-    console.log(`Total groups in manager: ${this.groups.size}`);
-    console.log(`Next group ID: ${this.nextGroupId}`);
-
-    const pieceGroupIds = new Set();
-    state.pieces.forEach((piece) => {
-      pieceGroupIds.add(piece.groupId);
-    });
-    console.log(`Unique piece group IDs: ${pieceGroupIds.size}`);
-    console.log(`Piece group IDs:`, Array.from(pieceGroupIds).sort());
-    console.log(`Manager group IDs:`, Array.from(this.groups.keys()).sort());
-
-    // Check for mismatches
-    const managerGroupIds = new Set(this.groups.keys());
-    const missingInManager = Array.from(pieceGroupIds).filter(
-      (id) => !managerGroupIds.has(id)
-    );
-    const extraInManager = Array.from(managerGroupIds).filter(
-      (id) => !pieceGroupIds.has(id)
-    );
-
-    if (missingInManager.length > 0) {
-      console.warn(`Groups missing in manager:`, missingInManager);
-    }
-    if (extraInManager.length > 0) {
-      console.warn(`Extra groups in manager:`, extraInManager);
-    }
-
-    console.log("================================");
+    const tempGroup = new Group("temp", pieces);
+    return tempGroup.isConnected();
   }
 }
 

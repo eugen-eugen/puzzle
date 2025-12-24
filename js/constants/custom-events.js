@@ -104,3 +104,25 @@ export const DRAG_END = "drag:end";
  * @property {number} detail.curvature - Curvature value (ratio of path length to displacement)
  */
 export const DRAG_HIGH_CURVATURE = "drag:high-curvature";
+
+/**
+ * Dispatched when groups are modified (merged or detached).
+ * @type {string}
+ * @event groups:changed
+ * @property {Object} detail - Event detail
+ * @property {string} detail.type - Type of change: "merged" or "detached"
+ * @property {string} [detail.fromGroupId] - Source group ID (for merge)
+ * @property {string} [detail.toGroupId] - Target group ID (for merge)
+ * @property {number} [detail.pieceId] - Piece ID (for detach)
+ * @property {string} [detail.newGroupId] - New group ID (for detach)
+ */
+export const GROUPS_CHANGED = "groups:changed";
+
+/**
+ * Dispatched when puzzle state changes (pieces generated, loaded, or cleared).
+ * @type {string}
+ * @event puzzle:state-changed
+ * @property {Object} detail - Event detail
+ * @property {string} detail.action - Action type: "generated", "loaded", "cleared", "restored"
+ */
+export const PUZZLE_STATE_CHANGED = "puzzle:state-changed";
