@@ -8,7 +8,7 @@ vi.mock("@/js/model/piece.js", () => ({
       this.id = data.id;
       this.gridX = data.gridX;
       this.gridY = data.gridY;
-      
+
       // Mock corners
       this.corners = {
         nw: { x: 0, y: 0 },
@@ -16,7 +16,7 @@ vi.mock("@/js/model/piece.js", () => ({
         se: { x: 100, y: 100 },
         sw: { x: 0, y: 100 },
       };
-      
+
       // Mock sPoints
       this.sPoints = {
         north: null,
@@ -24,10 +24,10 @@ vi.mock("@/js/model/piece.js", () => ({
         south: null,
         west: null,
       };
-      
+
       // Mock bitmap (canvas element)
       this.bitmap = document.createElement("canvas");
-      
+
       // Mock path
       this.path = new Path2D();
     }
@@ -170,7 +170,7 @@ describe("jigsaw-generator", () => {
       generateJigsawPieces(mockImage, 20);
 
       expect(dispatchEventSpy).toHaveBeenCalled();
-      
+
       const eventCall = dispatchEventSpy.mock.calls[0][0];
       expect(eventCall).toBeInstanceOf(CustomEvent);
       expect(eventCall.type).toBe("piecesGenerated");

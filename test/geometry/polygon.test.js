@@ -128,12 +128,7 @@ describe("polygon", () => {
     });
 
     it("should skip null points in the array", () => {
-      const points = [
-        new Point(10, 20),
-        null,
-        new Point(50, 60),
-        null,
-      ];
+      const points = [new Point(10, 20), null, new Point(50, 60), null];
 
       const frame = boundingFrame(points);
 
@@ -160,11 +155,7 @@ describe("polygon", () => {
     });
 
     it("should return zero rectangle when all points are invalid", () => {
-      const points = [
-        null,
-        { x: undefined, y: undefined },
-        {},
-      ];
+      const points = [null, { x: undefined, y: undefined }, {}];
 
       const frame = boundingFrame(points);
 
@@ -189,10 +180,7 @@ describe("polygon", () => {
     });
 
     it("should handle very large coordinate values", () => {
-      const points = [
-        new Point(1000000, 2000000),
-        new Point(5000000, 6000000),
-      ];
+      const points = [new Point(1000000, 2000000), new Point(5000000, 6000000)];
 
       const frame = boundingFrame(points);
 
@@ -203,11 +191,7 @@ describe("polygon", () => {
     });
 
     it("should handle points forming a horizontal line", () => {
-      const points = [
-        new Point(10, 50),
-        new Point(30, 50),
-        new Point(60, 50),
-      ];
+      const points = [new Point(10, 50), new Point(30, 50), new Point(60, 50)];
 
       const frame = boundingFrame(points);
 
