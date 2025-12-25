@@ -10,7 +10,7 @@
 import { Piece } from "../model/piece.js";
 import { Lattice } from "../geometry/lattice.js";
 import { Point } from "../geometry/point.js";
-import { drawPiece } from "../ui/display.js";
+import { boundingFrame } from "../geometry/polygon.js";
 import { PIECES_GENERATED } from "../constants/custom-events.js";
 
 // ================================
@@ -23,28 +23,19 @@ const RANDOM_ROTATIONS = [0, 90, 180, 270];
 
 /**
  * Generate interlocking jigsaw pieces for an image using waypoint lattice.
- * @param {HTMLImageElement} img
- * @param {number} targetCount
- * @returns {{pieces:Array, rows:number, cols:number, actualCount:number}}
+ * Creates pieces with automatically generated paths and bitmaps.
+ * @param {HTMLImageElement} img - The source image to generate pieces from
+ * @param {number} targetCount - Desired number of pieces (actual count may vary slightly)
+ * @returns {{pieces: Piece[], rows: number, cols: number, actualCount: number}} Object containing generated pieces and grid dimensions
  */
 export function generateJigsawPieces(img, targetCount) {
   // 1. Determine grid close to target count (preserve aspect ratio)
-  const aspect = img.width / img.height;
-  let cols = Math.max(
-    MIN_GRID_DIMENSION,
-    Math.round(Math.sqrt(targetCount * aspect))
-  );
-  let rows = Math.max(MIN_GRID_DIMENSION, Math.round(targetCount / cols));
-  while (rows * cols < targetCount) cols++;
-  const actualCount = rows * cols;
-
-  // Dispatch custom event immediately with total piece count for UI setup
+  var { cols, rows, actualCount } = calculateSizes(img, targetCount);
   window.dispatchEvent(
     new CustomEvent(PIECES_GENERATED, {
       detail: { totalPieces: actualCount },
     })
   );
-
   const pieceW = img.width / cols;
   const pieceH = img.height / rows;
 
@@ -60,9 +51,12 @@ export function generateJigsawPieces(img, targetCount) {
     minDepth,
     maxDepth
   );
-  const corners = geometry.getCorners();
-  const hSides = geometry.getHSides();
-  const vSides = geometry.getVSides();
+  // Note: corners array has dimensions [rows+1][cols+1] because corners define
+  // the vertices of the grid. For a grid of rows×cols pieces, we need (rows+1)
+  // horizontal lines and (cols+1) vertical lines of corner points.
+  const corners = geometry.getCorners(); // [rows+1][cols+1]
+  const hSides = geometry.getHSides(); // [rows-1][cols] horizontal edges
+  const vSides = geometry.getVSides(); // [rows][cols-1] vertical edges
 
   // 3. Build pieces using shared waypoints
   const pieces = [];
@@ -78,6 +72,9 @@ export function generateJigsawPieces(img, targetCount) {
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       // Calculate corner positions for this piece
+      // Piece at grid position (r,c) uses corners from [r][c] to [r+1][c+1]
+      // Since corners has dimensions [rows+1][cols+1], max indices [rows][cols]
+      // are valid (when r=rows-1, c=cols-1, we access corners[rows][cols])
       const nw = corners[r][c];
       const ne = corners[r][c + 1];
       const se = corners[r + 1][c + 1];
@@ -97,40 +94,31 @@ export function generateJigsawPieces(img, targetCount) {
             : null,
       };
 
-      // Create temporary piece to calculate bounding frame with geometry data
-      const tempPiece = new Piece({
-        id: -1,
-        gridX: c,
-        gridY: r,
-        geometryCorners: { nw, ne, se, sw },
-        geometrySidePoints,
-        nw,
-        w: pieceW, // fallback values
-        h: pieceH,
-      });
-
-      // Calculate actual bounding frame that includes all corner and side points
-      const boundingFrame = tempPiece.calculateBoundingFrame();
-      const canvas = drawPiece(tempPiece, nw, master);
+      // Calculate actual bounding frame directly from all corner and side points
+      const allPoints = [nw, ne, se, sw];
+      if (geometrySidePoints.north) allPoints.push(geometrySidePoints.north);
+      if (geometrySidePoints.east) allPoints.push(geometrySidePoints.east);
+      if (geometrySidePoints.south) allPoints.push(geometrySidePoints.south);
+      if (geometrySidePoints.west) allPoints.push(geometrySidePoints.west);
+      const frame = boundingFrame(allPoints);
 
       const pieceId = id++;
       const pieceData = {
         id: pieceId,
         gridX: c,
         gridY: r,
-        w: boundingFrame.width,
-        h: boundingFrame.height,
+        w: frame.width,
+        h: frame.height,
         imgX: nw.x,
         imgY: nw.y,
         rotation:
           RANDOM_ROTATIONS[Math.floor(Math.random() * RANDOM_ROTATIONS.length)],
-        path: tempPiece.path,
-        bitmap: canvas,
         groupId: "g" + pieceId, // Each piece starts in its own group
-        // Geometry data for calculation
+        // Geometry data for calculation and path/bitmap generation
         geometryCorners: { nw, ne, se, sw },
         geometrySidePoints,
         nw,
+        master, // Pass master canvas for bitmap generation
       };
 
       // Create piece instance with all properties and methods
@@ -141,6 +129,24 @@ export function generateJigsawPieces(img, targetCount) {
   return { pieces, rows, cols, actualCount };
 }
 
+/**
+ * Calculate grid dimensions and dispatch pieces generated event
+ * @param {HTMLImageElement} img - The source image
+ * @param {number} targetCount - Desired number of pieces
+ * @returns {{cols: number, rows: number, actualCount: number}} Grid dimensions and actual piece count
+ */
+function calculateSizes(img, targetCount) {
+  const aspect = img.width / img.height;
+  let cols = Math.max(
+    MIN_GRID_DIMENSION,
+    Math.round(Math.sqrt(targetCount * aspect))
+  );
+  let rows = Math.max(MIN_GRID_DIMENSION, Math.round(targetCount / cols));
+  while (rows * cols < targetCount) cols++;
+  const actualCount = rows * cols;
+
+  return { cols, rows, actualCount };
+}
 // NOTE: Future enhancements:
 // - Vary knob shapes with random seeds
 // - Precompute connection metadata (edge vectors & knob centers)

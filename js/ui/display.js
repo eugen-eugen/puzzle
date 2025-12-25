@@ -411,14 +411,13 @@ function lightenColor(color, amount) {
 
 /**
  * Draw a piece to a canvas using its bounding frame and path.
- * @param {Piece} tempPiece - The piece to draw
+ * @param {Rectangle} boundingFrame - The bounding frame of the piece
+ * @param {Path2D} path - The piece path
  * @param {Point} nw - The northwest corner position in image coordinates
  * @param {HTMLCanvasElement} master - The master canvas containing the full image
  * @returns {HTMLCanvasElement} The canvas with the drawn piece
  */
-export function drawPiece(tempPiece, nw, master) {
-  const boundingFrame = tempPiece.calculateBoundingFrame();
-  const path = tempPiece.path;
+export function drawPiece(boundingFrame, path, nw, master) {
   // Use bounding frame dimensions directly for canvas
   const pw = Math.ceil(boundingFrame.width);
   const ph = Math.ceil(boundingFrame.height);

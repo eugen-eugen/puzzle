@@ -9,8 +9,10 @@ import {
   normalizePointsToOrigin,
   convertToPoints,
 } from "../geometry/geometry-utils.js";
+import { boundingFrame } from "../geometry/polygon.js";
 import { DEFAULT_PIECE_SCALE } from "../constants/piece-constants.js";
 import { gameTableController } from "../logic/game-table-controller.js";
+import { drawPiece } from "../ui/display.js";
 
 /**
  * Jigsaw puzzle piece class
@@ -28,7 +30,7 @@ export class Piece {
    * @param {number} data.imgY - Y coordinate in source image
    * @param {number} data.w - Width in source image
    * @param {number} data.h - Height in source image
-   * @param {HTMLCanvasElement} data.bitmap - Piece bitmap
+   * @param {HTMLCanvasElement} [data.bitmap] - Piece bitmap (will be generated if not provided)
    * @param {Path2D} data.path - Piece path
    * @param {number} [data.scale] - Display scale (defaults to DEFAULT_PIECE_SCALE)
    * @param {Point} [data.nw] - Northwest corner position
@@ -40,6 +42,7 @@ export class Piece {
    * @param {Object} [data.geometrySidePoints] - Side points for geometry calculation
    * @param {Object} [data.corners] - Pre-calculated corner points
    * @param {Object} [data.sPoints] - Pre-calculated side points
+   * @param {HTMLCanvasElement} [data.master] - Master canvas for bitmap generation
    */
   constructor(data) {
     // Core identity
@@ -84,6 +87,12 @@ export class Piece {
     // Generate path if not provided and geometry is available
     if (!this.path && this.corners && this.sPoints) {
       this.path = this.generatePath();
+    }
+
+    // Generate bitmap if not provided and we have all necessary data
+    if (!this.bitmap && data.master && this.path && data.nw) {
+      const frame = this.calculateBoundingFrame();
+      this.bitmap = drawPiece(frame, this.path, data.nw, data.master);
     }
 
     // Register position with GameTableController
@@ -180,7 +189,7 @@ export class Piece {
     const corners = this.corners;
     const sPoints = this.sPoints;
 
-    // Start with corner points
+    // Collect all corner and side points
     const allPoints = [corners.nw, corners.ne, corners.se, corners.sw];
 
     // Add side points if they exist
@@ -189,30 +198,18 @@ export class Piece {
     if (sPoints.south) allPoints.push(sPoints.south);
     if (sPoints.west) allPoints.push(sPoints.west);
 
-    // Find min/max coordinates
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
+    // Calculate bounding frame using polygon utility
+    const frame = boundingFrame(allPoints);
 
-    for (const point of allPoints) {
-      if (point && point.x !== undefined && point.y !== undefined) {
-        minX = Math.min(minX, point.x);
-        maxX = Math.max(maxX, point.x);
-        minY = Math.min(minY, point.y);
-        maxY = Math.max(maxY, point.y);
-      }
-    }
-
-    // Handle edge case where no valid points found
-    if (!isFinite(minX)) {
+    // Handle edge case where no valid points found - use image dimensions as fallback
+    if (frame.width === 0 && frame.height === 0) {
       return Rectangle.fromPoints(
         new Point(0, 0),
         new Point(this.imgRect.width, this.imgRect.height)
       );
     }
 
-    return Rectangle.fromPoints(new Point(minX, minY), new Point(maxX, maxY));
+    return frame;
   }
 
   /**
@@ -221,7 +218,6 @@ export class Piece {
    * @returns {Path2D} Generated path for this piece
    */
   generatePath() {
-    const path = new Path2D();
     const pts = [];
 
     // Start with NW corner (at origin)
@@ -251,6 +247,7 @@ export class Piece {
     }
 
     // Build path
+    const path = new Path2D();
     path.moveTo(pts[0].x, pts[0].y);
     for (let i = 1; i < pts.length; i++) {
       path.lineTo(pts[i].x, pts[i].y);
