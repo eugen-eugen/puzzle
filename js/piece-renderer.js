@@ -16,11 +16,6 @@ let uiManager = null; // Will be initialized with pieceElements
 // ================================
 const DEFAULT_RENDER_SCALE = DEFAULT_PIECE_SCALE; // Use consistent scale everywhere
 const MIN_RENDERED_DIMENSION = 24; // Minimum drawn width/height to keep piece interactable
-const OUTSIDE_THRESHOLD_PX = 40; // Distance from right boundary to mark piece as 'outside'
-const DETACH_FLASH_DURATION_MS = 1000; // Duration of detached visual indicator
-const CONNECTION_TOLERANCE_SQ = 30 * 30; // Squared distance tolerance passed to connection manager (~30px)
-const DOUBLE_TAP_MAX_DELAY_MS = 320; // Max delay between taps to count as double-tap
-const DOUBLE_TAP_MAX_DIST_SQ = 26 * 26; // Spatial tolerance between taps
 
 const SCALE = DEFAULT_RENDER_SCALE;
 
@@ -40,37 +35,10 @@ function ensurePiecePosition(piece) {
   return piece;
 }
 
-// Treat element dimensions as a Point (width -> x, height -> y) for geometric ops.
-function elementSizePoint(el) {
-  return new Point(el.offsetWidth, el.offsetHeight);
-}
-
-function rotatePieceOrGroup(piece, el, rotationDegrees = 90) {
-  const group = groupManager.getGroup(piece.groupId);
-  const groupPieces = group ? group.allPieces : [piece];
-
-  if (groupPieces.length > 1) {
-    gameTableController.rotateGroup(piece.groupId, rotationDegrees, piece);
-  } else {
-    piece.rotate(rotationDegrees);
-    el.style.transform = `rotate(${piece.rotation}deg)`;
-  }
-  const position =
-    gameTableController.getPiecePosition(piece.id) || new Point(0, 0);
-  ensureRectInView(position, new Point(el.offsetWidth, el.offsetHeight), {
-    forceZoom: false,
-  });
-}
-
 export function scatterInitialPieces(container, pieces, noRotate = false) {
   const areaW = container.clientWidth || 800; // fallback if no size
   const areaH = container.clientHeight || 600;
-  console.debug(
-    "[pieceRenderer] scatterInitialPieces count",
-    pieces.length,
-    "noRotate:",
-    noRotate
-  );
+
   pieceElements.clear();
   const avgSize =
     (pieces.reduce(

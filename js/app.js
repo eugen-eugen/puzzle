@@ -2,7 +2,7 @@
 import "../css/main.css";
 import "../css/piece-box.css";
 import "../css/animations.css";
-import "../css/picture-gallery.css";
+import "../css/components/picture-gallery.css";
 
 // Register service worker
 import "../public/service-worker.js";
@@ -13,7 +13,7 @@ import {
   clearSavedGame,
   tryOfferResume,
   requestAutoSave,
-} from "./persistence.js";
+} from "./persistence/persistence.js";
 import { showResumeModal } from "./components/resume.js";
 import { state } from "./game-engine.js";
 import { initI18n, t, applyTranslations } from "./i18n.js";
@@ -55,7 +55,10 @@ import {
   setPersistence,
   updatePieceDisplay,
 } from "./components/control-bar.js";
-import { showPictureGallery, hidePictureGallery } from "./picture-gallery.js";
+import {
+  showPictureGallery,
+  hidePictureGallery,
+} from "./components/picture-gallery.js";
 import { DRAG_END } from "./constants/custom-events.js";
 import { registerGlobalEvent } from "./utils/event-util.js";
 import { PUZZLE_STATE_CHANGED } from "./constants/custom-events.js";

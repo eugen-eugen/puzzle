@@ -1,8 +1,8 @@
 // picture-gallery.js - Picture selection gallery for game start
-import { t } from "./i18n.js";
-import { applyLicenseIfPresent, toGrayscale } from "./utils/image-util.js";
-import { handleImageUpload } from "./components/control-bar.js";
-import { state } from "./game-engine.js";
+import { t } from "../i18n.js";
+import { applyLicenseIfPresent, toGrayscale } from "../utils/image-util.js";
+import { handleImageUpload } from "./control-bar.js";
+import { state } from "../game-engine.js";
 
 const PICTURES_PATH = "pictures/";
 const DEFAULT_PIECES = 20;

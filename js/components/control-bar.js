@@ -31,9 +31,9 @@ import {
   WHEEL_ZOOM_IN_FACTOR,
   WHEEL_ZOOM_OUT_FACTOR,
 } from "../ui/display.js";
-import { isIndexedDBSupported, storeImageInDB } from "../indexed-db-storage.js";
+import { isIndexedDBSupported, storeImageInDB } from "../persistence/indexed-db-storage.js";
 import { applyLicenseIfPresent } from "../utils/image-util.js";
-import { showPictureGallery } from "../picture-gallery.js";
+import { showPictureGallery } from "./picture-gallery.js";
 
 // ================================
 // Module Constants

@@ -15,7 +15,7 @@ import {
   getLastPanPosition,
 } from "./display.js";
 import { state } from "../game-engine.js";
-import { requestAutoSave } from "../persistence.js";
+import { requestAutoSave } from "../persistence/persistence.js";
 import { groupManager } from "../logic/group-manager.js";
 import * as hlHandler from "../interaction/hl-interaction-handler.js";
 import { gameTableController } from "../logic/game-table-controller.js";
