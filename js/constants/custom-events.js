@@ -126,3 +126,28 @@ export const GROUPS_CHANGED = "groups:changed";
  * @property {string} detail.action - Action type: "generated", "loaded", "cleared", "restored"
  */
 export const PUZZLE_STATE_CHANGED = "puzzle:state-changed";
+
+/**
+ * Dispatched when deep link mode is enabled (e.g., when URL contains deep link parameters).
+ * @type {string}
+ * @event deeplink:enabled
+ */
+export const DEEPLINK_ENABLED = "deeplink:enabled";
+
+/**
+ * Dispatched when deep link mode is disabled (e.g., after file upload in gallery).
+ * @type {string}
+ * @event deeplink:disabled
+ * @property {Object} detail - Event detail
+ * @property {string} detail.reason - Reason for disabling: "file-upload", "puzzle-generated", "timeout", or "error"
+ */
+export const DEEPLINK_DISABLED = "deeplink:disabled";
+
+/**
+ * Dispatched when user selects an image file to upload.
+ * @type {string}
+ * @event image:upload-request
+ * @property {Object} detail - Event detail
+ * @property {File} detail.file - The image file to upload
+ */
+export const IMAGE_UPLOAD_REQUEST = "image:upload-request";

@@ -6,30 +6,55 @@ const SNAP_NEAR_PX = 50; // Proximity threshold for near-snap visualization
 const SNAP_READY_PX = 25; // Tighter threshold for actual snap readiness
 
 /**
- * Central game state object - FLAT structure
+ * Central game state singleton class
  * See STATE_STRUCTURE.md for complete documentation
  */
-export const state = {
-  // Array of Piece objects representing all puzzle pieces
-  pieces: [],
+class State {
+  constructor() {
+    this.reset();
+  }
 
-  // Total count of pieces in the puzzle
-  totalPieces: 0,
+  /**
+   * Reset all state properties to their default values
+   * This effectively "re-creates" the state without breaking references
+   */
+  reset() {
+    // Array of Piece objects representing all puzzle pieces
+    this.pieces = [];
 
-  // Array of group objects (legacy - actual groups managed by GroupManager)
-  groups: [],
+    // Total count of pieces in the puzzle
+    this.totalPieces = 0;
 
-  // Snap settings - proximity thresholds
-  snapNearPx: SNAP_NEAR_PX, // Proximity threshold for near-snap visualization
-  snapReadyPx: SNAP_READY_PX, // Tighter threshold for actual snap readiness
+    // Array of group objects (legacy - actual groups managed by GroupManager)
+    this.groups = [];
 
-  // Flag indicating if rotation is disabled for all pieces
-  noRotate: false,
+    // Snap settings - proximity thresholds
+    this.snapNearPx = SNAP_NEAR_PX;
+    this.snapReadyPx = SNAP_READY_PX;
 
-  // Deep link parameters from URL (set by parseDeepLinkParams() in url-util.js)
-  deepLinkImageUrl: null, // URL of the image to load
-  deepLinkPieceCount: null, // Number of pieces in puzzle
-  deepLinkNoRotate: "n", // String version of rotation disabled flag ("y" | "n")
-  deepLinkRemoveColor: "n", // Grayscale filter enabled flag ("y" | "n")
-  deepLinkLicense: null, // License text to overlay on image
-};
+    // Flag indicating if rotation is disabled for all pieces
+    this.noRotate = false;
+
+    // Deep link parameters from URL (set by parseDeepLinkParams() in url-util.js)
+    this.deepLinkImageUrl = null;
+    this.deepLinkPieceCount = null;
+    this.deepLinkNoRotate = "n";
+    this.deepLinkRemoveColor = "n";
+    this.deepLinkLicense = null;
+  }
+
+  /**
+   * Reset only deep link parameters to default values
+   * Called when user uploads a new file, invalidating old deep link data
+   */
+  resetDeepLinkState() {
+    this.deepLinkImageUrl = null;
+    this.deepLinkPieceCount = null;
+    this.deepLinkNoRotate = "n";
+    this.deepLinkRemoveColor = "n";
+    this.deepLinkLicense = null;
+  }
+}
+
+// Create and export singleton instance
+export const state = new State();

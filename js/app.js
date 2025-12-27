@@ -31,7 +31,6 @@ import {
   getZoomLevel,
   setZoom,
   applyPieceCorrectnessVisualFeedback,
-  updateZoomDisplay,
   applyViewportGrayscaleFilter,
   getViewportState,
   applyViewportState,
@@ -59,7 +58,11 @@ import {
   showPictureGallery,
   hidePictureGallery,
 } from "./components/picture-gallery.js";
-import { DRAG_END } from "./constants/custom-events.js";
+import {
+  DRAG_END,
+  DEEPLINK_ENABLED,
+  DEEPLINK_DISABLED,
+} from "./constants/custom-events.js";
 import { registerGlobalEvent } from "./utils/event-util.js";
 import { PUZZLE_STATE_CHANGED } from "./constants/custom-events.js";
 import { parseDeepLinkParams } from "./utils/url-util.js";
@@ -67,7 +70,6 @@ import { initHelp } from "./components/help.js";
 
 // DOM elements for puzzle-specific functionality
 const piecesContainer = document.getElementById("piecesContainer");
-const topBar = document.querySelector(".top-bar");
 
 let deepLinkActive = false; // true when URL provides image & pieces params
 
@@ -203,9 +205,10 @@ async function bootstrap() {
 
   if (state.deepLinkImageUrl) {
     deepLinkActive = true; // mark so persistence skip resume
-    if (topBar) topBar.classList.add("deep-link-mode"); // Hide controls in deep link mode
+    window.dispatchEvent(new CustomEvent(DEEPLINK_ENABLED)); // Notify control bar to hide controls
 
     // Persist removeColor setting
+    //TODO to be refactored with other settings persistence
     localStorage.setItem("removeColor", state.deepLinkRemoveColor ? "y" : "n");
 
     // Load remote image with timeout
@@ -232,13 +235,21 @@ async function bootstrap() {
       },
       onTimeout: () => {
         deepLinkActive = false;
-        if (topBar) topBar.classList.remove("deep-link-mode"); // Restore controls on timeout
+        window.dispatchEvent(
+          new CustomEvent(DEEPLINK_DISABLED, {
+            detail: { reason: "timeout" },
+          })
+        );
         tryOfferResume();
       },
       onError: () => {
         // Reset deep link flag and try normal resume flow
         deepLinkActive = false;
-        if (topBar) topBar.classList.remove("deep-link-mode"); // Restore controls on error
+        window.dispatchEvent(
+          new CustomEvent(DEEPLINK_DISABLED, {
+            detail: { reason: "error" },
+          })
+        );
         tryOfferResume();
       },
     }).catch(() => {

@@ -1,8 +1,11 @@
 // picture-gallery.js - Picture selection gallery for game start
 import { t } from "../i18n.js";
 import { applyLicenseIfPresent, toGrayscale } from "../utils/image-util.js";
-import { handleImageUpload } from "./control-bar.js";
 import { state } from "../game-engine.js";
+import {
+  DEEPLINK_DISABLED,
+  IMAGE_UPLOAD_REQUEST,
+} from "../constants/custom-events.js";
 
 const PICTURES_PATH = "pictures/";
 const DEFAULT_PIECES = 20;
@@ -293,7 +296,18 @@ export async function showPictureGallery(onSelect, onClose) {
         const file = e.target.files?.[0];
         if (file) {
           hidePictureGallery();
-          await handleImageUpload(file);
+          // Dispatch event to disable deep link mode
+          window.dispatchEvent(
+            new CustomEvent(DEEPLINK_DISABLED, {
+              detail: { reason: "file-upload" },
+            })
+          );
+          // Dispatch event to request image upload
+          window.dispatchEvent(
+            new CustomEvent(IMAGE_UPLOAD_REQUEST, {
+              detail: { file },
+            })
+          );
         }
       });
       fileInput.click();

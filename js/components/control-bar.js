@@ -15,6 +15,9 @@ import {
   PIECE_ROTATE,
   PIECE_SELECT,
   PIECE_DESELECT,
+  DEEPLINK_ENABLED,
+  DEEPLINK_DISABLED,
+  IMAGE_UPLOAD_REQUEST,
 } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
 import {
@@ -27,11 +30,15 @@ import {
   getZoomLevel,
   updateZoomDisplay,
   updateOrientationTipButton,
+  applyViewportGrayscaleFilter,
   ZOOM_STEP_FACTOR,
   WHEEL_ZOOM_IN_FACTOR,
   WHEEL_ZOOM_OUT_FACTOR,
 } from "../ui/display.js";
-import { isIndexedDBSupported, storeImageInDB } from "../persistence/indexed-db-storage.js";
+import {
+  isIndexedDBSupported,
+  storeImageInDB,
+} from "../persistence/indexed-db-storage.js";
 import { applyLicenseIfPresent } from "../utils/image-util.js";
 import { showPictureGallery } from "./picture-gallery.js";
 
@@ -44,6 +51,7 @@ const MAX_PIECES = 1000; // Clamp maximum piece count for UI
 // ================================
 // DOM Elements
 // ================================
+const topBar = document.querySelector(".top-bar");
 const pieceSlider = document.getElementById("pieceSlider");
 const pieceDisplay = document.getElementById("pieceDisplay");
 const progressDisplay = document.getElementById("progressDisplay");
@@ -406,6 +414,21 @@ function initControlBar() {
   registerGlobalEvent(GROUPS_CHANGED, updateProgress);
   registerGlobalEvent(PUZZLE_STATE_CHANGED, updateProgress);
 
+  // Listen for deep link mode events
+  window.addEventListener(DEEPLINK_ENABLED, () => {
+    if (topBar) topBar.classList.add("deep-link-mode");
+  });
+
+  window.addEventListener(DEEPLINK_DISABLED, () => {
+    if (topBar) topBar.classList.remove("deep-link-mode");
+  });
+
+  // Listen for image upload request from gallery
+  window.addEventListener(IMAGE_UPLOAD_REQUEST, (event) => {
+    const { file } = event.detail;
+    handleImageUpload(file);
+  });
+
   // Initialize displays
   updatePieceDisplay();
   updateZoomDisplay();
@@ -420,6 +443,10 @@ async function handleImageUpload(file) {
   if (!file) return;
 
   try {
+    // Reset deep link state - new file upload invalidates old deep link data
+    state.reset();
+
+    applyViewportGrayscaleFilter();
     progressDisplay.textContent = t("status.loadingImage");
 
     // Load the image from file

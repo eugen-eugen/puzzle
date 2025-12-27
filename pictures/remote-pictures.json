@@ -48,6 +48,20 @@
       "pieces": 15,
       "removeColor": "y",
       "license": "© zjazjazoie / Pixabay"
+    },
+    {
+      "url": "https://cdn.pixabay.com/photo/2019/10/24/19/48/dinosaurs-4575110_1280.png",
+      "title": "Dinosaurier Karikaturen",
+      "pieces": 12,
+      "removeColor": "n",
+      "license": "© RalfDesign / Pixabay"
+    },
+    {
+      "url": "https://cdn.pixabay.com/photo/2024/07/18/19/39/dragons-8904903_1280.jpg",
+      "title": "Drachen Dinosaurier",
+      "pieces": 12,
+      "removeColor": "n",
+      "license": "© AlekYank / Pixabay"
     }
   ]
 }
