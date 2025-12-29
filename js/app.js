@@ -189,13 +189,12 @@ async function bootstrap() {
   // Parse and save to state
   parseDeepLinkParams();
 
+  // Initialize persistence (event-driven architecture)
+  initPersistence();
+
   if (state.deepLinkImageUrl) {
     deepLinkActive = true; // mark so persistence skip resume
     window.dispatchEvent(new CustomEvent(DEEPLINK_ENABLED)); // Notify control bar to hide controls
-
-    // Persist removeColor setting
-    //TODO to be refactored with other settings persistence
-    localStorage.setItem("removeColor", state.deepLinkRemoveColor ? "y" : "n");
 
     // Load remote image with timeout
     loadRemoteImageWithTimeout(state.deepLinkImageUrl, {
@@ -242,9 +241,6 @@ async function bootstrap() {
       // Error handling is already done in callbacks
     });
   }
-
-  // Initialize persistence (event-driven architecture)
-  initPersistence();
 
   // Listen for persistence can-resume event
   registerGlobalEvent(PERSISTENCE_CAN_RESUME, (event) => {

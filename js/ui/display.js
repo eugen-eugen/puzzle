@@ -209,11 +209,9 @@ export function applyPieceZIndex(pieceId, zIndex) {
 export function applyViewportGrayscaleFilter() {
   if (!piecesViewport) return;
 
-  // Check state first, then deep link, fallback to localStorage
+  // Check state first, then deep link
   const removeColor =
-    state.puzzleSettings.removeColor ||
-    state.deepLinkRemoveColor ||
-    localStorage.getItem("removeColor");
+    state.puzzleSettings.removeColor || state.deepLinkRemoveColor;
 
   if (removeColor === true || removeColor === "y") {
     piecesViewport.style.filter = "grayscale(100%)";
