@@ -53,12 +53,9 @@ export class Piece {
     // GroupManager will set/update this during initialization
     this._groupId = data.groupId || null;
 
+    const nw = new Point(data.imgX, data.imgY);
     // Physical dimensions - Rectangle stores position (imgX, imgY) and size (w, h)
-    this.imgRect = new Rectangle(
-      new Point(data.imgX, data.imgY),
-      data.w,
-      data.h
-    );
+    this.imgRect = new Rectangle(nw, data.w, data.h);
 
     // Visual representation
     this.bitmap = data.bitmap;
@@ -76,9 +73,9 @@ export class Piece {
     this.zIndex = data.zIndex !== undefined ? data.zIndex : null; // Z-index for layering, null means not yet assigned
 
     // Calculate piece geometry if geometry data is provided
-    if (data.geometryCorners && data.geometrySidePoints && data.nw) {
-      this.corners = normalizePointsToOrigin(data.geometryCorners, data.nw);
-      this.sPoints = normalizePointsToOrigin(data.geometrySidePoints, data.nw);
+    if (data.geometryCorners && data.geometrySidePoints && nw) {
+      this.corners = normalizePointsToOrigin(data.geometryCorners, nw);
+      this.sPoints = normalizePointsToOrigin(data.geometrySidePoints, nw);
     } else {
       this.corners = convertToPoints(data.corners);
       this.sPoints = convertToPoints(data.sPoints);
@@ -90,9 +87,9 @@ export class Piece {
     }
 
     // Generate bitmap if not provided and we have all necessary data
-    if (!this.bitmap && data.master && this.path && data.nw) {
+    if (!this.bitmap && data.master && this.path && nw) {
       const frame = this.calculateBoundingFrame();
-      this.bitmap = drawPiece(frame, this.path, data.nw, data.master);
+      this.bitmap = drawPiece(frame, this.path, nw, data.master);
     }
 
     // Register position with GameTableController
@@ -186,28 +183,22 @@ export class Piece {
    * @returns {Rectangle} Rectangle with topLeft and bottomRight Point properties
    */
   calculateBoundingFrame() {
-    const corners = this.corners;
-    const sPoints = this.sPoints;
-
     // Collect all corner and side points
-    const allPoints = [corners.nw, corners.ne, corners.se, corners.sw];
+    const allPoints = [
+      this.corners.nw,
+      this.corners.ne,
+      this.corners.se,
+      this.corners.sw,
+    ];
 
     // Add side points if they exist
-    if (sPoints.north) allPoints.push(sPoints.north);
-    if (sPoints.east) allPoints.push(sPoints.east);
-    if (sPoints.south) allPoints.push(sPoints.south);
-    if (sPoints.west) allPoints.push(sPoints.west);
+    if (this.sPoints.north) allPoints.push(this.sPoints.north);
+    if (this.sPoints.east) allPoints.push(this.sPoints.east);
+    if (this.sPoints.south) allPoints.push(this.sPoints.south);
+    if (this.sPoints.west) allPoints.push(this.sPoints.west);
 
     // Calculate bounding frame using polygon utility
     const frame = boundingFrame(allPoints);
-
-    // Handle edge case where no valid points found - use image dimensions as fallback
-    if (frame.width === 0 && frame.height === 0) {
-      return Rectangle.fromPoints(
-        new Point(0, 0),
-        new Point(this.imgRect.width, this.imgRect.height)
-      );
-    }
 
     return frame;
   }
@@ -296,21 +287,6 @@ export class Piece {
     }
 
     return data;
-  }
-
-  /**
-   * Create piece from serialized data
-   * @param {Object} data - Serialized piece data
-   * @param {HTMLCanvasElement} bitmap - Reconstructed bitmap
-   * @param {Path2D} path - Reconstructed path
-   * @returns {Piece} New piece instance
-   */
-  static deserialize(data, bitmap, path) {
-    return new Piece({
-      ...data,
-      bitmap,
-      path,
-    });
   }
 
   // ===== Utility Methods =====

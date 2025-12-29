@@ -242,8 +242,8 @@ export class UIInteractionManager {
 
     const viewportState = getViewportState();
 
-    const deltaX = event.dx / viewportState.zoomLevel;
-    const deltaY = event.dy / viewportState.zoomLevel;
+    const deltaX = event.dx / viewportState.scale;
+    const deltaY = event.dy / viewportState.scale;
 
     if (this.highCurvatureDetach) {
       const group = groupManager.getGroup(piece.groupId);

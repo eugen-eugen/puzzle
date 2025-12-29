@@ -105,41 +105,46 @@ function getSliderValue() {
   return parseInt(pieceSlider.value, 10) || 0;
 }
 
+/**
+ * Set slider value and update state
+ * @param {number} val - Slider value (0-100)
+ */
 function setSliderValue(val) {
   pieceSlider.value = String(val);
+  state.puzzleSettings.sliderValue = val;
   updatePieceDisplay();
 }
 
-function getCurrentImage() {
-  return currentImage;
-}
-
+/**
+ * Set current image and update state
+ * @param {HTMLImageElement} img - Image element
+ */
 function setCurrentImage(img) {
-  currentImage = img;
+  state.image.data = img;
 }
 
-function getCurrentImageSource() {
-  return currentImageSource;
-}
-
+/**
+ * Set current image source and update state
+ * @param {string} source - Image source (URL, filename, or idb:id)
+ */
 function setCurrentImageSource(source) {
-  currentImageSource = source;
+  state.image.source = source;
 }
 
-function getCurrentImageId() {
-  return currentImageId;
-}
-
+/**
+ * Set current image ID and update state
+ * @param {string|null} imageId - Image ID (for IndexedDB images)
+ */
 function setCurrentImageId(imageId) {
-  currentImageId = imageId;
+  state.image.id = imageId;
 }
 
-function getCurrentImageLicense() {
-  return currentImageLicense;
-}
-
+/**
+ * Set current image license and update state
+ * @param {string|null} license - License text or null
+ */
 function setCurrentImageLicense(license) {
-  currentImageLicense = license;
+  state.image.license = license;
 }
 
 function resetZoomAndPan() {
@@ -434,11 +439,6 @@ function initControlBar() {
   updateZoomDisplay();
 }
 
-// Set persistence module reference
-function setPersistence(persistenceModule) {
-  persistence = persistenceModule;
-}
-
 async function handleImageUpload(file) {
   if (!file) return;
 
@@ -474,6 +474,8 @@ async function handleImageUpload(file) {
         const result = await storeImageInDB(file);
         currentImageId = result.imageId;
         currentImageSource = `idb:${result.imageId}`; // 'idb:img_timestamp_randomid'
+        setCurrentImageId(result.imageId); // Update state.image.id
+        setCurrentImageSource(`idb:${result.imageId}`); // Update state.image.source
         console.log(
           "[controlBar] File stored successfully in IndexedDB:",
           result.imageId
@@ -485,10 +487,12 @@ async function handleImageUpload(file) {
         );
         // Fallback to regular filename storage
         currentImageSource = file.webkitRelativePath || file.name;
+        setCurrentImageSource(file.webkitRelativePath || file.name);
       }
     } else {
       // Store filename with directory path if available (webkitRelativePath) or just filename
       currentImageSource = file.webkitRelativePath || file.name;
+      setCurrentImageSource(file.webkitRelativePath || file.name);
     }
 
     // Reset slider to 0 and show original image
@@ -539,15 +543,10 @@ export {
   generatePuzzle,
   getSliderValue,
   setSliderValue,
-  getCurrentImage,
   setCurrentImage,
-  getCurrentImageSource,
   setCurrentImageSource,
-  getCurrentImageId,
   setCurrentImageId,
-  getCurrentImageLicense,
   setCurrentImageLicense,
   pieceCountToSlider,
-  setPersistence,
   handleImageUpload,
 };

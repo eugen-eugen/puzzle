@@ -151,3 +151,50 @@ export const DEEPLINK_DISABLED = "deeplink:disabled";
  * @property {File} detail.file - The image file to upload
  */
 export const IMAGE_UPLOAD_REQUEST = "image:upload-request";
+
+/**
+ * Dispatched when the application requests persistence to save current state.
+ * Core -> Persistence communication.
+ * @type {string}
+ * @event persistence:save
+ * @property {Object} detail - Event detail (optional)
+ * @property {string} detail.reason - Reason for save: "connection", "drag", "manual", etc.
+ */
+export const PERSISTENCE_SAVE = "persistence:save";
+
+/**
+ * Dispatched when the application requests persistence to attempt restore.
+ * Core -> Persistence communication.
+ * @type {string}
+ * @event persistence:restore
+ */
+export const PERSISTENCE_RESTORE = "persistence:restore";
+
+/**
+ * Dispatched when persistence successfully loaded saved state and can resume.
+ * Persistence -> Core communication.
+ * @type {string}
+ * @event persistence:can-resume
+ * @property {Object} detail - Event detail
+ * @property {Object} detail.savedState - The saved state data
+ */
+export const PERSISTENCE_CAN_RESUME = "persistence:can-resume";
+
+/**
+ * Dispatched when persistence has no saved state to restore (empty state).
+ * Persistence -> Core communication.
+ * @type {string}
+ * @event persistence:cannot-resume
+ */
+export const PERSISTENCE_CANNOT_RESUME = "persistence:cannot-resume";
+
+/**
+ * Dispatched when pieces are connected/merged into a group.
+ * @type {string}
+ * @event pieces:connected
+ * @property {Object} detail - Event detail
+ * @property {number} detail.pieceAId - ID of first piece
+ * @property {number} detail.pieceBId - ID of second piece
+ * @property {number} detail.groupId - Resulting group ID
+ */
+export const PIECES_CONNECTED = "pieces:connected";

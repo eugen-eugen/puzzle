@@ -106,23 +106,33 @@ export function getViewport() {
 
 /**
  * Get current viewport state (zoom and pan)
- * @returns {Object} Viewport state with zoomLevel, panX, panY
+ * @returns {Object} Viewport state with offsetX, offsetY, scale
  */
 export function getViewportState() {
   return {
-    zoomLevel: zoomLevel,
-    panX: panOffset.x,
-    panY: panOffset.y,
+    offsetX: state.viewport.offsetX,
+    offsetY: state.viewport.offsetY,
+    scale: state.viewport.scale,
   };
 }
 
 /**
  * Apply viewport state (zoom and pan)
- * @param {Object} v - Viewport state with zoomLevel, panX, panY
+ * @param {Object} v - Viewport state with offsetX, offsetY, scale
  */
 export function applyViewportState(v) {
-  setZoom(v.zoomLevel);
-  panOffset = new Point(v.panX, v.panY);
+  const newZoom = v.scale || v.zoomLevel || 1.0; // Support both new and old format
+  const newPanX = v.offsetX !== undefined ? v.offsetX : v.panX || 0;
+  const newPanY = v.offsetY !== undefined ? v.offsetY : v.panY || 0;
+
+  setZoom(newZoom);
+  panOffset = new Point(newPanX, newPanY);
+
+  // Update state object
+  state.viewport.offsetX = newPanX;
+  state.viewport.offsetY = newPanY;
+  state.viewport.scale = newZoom;
+
   updateViewportTransform();
   updateZoomDisplay();
 }
@@ -194,19 +204,23 @@ export function applyPieceZIndex(pieceId, zIndex) {
 
 /**
  * Apply grayscale filter to the viewport
- * Reads removeColor setting from state or localStorage
+ * Reads removeColor setting from state.puzzleSettings or localStorage
  */
 export function applyViewportGrayscaleFilter() {
   if (!piecesViewport) return;
-  // Check state first, fallback to localStorage
-  const removeColorFromState = state.deepLinkRemoveColor;
-  const removeColorFromStorage = localStorage.getItem("removeColor");
-  const removeColor = removeColorFromState || removeColorFromStorage;
 
-  if (removeColor === "y") {
+  // Check state first, then deep link, fallback to localStorage
+  const removeColor =
+    state.puzzleSettings.removeColor ||
+    state.deepLinkRemoveColor ||
+    localStorage.getItem("removeColor");
+
+  if (removeColor === true || removeColor === "y") {
     piecesViewport.style.filter = "grayscale(100%)";
+    state.puzzleSettings.removeColor = true;
   } else {
     piecesViewport.style.filter = "none";
+    state.puzzleSettings.removeColor = false;
   }
 }
 
@@ -219,8 +233,14 @@ export function getPanOffset() {
   return panOffset;
 }
 
+/**
+ * Set pan offset and update viewport state
+ * @param {Point} newPanOffset - New pan offset
+ */
 export function setPanOffset(newPanOffset) {
   panOffset = newPanOffset;
+  state.viewport.offsetX = newPanOffset.x;
+  state.viewport.offsetY = newPanOffset.y;
   updateViewportTransform();
 }
 
@@ -240,11 +260,16 @@ export function setLastPanPosition(position) {
   lastPanPosition = position;
 }
 
-// Zoom function with optional center point
+/**
+ * Set zoom level and update viewport state
+ * @param {number} newZoomLevel - New zoom level (clamped between MIN_ZOOM and MAX_ZOOM)
+ * @param {Point|null} [center=null] - Optional zoom center point
+ */
 export function setZoom(newZoomLevel, center = null) {
   const oldZoom = zoomLevel;
   const clampedZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, newZoomLevel));
   zoomLevel = clampedZoom;
+  state.viewport.scale = clampedZoom;
 
   // If zoom center is provided, adjust pan to zoom to that point
   if (center && piecesContainer) {
@@ -256,6 +281,10 @@ export function setZoom(newZoomLevel, center = null) {
     const zoomRatio = clampedZoom / oldZoom;
     const panDelta = viewportCenter.sub(panOffset).scaled(zoomRatio);
     panOffset = viewportCenter.sub(panDelta);
+
+    // Update state
+    state.viewport.offsetX = panOffset.x;
+    state.viewport.offsetY = panOffset.y;
   }
 
   updateViewportTransform();
@@ -452,7 +481,17 @@ export function drawPiece(boundingFrame, path, nw, master) {
   ctx.save();
   // Center the bounding frame in the canvas
   ctx.clip(path);
-  ctx.drawImage(master, clipX, clipY, clipW, clipH, dx, dy, clipW, clipH);
+  ctx.drawImage(
+    master,
+    clipX,
+    clipY,
+    clipW,
+    clipH,
+    boundingFrame.position.x,
+    boundingFrame.position.y,
+    clipW,
+    clipH
+  );
   ctx.restore();
 
   // Round the path vertices

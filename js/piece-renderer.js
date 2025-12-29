@@ -40,13 +40,6 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
   const areaH = container.clientHeight || 600;
 
   pieceElements.clear();
-  const avgSize =
-    (pieces.reduce(
-      (acc, p) => acc + Math.min(p.imgRect.width, p.imgRect.height),
-      0
-    ) /
-      pieces.length) *
-    SCALE;
 
   // Step 1: Apply random rotation to each piece (0°, 90°, 180°, or 270°)
   // Skip rotation if noRotate is true
@@ -139,6 +132,7 @@ export function renderPiecesAtPositions(container, pieces) {
     ) /
       pieces.length) *
     (pieces[0]?.scale || DEFAULT_PIECE_SCALE || 0.7);
+
   pieces.forEach((p) => {
     const wrapper = document.createElement("div");
     wrapper.className = "piece";
@@ -160,8 +154,6 @@ export function renderPiecesAtPositions(container, pieces) {
     if (p.zIndex !== null && p.zIndex !== undefined) {
       wrapper.style.zIndex = p.zIndex.toString();
     }
-    const fallbackLeft = Math.random() * (areaW - scaledW);
-    const fallbackTop = Math.random() * (areaH - scaledH);
     ensurePiecePosition(p);
     applyPieceTransform(p);
     wrapper.appendChild(canvas);
@@ -183,6 +175,8 @@ export function renderPiecesAtPositions(container, pieces) {
   gameTableController.initializeMaxZIndex();
   gameTableController.attachPieceElements(pieceElements);
   uiManager = new UIInteractionManager(pieceElements);
+
+  pieces.forEach((p, index) => applyPieceTransform(p));
 }
 
 function getGroupPieces(piece) {
@@ -202,12 +196,6 @@ function moveSinglePiece(piece, delta) {
   }
   // Spatial index update delegated to controller via setPiecePosition / rebuilds.
 }
-
-// applyHighlight function moved to interactionManager.js
-
-// Selection and interaction functions moved to interactionManager.js
-
-// Global event handling now managed by interact.js in interactionManager.js
 
 // Lookup piece by ID from state
 function findPiece(id) {

@@ -41,6 +41,27 @@ class State {
     this.deepLinkNoRotate = "n";
     this.deepLinkRemoveColor = "n";
     this.deepLinkLicense = null;
+
+    // Viewport state (pan/zoom)
+    this.viewport = {
+      offsetX: 0,
+      offsetY: 0,
+      scale: 1.0,
+    };
+
+    // Current image data
+    this.image = {
+      data: null, // HTMLImageElement
+      source: null, // URL or "file"
+      id: null, // unique identifier
+      license: null, // attribution string
+    };
+
+    // Puzzle generation settings
+    this.puzzleSettings = {
+      sliderValue: 3, // Default slider position
+      removeColor: false, // Grayscale filter
+    };
   }
 
   /**

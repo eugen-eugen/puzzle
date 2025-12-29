@@ -23,6 +23,7 @@ vi.mock("@/js/logic/game-table-controller.js", () => ({
 
 vi.mock("@/js/constants/custom-events.js", () => ({
   GROUPS_CHANGED: "groups:changed",
+  PIECES_CONNECTED: "pieces:connected",
 }));
 
 // Helper function to create mock pieces

@@ -11,8 +11,7 @@ import { renderPiecesAtPositions } from "./piece-renderer.js";
 import {
   initPersistence,
   clearSavedGame,
-  tryOfferResume,
-  requestAutoSave,
+  loadGame,
 } from "./persistence/persistence.js";
 import { showResumeModal } from "./components/resume.js";
 import { state } from "./game-engine.js";
@@ -27,31 +26,19 @@ import {
   initViewport,
   getViewport,
   clearPieceOutline,
-  updateOrientationTipButton,
-  getZoomLevel,
-  setZoom,
   applyPieceCorrectnessVisualFeedback,
   applyViewportGrayscaleFilter,
   getViewportState,
   applyViewportState,
-  MIN_ZOOM,
-  MAX_ZOOM,
 } from "./ui/display.js";
 import {
   initControlBar,
   generatePuzzle,
-  getSliderValue,
   setSliderValue,
-  getCurrentImage,
   setCurrentImage,
-  getCurrentImageSource,
   setCurrentImageSource,
-  getCurrentImageId,
-  setCurrentImageId,
-  getCurrentImageLicense,
   setCurrentImageLicense,
   pieceCountToSlider,
-  setPersistence,
   updatePieceDisplay,
 } from "./components/control-bar.js";
 import {
@@ -62,6 +49,9 @@ import {
   DRAG_END,
   DEEPLINK_ENABLED,
   DEEPLINK_DISABLED,
+  PERSISTENCE_RESTORE,
+  PERSISTENCE_CAN_RESUME,
+  PERSISTENCE_CANNOT_RESUME,
 } from "./constants/custom-events.js";
 import { registerGlobalEvent } from "./utils/event-util.js";
 import { PUZZLE_STATE_CHANGED } from "./constants/custom-events.js";
@@ -174,11 +164,7 @@ export function checkPuzzleCorrectness() {
 
 // Viewport panning is now handled by ui-interaction-manager.js using interact.js
 // Help modal is now handled by components/help.js
-
-// Auto-save after drag operations
-registerGlobalEvent(DRAG_END, (event) => {
-  requestAutoSave();
-});
+// Auto-save is handled by persistence module listening to DRAG_END and PIECES_CONNECTED events
 
 // Keyboard shortcuts (zoom shortcuts are now in controlBar.js)
 
@@ -240,7 +226,7 @@ async function bootstrap() {
             detail: { reason: "timeout" },
           })
         );
-        tryOfferResume();
+        document.dispatchEvent(new CustomEvent(PERSISTENCE_RESTORE));
       },
       onError: () => {
         // Reset deep link flag and try normal resume flow
@@ -250,84 +236,50 @@ async function bootstrap() {
             detail: { reason: "error" },
           })
         );
-        tryOfferResume();
+        document.dispatchEvent(new CustomEvent(PERSISTENCE_RESTORE));
       },
     }).catch(() => {
       // Error handling is already done in callbacks
     });
   }
 
-  // Initialize persistence after i18n so modal is translated
-  setPersistence({
-    initPersistence,
-    clearSavedGame,
-    tryOfferResume,
-    requestAutoSave,
+  // Initialize persistence (event-driven architecture)
+  initPersistence();
+
+  // Listen for persistence can-resume event
+  registerGlobalEvent(PERSISTENCE_CAN_RESUME, (event) => {
+    const { savedState } = event.detail;
+    showResumeModal({
+      onResume: () => loadGame(),
+      onDiscard: () => {
+        clearSavedGame();
+        document.dispatchEvent(
+          new CustomEvent(PUZZLE_STATE_CHANGED, {
+            detail: { action: "cleared" },
+          })
+        );
+        // Show picture gallery when user selects "new session" (unless in deep link mode)
+        if (!deepLinkActive) {
+          showPictureGallery((deepLinkUrl) => {
+            // User selected a picture - navigate to deep link
+            window.location.href = deepLinkUrl;
+          });
+        }
+      },
+      onCancel: () => {},
+      hasResume: true,
+    });
   });
-  initPersistence({
-    getViewportState,
-    applyViewportState,
-    getSliderValue,
-    setSliderValue,
-    getCurrentImage,
-    getCurrentImageSource,
-    getCurrentImageId,
-    setImage: setCurrentImage,
-    setImageSource: setCurrentImageSource,
-    setImageId: setCurrentImageId,
-    getImageLicense: getCurrentImageLicense,
-    setImageLicense: setCurrentImageLicense,
-    regenerate: generatePuzzle,
-    getState: () => state,
-    setPieces: (pieces) => {
-      state.pieces = pieces;
-      state.totalPieces = pieces.length;
-      // Defer GroupManager initialization until positions are normalized in renderPiecesFromState.
-      // Controller positions will be synced after rendering.
-    },
-    redrawPiecesContainer: () => {
-      const viewport = getViewport();
-      if (viewport) {
-        viewport.innerHTML = "";
-        scatterInitialPieces(viewport, state.pieces);
-      }
-      document.dispatchEvent(
-        new CustomEvent(PUZZLE_STATE_CHANGED, {
-          detail: { action: "restored" },
-        })
-      );
-    },
-    renderPiecesFromState: () => {
-      const viewport = getViewport();
-      if (viewport) {
-        viewport.innerHTML = "";
-        renderPiecesAtPositions(viewport, state.pieces);
-      }
-      document.dispatchEvent(
-        new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "loaded" } })
-      );
-      // Sync controller after rendering existing positions
-      gameTableController.syncAllPositions();
-    },
-    markDirtyHook: () =>
-      document.dispatchEvent(
-        new CustomEvent(PUZZLE_STATE_CHANGED, {
-          detail: { action: "restored" },
-        })
-      ),
-    showResumePrompt: showResumeModal,
-    afterDiscard: () => {
-      document.dispatchEvent(
-        new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "cleared" } })
-      );
-      // Show picture gallery when user selects "new session" (unless in deep link mode)
-      if (!deepLinkActive) {
-        showPictureGallery((deepLinkUrl) => {
-          // User selected a picture - navigate to deep link
-          window.location.href = deepLinkUrl;
-        });
-      }
-    },
+
+  // Listen for persistence cannot-resume event
+  registerGlobalEvent(PERSISTENCE_CANNOT_RESUME, () => {
+    // No saved game - show picture gallery directly (unless in deep link mode)
+    if (!deepLinkActive) {
+      showPictureGallery((deepLinkUrl) => {
+        // User selected a picture - navigate to deep link
+        window.location.href = deepLinkUrl;
+      });
+    }
   });
 
   if (deepLinkActive) {
@@ -341,7 +293,8 @@ async function bootstrap() {
       console.warn("[deep-link] Failed to clear previous save", e);
     }
   } else {
-    tryOfferResume();
+    // Request persistence to check for saved game
+    document.dispatchEvent(new CustomEvent(PERSISTENCE_RESTORE));
   }
 }
 

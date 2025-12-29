@@ -134,10 +134,12 @@ describe("Piece", () => {
           south: new Point(100, 170),
           west: new Point(40, 110),
         },
+        imgX: 50,
+        imgY: 60,
       });
       const piece = new Piece(data);
 
-      // Should be normalized to origin
+      // Should be normalized to origin relative to nw (imgX, imgY)
       expect(piece.corners.nw).toEqual(new Point(0, 0));
       expect(piece.corners.ne).toEqual(new Point(100, 0));
       expect(piece.sPoints.north).toEqual(new Point(50, -10));
@@ -311,7 +313,7 @@ describe("Piece", () => {
 
     it("should handle edge case with no valid points", () => {
       // When corners/sPoints are truly invalid (undefined values),
-      // the method should return a fallback based on imgRect
+      // boundingFrame returns zero dimensions
       const data = createPieceData({
         corners: {
           nw: undefined,
@@ -324,9 +326,9 @@ describe("Piece", () => {
       const piece = new Piece(data);
       const frame = piece.calculateBoundingFrame();
 
-      // Should fallback to imgRect dimensions
-      expect(frame.width).toBe(100);
-      expect(frame.height).toBe(100);
+      // boundingFrame with no valid points returns zero dimensions
+      expect(frame.width).toBe(0);
+      expect(frame.height).toBe(0);
     });
   });
 
@@ -442,7 +444,7 @@ describe("Piece", () => {
     });
   });
 
-  describe("deserialize", () => {
+  describe("constructor with serialized data", () => {
     it("should create piece from serialized data", () => {
       const canvas = document.createElement("canvas");
       const path = new Path2D();
@@ -460,6 +462,8 @@ describe("Piece", () => {
         w: 150,
         h: 150,
         scale: 0.8,
+        bitmap: canvas,
+        path: path,
         corners: {
           nw: new Point(0, 0),
           ne: new Point(150, 0),
@@ -471,7 +475,7 @@ describe("Piece", () => {
         },
       };
 
-      const piece = Piece.deserialize(data, canvas, path);
+      const piece = new Piece(data);
 
       expect(piece).toBeInstanceOf(Piece);
       expect(piece.id).toBe("piece-2");
@@ -497,6 +501,8 @@ describe("Piece", () => {
         imgY: 0,
         w: 100,
         h: 100,
+        bitmap: canvas,
+        path: path,
         corners: {
           nw: new Point(0, 0),
           ne: new Point(100, 0),
@@ -506,7 +512,7 @@ describe("Piece", () => {
         sPoints: {},
       };
 
-      const piece = Piece.deserialize(minimalData, canvas, path);
+      const piece = new Piece(minimalData);
 
       expect(piece).toBeInstanceOf(Piece);
       expect(piece.rotation).toBe(0);

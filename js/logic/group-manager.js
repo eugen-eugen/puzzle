@@ -6,7 +6,10 @@
 import { Group } from "../model/group.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "./game-table-controller.js";
-import { GROUPS_CHANGED } from "../constants/custom-events.js";
+import {
+  GROUPS_CHANGED,
+  PIECES_CONNECTED,
+} from "../constants/custom-events.js";
 
 // Regular expression to match group ID format (e.g., "g123")
 const GROUP_ID_PATTERN = /^g(\d+)/;
@@ -203,6 +206,18 @@ class GroupManager {
           },
         })
       );
+
+      // Dispatch pieces connected event for persistence
+      document.dispatchEvent(
+        new CustomEvent(PIECES_CONNECTED, {
+          detail: {
+            pieceAId: pieceA.id,
+            pieceBId: pieceB.id,
+            groupId: keepGroup.id,
+          },
+        })
+      );
+
       return true;
     } catch (error) {
       console.error("[GroupManager] Error during group merge:", error);
