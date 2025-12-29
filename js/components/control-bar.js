@@ -64,10 +64,6 @@ const piecesContainer = document.getElementById("piecesContainer");
 // ================================
 // State Variables
 // ================================
-let currentImage = null;
-let currentImageSource = null; // Store filename or URL for persistence
-let currentImageId = null; // Store IndexedDB image ID for persistence
-let currentImageLicense = null; // Store license text for current image
 let isGenerating = false;
 let persistence = null; // module ref once loaded
 
@@ -208,7 +204,7 @@ function updateProgress() {
 
 // Generate puzzle with current slider value
 async function generatePuzzle() {
-  if (!currentImage || isGenerating) return;
+  if (!state.image.data || isGenerating) return;
 
   const noRotate = state.noRotate || false;
   console.log(
@@ -224,9 +220,9 @@ async function generatePuzzle() {
     if (viewport) {
       // Temporarily set currentImageLicense in state
       const originalLicense = state.deepLinkLicense;
-      state.deepLinkLicense = currentImageLicense;
+      state.deepLinkLicense = state.image.license;
 
-      const displayImage = await applyLicenseIfPresent(currentImage);
+      const displayImage = await applyLicenseIfPresent(state.image.data);
 
       // Restore original license
       state.deepLinkLicense = originalLicense;
@@ -255,7 +251,7 @@ async function generatePuzzle() {
 
   try {
     // Add license text to image if present
-    const imageWithLicense = await applyLicenseIfPresent(currentImage);
+    const imageWithLicense = await applyLicenseIfPresent(state.image.data);
 
     const { pieces, rows, cols } = generateJigsawPieces(
       imageWithLicense,
@@ -464,16 +460,15 @@ async function handleImageUpload(file) {
       img.src = dataUrl;
     });
 
-    currentImage = img;
+    state.image.data = img;
 
     // Try to store the file using IndexedDB if supported
-    currentImageId = null;
+    state.image.id = null;
     if (isIndexedDBSupported()) {
       try {
         console.log("[controlBar] Attempting to store file in IndexedDB");
         const result = await storeImageInDB(file);
-        currentImageId = result.imageId;
-        currentImageSource = `idb:${result.imageId}`; // 'idb:img_timestamp_randomid'
+        state.image.source = `idb:${result.imageId}`; // 'idb:img_timestamp_randomid'
         setCurrentImageId(result.imageId); // Update state.image.id
         setCurrentImageSource(`idb:${result.imageId}`); // Update state.image.source
         console.log(
@@ -486,12 +481,10 @@ async function handleImageUpload(file) {
           error.message
         );
         // Fallback to regular filename storage
-        currentImageSource = file.webkitRelativePath || file.name;
         setCurrentImageSource(file.webkitRelativePath || file.name);
       }
     } else {
       // Store filename with directory path if available (webkitRelativePath) or just filename
-      currentImageSource = file.webkitRelativePath || file.name;
       setCurrentImageSource(file.webkitRelativePath || file.name);
     }
 
@@ -504,9 +497,9 @@ async function handleImageUpload(file) {
     if (viewport) {
       // Temporarily set currentImageLicense in state
       const originalLicense = state.deepLinkLicense;
-      state.deepLinkLicense = currentImageLicense;
+      state.deepLinkLicense = state.image.license;
 
-      const displayImage = await applyLicenseIfPresent(currentImage);
+      const displayImage = await applyLicenseIfPresent(state.image.data);
 
       // Restore original license
       state.deepLinkLicense = originalLicense;
