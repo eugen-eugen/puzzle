@@ -10,7 +10,7 @@ import { Util } from "../utils/numeric-util.js";
 import { isIndexedDBSupported, loadImageFromDB } from "./indexed-db-storage.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "../logic/game-table-controller.js";
-import { renderPiecesAtPositions } from "../piece-renderer.js";
+import { renderPiecesAtPositions } from "../logic/piece-renderer.js";
 import { getViewport } from "../ui/display.js";
 import {
   PERSISTENCE_SAVE,
@@ -171,6 +171,7 @@ function serializeState(includeBitmaps = STORE_BITMAPS) {
       scale: state.viewport.scale,
       sliderValue: state.puzzleSettings.sliderValue,
       removeColor: state.puzzleSettings.removeColor,
+      noRotate: state.noRotate,
     },
     imageSource: {
       source: state.image.source,
@@ -449,7 +450,14 @@ function reconstructPieces(data, masterImage) {
   // Update state
   //state.pieces = pieces;
   state.totalPieces = pieces.length;
-  state.noRotate = false;
+  state.noRotate = data.ui?.noRotate || false;
+
+  // If noRotate is enabled, reset all piece rotations to 0
+  if (state.noRotate) {
+    state.pieces.forEach((piece) => {
+      piece.setRotation(0);
+    });
+  }
 
   // Restore viewport state
   if (data.ui) {

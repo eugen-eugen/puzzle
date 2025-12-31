@@ -7,7 +7,7 @@ import "../css/components/picture-gallery.css";
 // Register service worker
 import "../public/service-worker.js";
 
-import { renderPiecesAtPositions } from "./piece-renderer.js";
+import { renderPiecesAtPositions } from "./logic/piece-renderer.js";
 import {
   initPersistence,
   clearSavedGame,

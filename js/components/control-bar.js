@@ -2,7 +2,7 @@
 // Centralizes all UI control elements including sliders, buttons, and their functionality
 
 import { generateJigsawPieces } from "../logic/jigsaw-generator.js";
-import { scatterInitialPieces } from "../piece-renderer.js";
+import { scatterInitialPieces } from "../logic/piece-renderer.js";
 import { getSelectedPiece } from "../interaction/hl-interaction-handler.js";
 import { state } from "../game-engine.js";
 import { groupManager } from "../logic/group-manager.js";

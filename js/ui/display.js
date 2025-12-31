@@ -9,7 +9,7 @@
 
 import { Point } from "../geometry/point.js";
 import { Rectangle } from "../geometry/rectangle.js";
-import { getPieceElement } from "../piece-renderer.js";
+import { getPieceElement } from "../logic/piece-renderer.js";
 import { Util } from "../utils/numeric-util.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "../logic/game-table-controller.js";
@@ -680,3 +680,30 @@ export function fitAllPiecesInView() {
 
 // Optional future ideas:
 // - batchApply(ops[]) to reduce layout thrash.
+
+const MIN_RENDERED_DIMENSION = 24; // Minimum drawn width/height to keep piece interactable
+
+export function createPieceElement(piece, scale) {
+  const scaledW = Math.max(MIN_RENDERED_DIMENSION, piece.bitmap.width * scale);
+  const scaledH = Math.max(MIN_RENDERED_DIMENSION, piece.bitmap.height * scale);
+
+  const wrapper = document.createElement("div");
+  wrapper.className = "piece";
+  wrapper.dataset.id = piece.id;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = scaledW;
+  canvas.height = scaledH;
+
+  const ctx = canvas.getContext("2d");
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.drawImage(piece.bitmap, 0, 0);
+  ctx.restore();
+
+  wrapper.style.width = scaledW + "px";
+  wrapper.style.height = scaledH + "px";
+  wrapper.appendChild(canvas);
+
+  return wrapper;
+}
