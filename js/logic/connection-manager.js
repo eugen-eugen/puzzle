@@ -15,23 +15,23 @@ import { dist2 as pointDist2 } from "../geometry/point.js";
 import { groupManager } from "./group-manager.js";
 import { DRAG_MOVE, DRAG_END } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
+import { isEmptyOrNullish } from "../utils/array-util.js";
 import { state } from "../game-engine.js";
+import {
+  NORTH,
+  EAST,
+  SOUTH,
+  WEST,
+  ALL_SIDES,
+  NORTHWEST,
+  NORTHEAST,
+  SOUTHEAST,
+  SOUTHWEST,
+} from "../constants/piece-constants.js";
 
 // ================================
 // Module Constants
 // ================================
-// Direction constants
-const NORTH = "north";
-const EAST = "east";
-const SOUTH = "south";
-const WEST = "west";
-const ALL_SIDES = [NORTH, EAST, SOUTH, WEST];
-
-// Corner constants
-const NORTHWEST = "nw";
-const NORTHEAST = "ne";
-const SOUTHEAST = "se";
-const SOUTHWEST = "sw";
 
 const DEFAULT_CONNECTION_DISTANCE_PX = 30; // Base pixel distance for matching
 const CONNECTION_TOLERANCE_SQ =
@@ -58,9 +58,9 @@ function sideCornerKeys(side) {
     case EAST:
       return { first: NORTHEAST, second: SOUTHEAST };
     case SOUTH:
-      return { first: SOUTHEAST, second: SOUTHWEST };
+      return { first: SOUTHWEST, second: SOUTHEAST };
     case WEST:
-      return { first: SOUTHWEST, second: NORTHWEST };
+      return { first: NORTHWEST, second: SOUTHWEST };
     default:
       return { first: null, second: null };
   }
@@ -126,26 +126,26 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
   let best = null;
 
   ALL_SIDES.forEach((mLogicalSide) => {
-    const mSPoint = movingPiece.sPoints[mLogicalSide];
-    if (!mSPoint) return; // border side, no connection possible
+    const mSPointArray = movingPiece.sPoints[mLogicalSide];
+    if (isEmptyOrNullish(mSPointArray)) return; // border side, no connection possible
 
     const mCornerNames = sideCornerKeys(mLogicalSide);
     const mwcA = movingWD.worldCorners[mCornerNames.first];
     const mwcB = movingWD.worldCorners[mCornerNames.second];
-    const mwS = movingWD.worldSPoints[mLogicalSide];
+    const mwSArray = movingWD.worldSPoints[mLogicalSide];
 
     ALL_SIDES.forEach((sLogicalSide) => {
-      const sSPoint = stationaryPiece.sPoints[sLogicalSide];
-      if (!sSPoint) return; // border side, no connection possible
+      const sSPointArray = stationaryPiece.sPoints[sLogicalSide];
+      if (isEmptyOrNullish(sSPointArray)) return; // border side, no connection possible
 
       const sCornerNames = sideCornerKeys(sLogicalSide);
       const swcA = stationaryWD.worldCorners[sCornerNames.first];
       const swcB = stationaryWD.worldCorners[sCornerNames.second];
-      const swS = stationaryWD.worldSPoints[sLogicalSide];
+      const swSArray = stationaryWD.worldSPoints[sLogicalSide];
 
-      // Create waypoint arrays: [corner1, sidePoint, corner2]
-      const mWaypoints = [mwcA, mwS, mwcB];
-      const sWaypoints = [swcA, swS, swcB];
+      // Create waypoint arrays: [corner1, ...sidePoints, corner2]
+      const mWaypoints = [mwcA, ...mwSArray, mwcB];
+      const sWaypoints = [swcA, ...swSArray, swcB];
 
       // Test waypoint matching with both direct and reversed ordering
       // Validates: (1) position tolerance - absolute distance match

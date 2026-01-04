@@ -70,20 +70,36 @@ Given two lines defined by points (a,b) and (c,d), the intersection is calculate
 
 ### 3. Side Waypoints (Knobs & Dents)
 
-After corner positions are determined, we generate waypoints for the knobs/dents on each piece edge:
+After corner positions are determined, we generate 5 waypoints for the knobs/dents on each piece edge:
+
+**5-Point Edge Structure**:
+Each internal edge now contains an array of 5 points that create a smooth spline curve:
+1. **point1A**: Entry point, shifted from basePoint toward pointA by random distance (0.05-0.15 × edge length)
+2. **point2a**: Undercut point toward A, positioned on segment [point2;pointA] at distance p1p3 × UNDERCUT_FACTOR
+3. **point2**: The main displaced knob/dent point (perpendicular offset from basePoint)
+4. **point2b**: Undercut point toward B, positioned on segment [point2;pointB] at distance p1p3 × UNDERCUT_FACTOR  
+5. **point1B**: Exit point, shifted from point1A toward pointB by distance p1p3 (where p1p3 = distance1 + distance3)
 
 **Horizontal Internal Edges** (between rows):
-- For each edge between corners[r+1][c] and corners[r+1][c+1]
-- Create a waypoint using `deviatePoint()` to randomize position along the edge
-- Offset perpendicular to create knob (+orientation) or dent (-orientation)
+- For each edge between corners[r+1][c] (pointA) and corners[r+1][c+1] (pointB)
+- Generate basePoint using `deviatePoint()` (center of edge with small random offset)
+- Create point2 with perpendicular offset for knob (+orientation) or dent (-orientation)
+- Call `generateCavityPoints(pointA, pointB, basePoint, point2)` to create the 5-point array
 
 **Vertical Internal Edges** (between columns):
-- For each edge between corners[r][c+1] and corners[r+1][c+1]
-- Similar waypoint generation with perpendicular offset
+- For each edge between corners[r][c+1] (pointA) and corners[r+1][c+1] (pointB)
+- Similar 5-point generation with perpendicular offset
 
-#### Waypoint Generation with `deviatePoint()`
+#### Waypoint Generation Details
 
-This method places the waypoint somewhere in the middle 50% of the edge (0.5 ± 0.25 = range [0.25, 0.75]), ensuring knobs/dents aren't too close to corners.
+The `deviatePoint()` method places the basePoint near the center of the edge (currently with WAYPOINT_OFFSET_RANGE = 0.0, meaning exactly at center).
+
+The `generateCavityPoints()` method then creates the 5-point structure:
+- Random entry/exit distances (distance1, distance3) between 0.05 and 0.15 of edge length
+- Undercut points (point2a, point2b) extend toward corners using UNDERCUT_FACTOR
+- Creates smooth transition from corner → entry point → undercut → displaced point → undercut → exit point → corner
+
+![Knob/Dent 5-Point Structure](puzzle-geometry-knob.png)
 
 #### Knob/Dent Orientation
 
@@ -98,14 +114,10 @@ Using adaptive probability based on the ratio of needed positive orientations to
 | Constant | Value | Purpose |
 |----------|-------|---------|
 | `CUT_RANDOMNESS_FACTOR` | 0.3 | Max deviation (±30%) for cut line positions |
-| `WAYPOINT_OFFSET_RANGE` | 0.25 | Waypoint position range along edge (±25% from center) |
+| `WAYPOINT_OFFSET_RANGE` | 0.0 | Waypoint position range along edge (currently 0 = exact center) |
 | `CAVITY_DEPTH_CAP_RELATIVE_TO_MIN` | 0.25 | Max cavity depth as fraction of min(pieceW, pieceH) |
 | `CAVITY_DEPTH_CAP_EDGE_FRACTION` | 0.5 | Max cavity depth as fraction of edge length |
-| `KNOB` | +1 | Outward bump orientation (used during generation) |
-| `DENT` | -1 | Inward cavity orientation (used during generation) |
-
-## Mathematical Properties
-
+| `UNDERCUT_FACTOR` | 2 | Distance multiplier for undercut points (point2a, point2b) from point2 toward edge endpoints |
 ### No Clamping Required
 
 The cut line positions naturally stay within image bounds because:
@@ -137,12 +149,13 @@ The maximum depth is the minimum of: the requested depth, 25% of the smaller pie
 The lattice provides the geometric data needed by `jigsaw-generator.js`:
 
 1. **Piece Corners**: From `lattice.corners[r][c]` grid
-2. **Piece Side Waypoints**: From `lattice.hSides[r][c]` and `lattice.vSides[r][c]`
-3. **Path Generation**: `Lattice.createPiecePath()` connects corners and waypoints into a closed Path2D
+2. **Piece Side Points**: From `lattice.hSides[r][c].points` and `lattice.vSides[r][c].points` arrays
+3. **Path Generation**: `Piece.generatePath()` creates smooth spline curves through corners and side points
 
 Each puzzle piece is defined by:
 - 4 corner points (from the lattice grid)
-- 0-4 side waypoints (interior edges have knobs/dents, borders are flat)
+- 0-4 side point arrays (interior edges have 5-point arrays for knobs/dents, borders are empty arrays)
+- Smooth spline curves connect: corner → 5 side points → corner for each edge
 
 ## Implementation Notes
 
@@ -161,14 +174,22 @@ The constructor automatically:
 - **`deviatePoint(a, b, range)`**: Finds random point between a and b with offset
 - **`chooseOrientation()`**: Adaptively selects KNOB or DENT to maintain balance
 - **`clampDepthForCavity(depth, edgeLength)`**: Prevents impossible cavity geometry
+- **`generateCavityPoints(pointA, pointB, basePoint, point2)`**: Creates the 5-point structure for a knob/dent edge:
+  - Returns: `{point1A, point2a, point2, point2b, point1B}`
+  - Calculates random entry/exit distances (0.05-0.15 of edge length)
+  - Positions undercut points using UNDERCUT_FACTOR to create smooth curves
 
 ### Data Structures
 
 **Corners**: 2D array `(rows+1) × (cols+1)` storing Point objects with x,y coordinates.
 
-**Horizontal Sides**: 2D array `(rows-1) × cols` storing objects with waypoint position (x, y), orientation (KNOB or DENT), axis identifier ("h"), position along edge (tOffset), and cavity/bump depth.
+**Horizontal Sides**: 2D array `(rows-1) × cols` storing objects with:
+- `points`: Array of 5 Point objects [point1A, point2a, point2, point2b, point1B]
+- `orientation`: KNOB (+1) or DENT (-1)
 
-**Vertical Sides**: 2D array `rows × (cols-1)` storing objects with waypoint position (x, y), orientation (KNOB or DENT), axis identifier ("v"), position along edge (tOffset), and cavity/bump depth.
+**Vertical Sides**: 2D array `rows × (cols-1)` storing objects with:
+- `points`: Array of 5 Point objects [point1A, point2a, point2, point2b, point1B]  
+- `orientation`: KNOB (+1) or DENT (-1)
 
 ## Advantages of This Approach
 

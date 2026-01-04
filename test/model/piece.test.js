@@ -19,10 +19,10 @@ vi.mock("@/js/logic/game-table-controller.js", () => ({
         sw: new Point(0, 10),
       },
       worldSPoints: {
-        north: new Point(5, 0),
-        east: new Point(10, 5),
-        south: new Point(5, 10),
-        west: new Point(0, 5),
+        north: [new Point(5, 0), new Point(5, 0), new Point(5, 0)],
+        east: [new Point(10, 5), new Point(10, 5), new Point(10, 5)],
+        south: [new Point(5, 10), new Point(5, 10), new Point(5, 10)],
+        west: [new Point(0, 5), new Point(0, 5), new Point(0, 5)],
       },
     })),
     getCenter: vi.fn((piece, element) => new Point(150, 250)),
@@ -142,7 +142,9 @@ describe("Piece", () => {
       // Should be normalized to origin relative to nw (imgX, imgY)
       expect(piece.corners.nw).toEqual(new Point(0, 0));
       expect(piece.corners.ne).toEqual(new Point(100, 0));
-      expect(piece.sPoints.north).toEqual(new Point(50, -10));
+      // sPoints are now arrays - check first element
+      expect(piece.sPoints.north).toBeInstanceOf(Array);
+      expect(piece.sPoints.north[0]).toEqual(new Point(50, -10));
     });
 
     it("should set zIndex or default to null", () => {

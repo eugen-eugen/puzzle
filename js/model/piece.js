@@ -10,7 +10,14 @@ import {
   convertToPoints,
 } from "../geometry/geometry-utils.js";
 import { boundingFrame } from "../geometry/polygon.js";
-import { DEFAULT_PIECE_SCALE } from "../constants/piece-constants.js";
+import {
+  DEFAULT_PIECE_SCALE,
+  NORTH,
+  EAST,
+  SOUTH,
+  WEST,
+  ALL_SIDES,
+} from "../constants/piece-constants.js";
 import { gameTableController } from "../logic/game-table-controller.js";
 import { drawPiece } from "../ui/display.js";
 
@@ -75,10 +82,18 @@ export class Piece {
     // Calculate piece geometry if geometry data is provided
     if (data.geometryCorners && data.geometrySidePoints && nw) {
       this.corners = normalizePointsToOrigin(data.geometryCorners, nw);
-      this.sPoints = normalizePointsToOrigin(data.geometrySidePoints, nw);
+      const normalizedSidePoints = normalizePointsToOrigin(
+        data.geometrySidePoints,
+        nw
+      );
+      // Convert single points to arrays: empty for border, 3 copies for inner sides
+      this.sPoints = this._convertSidePointArrays(normalizedSidePoints);
     } else {
       this.corners = convertToPoints(data.corners);
-      this.sPoints = convertToPoints(data.sPoints);
+      // sPoints already in array format from serialization
+      this.sPoints = this._convertSidePointArrays(
+        convertToPoints(data.sPoints)
+      );
     }
 
     // Generate path if not provided and geometry is available
@@ -157,6 +172,32 @@ export class Piece {
     this._groupId = newGroupId;
   }
 
+  /**
+   * Convert side points to arrays ensuring proper structure
+   * For geometry: converts single points to 3 copies, null to empty array
+   * For deserialization: ensures arrays of Points are properly structured
+   * @param {Object} sidePoints - Object with {north, east, south, west} side points (single or arrays)
+   * @returns {Object} Object with {north, east, south, west} arrays of points
+   * @private
+   */
+  _convertSidePointArrays(sidePoints) {
+    const result = {};
+    ALL_SIDES.forEach((side) => {
+      const value = sidePoints[side];
+      if (!value) {
+        // Border side - empty array
+        result[side] = [];
+      } else if (Array.isArray(value)) {
+        // Already an array from deserialization - keep as is
+        result[side] = value;
+      } else {
+        // Single point from geometry - convert to 3 copies
+        result[side] = [value, value.clone(), value.clone()];
+      }
+    });
+    return result;
+  }
+
   // getGroupPieces() method has been removed - use GroupManager.getGroup().allPieces instead
 
   // ===== Geometry Access =====
@@ -191,11 +232,19 @@ export class Piece {
       this.corners.sw,
     ];
 
-    // Add side points if they exist
-    if (this.sPoints.north) allPoints.push(this.sPoints.north);
-    if (this.sPoints.east) allPoints.push(this.sPoints.east);
-    if (this.sPoints.south) allPoints.push(this.sPoints.south);
-    if (this.sPoints.west) allPoints.push(this.sPoints.west);
+    // Add side points if they exist (now arrays)
+    if (this.sPoints[NORTH] && this.sPoints[NORTH].length > 0) {
+      allPoints.push(...this.sPoints[NORTH]);
+    }
+    if (this.sPoints[EAST] && this.sPoints[EAST].length > 0) {
+      allPoints.push(...this.sPoints[EAST]);
+    }
+    if (this.sPoints[SOUTH] && this.sPoints[SOUTH].length > 0) {
+      allPoints.push(...this.sPoints[SOUTH]);
+    }
+    if (this.sPoints[WEST] && this.sPoints[WEST].length > 0) {
+      allPoints.push(...this.sPoints[WEST]);
+    }
 
     // Calculate bounding frame using polygon utility
     const frame = boundingFrame(allPoints);
@@ -205,46 +254,89 @@ export class Piece {
 
   /**
    * Generate Path2D for this piece from corners and side points
-   * Path is shrunk to 0.8 to create a gap between pieces
+   * Each edge is a spline curve from corner to corner through side points
    * @returns {Path2D} Generated path for this piece
    */
   generatePath() {
-    const pts = [];
-
-    // Start with NW corner (at origin)
-    pts.push(this.corners.nw);
-
-    // Top edge
-    if (this.sPoints.north) {
-      pts.push(this.sPoints.north);
-    }
-    pts.push(this.corners.ne);
-
-    // Right edge
-    if (this.sPoints.east) {
-      pts.push(this.sPoints.east);
-    }
-    pts.push(this.corners.se);
-
-    // Bottom edge
-    if (this.sPoints.south) {
-      pts.push(this.sPoints.south);
-    }
-    pts.push(this.corners.sw);
-
-    // Left edge
-    if (this.sPoints.west) {
-      pts.push(this.sPoints.west);
-    }
-
-    // Build path
     const path = new Path2D();
-    path.moveTo(pts[0].x, pts[0].y);
-    for (let i = 1; i < pts.length; i++) {
-      path.lineTo(pts[i].x, pts[i].y);
-    }
-    path.closePath();
+
+    // Start at NW corner
+    path.moveTo(this.corners.nw.x, this.corners.nw.y);
+
+    // North edge: spline nw -> ne through north sPoints
+    this._addEdgeSpline(
+      path,
+      this.corners.nw,
+      this.sPoints[NORTH],
+      this.corners.ne
+    );
+
+    // East edge: spline ne -> se through east sPoints
+    this._addEdgeSpline(
+      path,
+      this.corners.ne,
+      this.sPoints[EAST],
+      this.corners.se
+    );
+
+    // Move to NW to continue with west and south edges
+    path.moveTo(this.corners.nw.x, this.corners.nw.y);
+
+    // West edge: spline nw -> sw through west sPoints
+    this._addEdgeSpline(
+      path,
+      this.corners.nw,
+      this.sPoints[WEST],
+      this.corners.sw
+    );
+
+    // South edge: spline sw -> se through south sPoints
+    this._addEdgeSpline(
+      path,
+      this.corners.sw,
+      this.sPoints[SOUTH],
+      this.corners.se
+    );
+
     return path;
+  }
+
+  /**
+   * Add a spline curve for one edge to the path
+   * Creates smooth spline from start corner through side points to end corner
+   * @param {Path2D} path - Path to add the curve to
+   * @param {Point} startCorner - Starting corner point
+   * @param {Point[]} sidePoints - Array of side points (may be empty for border edges)
+   * @param {Point} endCorner - Ending corner point
+   * @private
+   */
+  _addEdgeSpline(path, startCorner, sidePoints, endCorner) {
+    if (!sidePoints || sidePoints.length === 0) {
+      // Border edge - straight line
+      path.lineTo(endCorner.x, endCorner.y);
+      return;
+    }
+
+    // Create spline through all points: start corner -> side points -> end corner
+    const allPoints = [startCorner, ...sidePoints, endCorner];
+
+    // Use quadratic bezier curves to create smooth spline through all points
+    for (let i = 0; i < allPoints.length - 1; i++) {
+      const p1 = allPoints[i];
+      const p2 = allPoints[i + 1];
+
+      if (i === allPoints.length - 2) {
+        // Last segment - line to end corner
+        path.lineTo(p2.x, p2.y);
+      } else {
+        // Create quadratic curve using p2 as control point
+        // and midpoint to next as end point for smoother curve
+        const p3 = allPoints[i + 2];
+        const midX = (p2.x + p3.x) / 2;
+        const midY = (p2.y + p3.y) / 2;
+        path.quadraticCurveTo(p2.x, p2.y, midX, midY);
+      }
+    }
   }
 
   // ===== Persistence =====

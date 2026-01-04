@@ -9,6 +9,7 @@
 import { Point } from "../geometry/point.js";
 import { Rectangle } from "../geometry/rectangle.js";
 import { Util } from "../utils/numeric-util.js";
+import { isEmptyOrNullish } from "../utils/array-util.js";
 import {
   applyPieceTransform,
   applyPieceZIndex,
@@ -16,6 +17,7 @@ import {
 } from "../ui/display.js";
 import { groupManager } from "./group-manager.js";
 import { state } from "../game-engine.js";
+import { ALL_SIDES } from "../constants/piece-constants.js";
 // Spatial index now fully managed here
 import { SpatialIndex } from "../utils/spatial-index.js";
 //TODO: this modul is only pretended to work with pieces, not html-elements directly. Maybe rename pieceElements to piecePositions or so?
@@ -296,19 +298,22 @@ export class GameTableController {
       worldCorners[key] = rotated;
     }
 
-    // Side points
+    // Side points (now arrays)
     const sp = piece.sPoints;
     const worldSPoints = {};
-    ["north", "east", "south", "west"].forEach((side) => {
-      const p = sp[side];
-      if (!p) {
-        worldSPoints[side] = null;
+    ALL_SIDES.forEach((side) => {
+      const pointsArray = sp[side];
+      if (isEmptyOrNullish(pointsArray)) {
+        worldSPoints[side] = [];
         return;
+      } else {
+        // Transform each point in the array
+        worldSPoints[side] = pointsArray.map((p) => {
+          const local = toCanvasLocalPoint(new Point(p.x, p.y));
+          const translated = local.add(canvasTopLeft);
+          return translated.rotatedAroundDeg(pivot, piece.rotation);
+        });
       }
-      const local = toCanvasLocalPoint(p);
-      const translated = local.add(canvasTopLeft);
-      const rotated = translated.rotatedAroundDeg(pivot, piece.rotation);
-      worldSPoints[side] = rotated;
     });
 
     return { worldCorners, worldSPoints };

@@ -159,10 +159,10 @@ describe("GameTableController", () => {
           sw: new Point(0, 100),
         },
         sPoints: {
-          north: new Point(50, 0),
-          east: new Point(100, 50),
-          south: new Point(50, 100),
-          west: new Point(0, 50),
+          north: [new Point(50, 0), new Point(50, 0), new Point(50, 0)],
+          east: [new Point(100, 50), new Point(100, 50), new Point(100, 50)],
+          south: [new Point(50, 100), new Point(50, 100), new Point(50, 100)],
+          west: [new Point(0, 50), new Point(0, 50), new Point(0, 50)],
         },
         calculateBoundingFrame: () => ({
           topLeft: new Point(0, 0),

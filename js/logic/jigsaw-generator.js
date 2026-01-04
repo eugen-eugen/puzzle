@@ -12,13 +12,14 @@ import { Lattice } from "../geometry/lattice.js";
 import { Point } from "../geometry/point.js";
 import { boundingFrame } from "../geometry/polygon.js";
 import { PIECES_GENERATED } from "../constants/custom-events.js";
+import { reversed } from "../utils/array-util.js";
 
 // ================================
 // Generation Constants (avoid magic numbers)
 // ================================
 const MIN_GRID_DIMENSION = 2;
-const MAX_DEPTH_FACTOR = 0.18; // Relative to min(pieceW,pieceH)
-const MIN_DEPTH_FACTOR = 0.1; // Relative to min(pieceW,pieceH)
+const MAX_DEPTH_FACTOR = 0.4; // Relative to min(pieceW,pieceH)
+const MIN_DEPTH_FACTOR = 0.2; // Relative to min(pieceW,pieceH)
 const RANDOM_ROTATIONS = [0, 90, 180, 270];
 
 /**
@@ -81,25 +82,20 @@ export function generateJigsawPieces(img, targetCount) {
       const sw = corners[r + 1][c];
 
       // Calculate side points for this piece from the shared lattice
+      // North and west sides need reversal to maintain clockwise winding order
       const geometrySidePoints = {
-        north: r > 0 ? new Point(hSides[r - 1][c].x, hSides[r - 1][c].y) : null,
-        east:
-          c < cols - 1 && vSides[r][c]
-            ? new Point(vSides[r][c].x, vSides[r][c].y)
-            : null,
-        south: r < rows - 1 ? new Point(hSides[r][c].x, hSides[r][c].y) : null,
-        west:
-          c > 0 && vSides[r][c - 1]
-            ? new Point(vSides[r][c - 1].x, vSides[r][c - 1].y)
-            : null,
+        north: r > 0 ? hSides[r - 1][c].points : null,
+        east: c < cols - 1 && vSides[r][c] ? vSides[r][c].points : null,
+        south: r < rows - 1 ? hSides[r][c].points : null,
+        west: c > 0 && vSides[r][c - 1] ? vSides[r][c - 1].points : null,
       };
 
       // Calculate actual bounding frame directly from all corner and side points
       const allPoints = [nw, ne, se, sw];
-      if (geometrySidePoints.north) allPoints.push(geometrySidePoints.north);
-      if (geometrySidePoints.east) allPoints.push(geometrySidePoints.east);
-      if (geometrySidePoints.south) allPoints.push(geometrySidePoints.south);
-      if (geometrySidePoints.west) allPoints.push(geometrySidePoints.west);
+      if (geometrySidePoints.north) allPoints.push(...geometrySidePoints.north);
+      if (geometrySidePoints.east) allPoints.push(...geometrySidePoints.east);
+      if (geometrySidePoints.south) allPoints.push(...geometrySidePoints.south);
+      if (geometrySidePoints.west) allPoints.push(...geometrySidePoints.west);
       const frame = boundingFrame(allPoints);
 
       const pieceId = id++;

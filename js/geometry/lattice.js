@@ -9,10 +9,16 @@ import { Util } from "../utils/numeric-util.js";
 // ================================
 const KNOB = 1; // Outward bump orientation
 const DENT = -1; // Inward cavity orientation
-const WAYPOINT_OFFSET_RANGE = 0.25; // Waypoint offset range (both directions)
+const WAYPOINT_OFFSET_RANGE = 0.1; // Waypoint offset range (both directions)
 const CAVITY_DEPTH_CAP_RELATIVE_TO_MIN = 0.25; // Clamp depth to this * min(w,h)
 const CAVITY_DEPTH_CAP_EDGE_FRACTION = 0.5; // Clamp depth to this fraction of edge length
 const CUT_RANDOMNESS_FACTOR = 0.3; // randomness for cut line positions
+/**
+ * Distance multiplier for undercut points (point2a, point2b) from the displaced point (point2)
+ * toward the edge endpoints (pointA, pointB). Higher values create deeper undercuts.
+ * @type {number}
+ */
+const UNDERCUT_FACTOR = 2;
 
 export class Lattice {
   constructor(rows, cols, imgWidth, imgHeight, minDepth, maxDepth) {
@@ -190,18 +196,24 @@ export class Lattice {
     // Generate horizontal internal edges
     for (let r = 0; r < this.rows - 1; r++) {
       for (let c = 0; c < this.cols; c++) {
-        const A = this.corners[r + 1][c];
-        const B = this.corners[r + 1][c + 1];
+        const pointA = this.corners[r + 1][c];
+        const pointB = this.corners[r + 1][c + 1];
         const edgeLen = this.pieceW;
-        const basePoint = this.deviatePoint(A, B, WAYPOINT_OFFSET_RANGE);
+        const basePoint = this.deviatePoint(
+          pointA,
+          pointB,
+          WAYPOINT_OFFSET_RANGE
+        );
         const orientation = this.chooseOrientation();
         let depth = minDepth + Math.random() * (maxDepth - minDepth);
         if (orientation === DENT)
           depth = this.clampDepthForCavity(depth, edgeLen);
         const y = basePoint.y + orientation * depth;
+        const point2 = new Point(basePoint.x, y);
+        const { point1A, point2a, point2b, point1B } =
+          this.generateCavityPoints(pointA, pointB, basePoint, point2);
         hSides[r][c] = {
-          x: basePoint.x,
-          y,
+          points: [point1A, point2a, point2, point2b, point1B],
           orientation,
         };
       }
@@ -211,26 +223,50 @@ export class Lattice {
     for (let r = 0; r < this.rows; r++) {
       if (this.cols - 1 <= 0) break;
       for (let c = 0; c < this.cols - 1; c++) {
-        const A = this.corners[r][c + 1];
-        const B = this.corners[r + 1]
-          ? this.corners[r + 1][c + 1]
-          : { x: A.x, y: A.y + this.pieceH };
+        const pointA = this.corners[r][c + 1];
+        const pointB = this.corners[r + 1][c + 1];
         const edgeLen = this.pieceH;
-        const basePoint = this.deviatePoint(A, B, WAYPOINT_OFFSET_RANGE);
+        const basePoint = this.deviatePoint(
+          pointA,
+          pointB,
+          WAYPOINT_OFFSET_RANGE
+        );
         const orientation = this.chooseOrientation();
         let depth = minDepth + Math.random() * (maxDepth - minDepth);
         if (orientation === DENT)
           depth = this.clampDepthForCavity(depth, edgeLen);
         const x = basePoint.x + orientation * depth;
+        const point2 = new Point(x, basePoint.y);
+
+        const { point1A, point2a, point2b, point1B } =
+          this.generateCavityPoints(pointA, pointB, basePoint, point2);
+
         vSides[r][c] = {
-          x,
-          y: basePoint.y,
+          points: [point1A, point2a, point2, point2b, point1B],
           orientation,
         };
       }
     }
 
     return { hSides, vSides };
+  }
+
+  generateCavityPoints(pointA, pointB, basePoint, point2) {
+    const vec_AB = pointB.sub(pointA);
+    const distance1 = 0.05 + 0.1 * Math.random();
+    const distance3 = 0.05 + 0.1 * Math.random();
+    const point1A = basePoint.sub(vec_AB.scaled(distance1));
+
+    // point2a: on segment [point2;A], 0.2x distance from point2
+    const vec_point2_A = pointA.sub(point2);
+    const p1p3 = distance3 + distance1;
+    const point2a = point2.add(vec_point2_A.scaled(p1p3 * UNDERCUT_FACTOR));
+
+    // point2b: on segment [point2;B], 0.2x distance from point2
+    const vec_point2_B = pointB.sub(point2);
+    const point2b = point2.add(vec_point2_B.scaled(p1p3 * UNDERCUT_FACTOR));
+    const point1B = point1A.add(vec_AB.scaled(p1p3));
+    return { point1A, point2a, point2b, point1B };
   }
 
   getCorners() {

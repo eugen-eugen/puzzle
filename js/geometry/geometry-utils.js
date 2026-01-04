@@ -7,9 +7,10 @@ import { Point } from "./point.js";
 /**
  * Normalize all Point fields in an object relative to an origin Point.
  * Creates a new object with all Point fields shifted by subtracting the origin.
+ * Handles both single Points and arrays of Points.
  * Non-Point fields are copied as-is.
  *
- * @param {Object} pointsObject - Object containing Point fields to normalize
+ * @param {Object} pointsObject - Object containing Point fields or arrays of Points to normalize
  * @param {Point} origin - Origin point to subtract from all Point fields
  * @returns {Object} New object with normalized Point fields
  *
@@ -18,6 +19,12 @@ import { Point } from "./point.js";
  * const origin = new Point(100, 50);
  * const normalized = normalizePointsToOrigin(corners, origin);
  * // Result: { nw: Point(0, 0), ne: Point(100, 0) }
+ *
+ * @example
+ * const sidePoints = { north: [new Point(150, 50), new Point(150, 50)] };
+ * const origin = new Point(100, 50);
+ * const normalized = normalizePointsToOrigin(sidePoints, origin);
+ * // Result: { north: [Point(50, 0), Point(50, 0)] }
  */
 export function normalizePointsToOrigin(pointsObject, origin) {
   const result = {};
@@ -25,6 +32,11 @@ export function normalizePointsToOrigin(pointsObject, origin) {
   for (const [key, value] of Object.entries(pointsObject)) {
     if (value instanceof Point) {
       result[key] = value.sub(origin);
+    } else if (Array.isArray(value)) {
+      // Handle arrays of Points
+      result[key] = value.map((item) =>
+        item instanceof Point ? item.sub(origin) : item
+      );
     } else {
       // Copy non-Point fields as-is
       result[key] = value;

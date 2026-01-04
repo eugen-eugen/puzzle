@@ -7,7 +7,6 @@ import "../css/components/picture-gallery.css";
 // Register service worker
 import "../public/service-worker.js";
 
-import { renderPiecesAtPositions } from "./logic/piece-renderer.js";
 import {
   initPersistence,
   clearSavedGame,
@@ -16,20 +15,13 @@ import {
 import { showResumeModal } from "./components/resume.js";
 import { state } from "./game-engine.js";
 import { initI18n, t, applyTranslations } from "./i18n.js";
-import { Point } from "./geometry/point.js";
-import { Rectangle } from "./geometry/rectangle.js";
-import { Util } from "./utils/numeric-util.js";
 import { loadRemoteImageWithTimeout } from "./utils/image-util.js";
 import { gameTableController } from "./logic/game-table-controller.js";
-import { DEFAULT_PIECE_SCALE } from "./constants/piece-constants.js";
 import {
   initViewport,
-  getViewport,
   clearPieceOutline,
   applyPieceCorrectnessVisualFeedback,
   applyViewportGrayscaleFilter,
-  getViewportState,
-  applyViewportState,
 } from "./ui/display.js";
 import {
   initControlBar,
@@ -46,13 +38,13 @@ import {
   hidePictureGallery,
 } from "./components/picture-gallery.js";
 import {
-  DRAG_END,
   DEEPLINK_ENABLED,
   DEEPLINK_DISABLED,
   PERSISTENCE_RESTORE,
   PERSISTENCE_CAN_RESUME,
   PERSISTENCE_CANNOT_RESUME,
 } from "./constants/custom-events.js";
+import { NORTH, EAST, SOUTH, WEST } from "./constants/piece-constants.js";
 import { registerGlobalEvent } from "./utils/event-util.js";
 import { PUZZLE_STATE_CHANGED } from "./constants/custom-events.js";
 import { parseDeepLinkParams } from "./utils/url-util.js";
@@ -109,16 +101,16 @@ export function checkPuzzleCorrectness() {
 
     // Get pieces that should be neighbors based on grid coordinates
     const expectedNeighbors = {
-      north: state.pieces.find(
+      [NORTH]: state.pieces.find(
         (p) => p.gridX === piece.gridX && p.gridY === piece.gridY - 1
       ),
-      east: state.pieces.find(
+      [EAST]: state.pieces.find(
         (p) => p.gridX === piece.gridX + 1 && p.gridY === piece.gridY
       ),
-      south: state.pieces.find(
+      [SOUTH]: state.pieces.find(
         (p) => p.gridX === piece.gridX && p.gridY === piece.gridY + 1
       ),
-      west: state.pieces.find(
+      [WEST]: state.pieces.find(
         (p) => p.gridX === piece.gridX - 1 && p.gridY === piece.gridY
       ),
     };

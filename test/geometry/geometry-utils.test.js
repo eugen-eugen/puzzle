@@ -192,6 +192,99 @@ describe("geometry-utils", () => {
       expect(result).not.toBe(input);
       expect(Object.keys(result)).toEqual(Object.keys(input));
     });
+
+    it("should normalize arrays of Points", () => {
+      const points = {
+        sidePoints: [
+          new Point(150, 50),
+          new Point(150, 50),
+          new Point(150, 50),
+        ],
+      };
+      const origin = new Point(100, 50);
+
+      const result = normalizePointsToOrigin(points, origin);
+
+      expect(result.sidePoints).toBeInstanceOf(Array);
+      expect(result.sidePoints).toHaveLength(3);
+      expect(result.sidePoints[0]).toBeInstanceOf(Point);
+      expect(result.sidePoints[0].x).toBe(50);
+      expect(result.sidePoints[0].y).toBe(0);
+      expect(result.sidePoints[1].x).toBe(50);
+      expect(result.sidePoints[1].y).toBe(0);
+      expect(result.sidePoints[2].x).toBe(50);
+      expect(result.sidePoints[2].y).toBe(0);
+    });
+
+    it("should handle empty arrays", () => {
+      const points = {
+        emptyArray: [],
+      };
+      const origin = new Point(100, 50);
+
+      const result = normalizePointsToOrigin(points, origin);
+
+      expect(result.emptyArray).toBeInstanceOf(Array);
+      expect(result.emptyArray).toHaveLength(0);
+    });
+
+    it("should handle arrays with mixed content", () => {
+      const points = {
+        mixed: [new Point(100, 100), null, new Point(200, 200), "string", 42],
+      };
+      const origin = new Point(50, 50);
+
+      const result = normalizePointsToOrigin(points, origin);
+
+      expect(result.mixed).toBeInstanceOf(Array);
+      expect(result.mixed).toHaveLength(5);
+      expect(result.mixed[0]).toBeInstanceOf(Point);
+      expect(result.mixed[0].x).toBe(50);
+      expect(result.mixed[0].y).toBe(50);
+      expect(result.mixed[1]).toBe(null);
+      expect(result.mixed[2]).toBeInstanceOf(Point);
+      expect(result.mixed[2].x).toBe(150);
+      expect(result.mixed[2].y).toBe(150);
+      expect(result.mixed[3]).toBe("string");
+      expect(result.mixed[4]).toBe(42);
+    });
+
+    it("should handle object with both single Points and arrays of Points", () => {
+      const points = {
+        corner: new Point(200, 100),
+        sidePoints: [new Point(150, 100), new Point(150, 100)],
+      };
+      const origin = new Point(100, 100);
+
+      const result = normalizePointsToOrigin(points, origin);
+
+      expect(result.corner).toBeInstanceOf(Point);
+      expect(result.corner.x).toBe(100);
+      expect(result.corner.y).toBe(0);
+      expect(result.sidePoints).toBeInstanceOf(Array);
+      expect(result.sidePoints).toHaveLength(2);
+      expect(result.sidePoints[0].x).toBe(50);
+      expect(result.sidePoints[0].y).toBe(0);
+      expect(result.sidePoints[1].x).toBe(50);
+      expect(result.sidePoints[1].y).toBe(0);
+    });
+
+    it("should not mutate original array or Points in array", () => {
+      const originalPoint = new Point(100, 100);
+      const points = {
+        arr: [originalPoint],
+      };
+      const origin = new Point(50, 50);
+
+      const result = normalizePointsToOrigin(points, origin);
+
+      expect(result.arr).not.toBe(points.arr);
+      expect(result.arr[0]).not.toBe(originalPoint);
+      expect(originalPoint.x).toBe(100);
+      expect(originalPoint.y).toBe(100);
+      expect(result.arr[0].x).toBe(50);
+      expect(result.arr[0].y).toBe(50);
+    });
   });
 
   describe("convertToPoints", () => {

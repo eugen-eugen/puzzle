@@ -22,6 +22,7 @@ import {
   PUZZLE_STATE_CHANGED,
 } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
+import { ALL_SIDES } from "../constants/piece-constants.js";
 
 const LS_KEY = "puzzle.save.v2";
 const AUTO_SAVE_DELAY = 1200; // ms debounce
@@ -416,26 +417,6 @@ function reconstructPieces(data, masterImage) {
     master.height = masterImage.height;
     const mctx = master.getContext("2d");
     mctx.drawImage(masterImage, 0, 0);
-
-    const allPoints = Object.values(sp.corners);
-    if (sp.sPoints.north) allPoints.push(sp.sPoints.north);
-    if (sp.sPoints.east) allPoints.push(sp.sPoints.east);
-    if (sp.sPoints.south) allPoints.push(sp.sPoints.south);
-    if (sp.sPoints.west) allPoints.push(sp.sPoints.west);
-    const nw = new Point(sp.imgX, sp.imgY);
-
-    // Recreate geometry by adding nw offset to corners and sPoints
-    const geometryCorners = {};
-    for (const [key, corner] of Object.entries(sp.corners)) {
-      geometryCorners[key] = new Point(corner.x + nw.x, corner.y + nw.y);
-    }
-
-    const geometrySidePoints = {};
-    for (const [key, sPoint] of Object.entries(sp.sPoints)) {
-      if (sPoint) {
-        geometrySidePoints[key] = new Point(sPoint.x + nw.x, sPoint.y + nw.y);
-      }
-    }
 
     const piece = new Piece({ ...sp, master });
 

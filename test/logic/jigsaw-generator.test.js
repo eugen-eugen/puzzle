@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { generateJigsawPieces } from "@/js/logic/jigsaw-generator.js";
+import { Point } from "@/js/geometry/point.js";
 
 // Mock dependencies
 vi.mock("@/js/model/piece.js", () => ({
@@ -59,7 +60,8 @@ vi.mock("@/js/geometry/lattice.js", () => ({
       for (let r = 0; r < this.rows - 1; r++) {
         hSides[r] = [];
         for (let c = 0; c < this.cols; c++) {
-          hSides[r][c] = { x: c * 100 + 50, y: r * 100 + 100 };
+          const point = new Point(c * 100 + 50, r * 100 + 100);
+          hSides[r][c] = { points: [point, point.clone(), point.clone()] };
         }
       }
       return hSides;
@@ -69,7 +71,8 @@ vi.mock("@/js/geometry/lattice.js", () => ({
       for (let r = 0; r < this.rows; r++) {
         vSides[r] = [];
         for (let c = 0; c < this.cols - 1; c++) {
-          vSides[r][c] = { x: c * 100 + 100, y: r * 100 + 50 };
+          const point = new Point(c * 100 + 100, r * 100 + 50);
+          vSides[r][c] = { points: [point, point.clone(), point.clone()] };
         }
       }
       return vSides;
