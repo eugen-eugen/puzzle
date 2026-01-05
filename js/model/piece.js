@@ -303,7 +303,8 @@ export class Piece {
 
   /**
    * Add a spline curve for one edge to the path
-   * Creates smooth spline from start corner through side points to end corner
+   * Creates smooth interpolating spline that passes through all side points
+   * Uses cubic Bezier curves with calculated control points based on tangents
    * @param {Path2D} path - Path to add the curve to
    * @param {Point} startCorner - Starting corner point
    * @param {Point[]} sidePoints - Array of side points (may be empty for border edges)
@@ -317,25 +318,46 @@ export class Piece {
       return;
     }
 
-    // Create spline through all points: start corner -> side points -> end corner
-    const allPoints = [startCorner, ...sidePoints, endCorner];
+    // Include start corner for proper tangent calculation
+    const points = [startCorner, ...sidePoints, endCorner];
 
-    // Use quadratic bezier curves to create smooth spline through all points
-    for (let i = 0; i < allPoints.length - 1; i++) {
-      const p1 = allPoints[i];
-      const p2 = allPoints[i + 1];
+    // Tension parameter: 0 = straight lines, 1 = maximum curvature
+    const tension = 0.2;
 
-      if (i === allPoints.length - 2) {
-        // Last segment - line to end corner
-        path.lineTo(p2.x, p2.y);
-      } else {
-        // Create quadratic curve using p2 as control point
-        // and midpoint to next as end point for smoother curve
-        const p3 = allPoints[i + 2];
-        const midX = (p2.x + p3.x) / 2;
-        const midY = (p2.y + p3.y) / 2;
-        path.quadraticCurveTo(p2.x, p2.y, midX, midY);
+    // Start from index 1 (first side point) since index 0 is startCorner
+    for (let i = 1; i < points.length; i++) {
+      const p0 = points[i - 1]; // Previous point
+      const p1 = points[i]; // Current target point
+      const p2 = i < points.length - 1 ? points[i + 1] : null; // Next point (or null for last)
+
+      // Calculate tangent at previous point (p0)
+      // Tangent is based on direction from point before p0 to p1
+      const pPrev = i > 1 ? points[i - 2] : p0;
+      const tangent1 = p1.sub(pPrev).scaled(tension);
+
+      // Calculate tangent at current point (p1)
+      // Tangent is based on direction from p0 to point after p1
+      const pNext = p2 || p1;
+      const tangent2 = pNext.sub(p0).scaled(tension);
+
+      // Control points for cubic Bezier
+      const cp1 = p0.add(tangent1);
+      const cp2 = p1.sub(tangent2);
+
+      // Draw cubic Bezier curve from p0 to p1
+      path.bezierCurveTo(cp1.x, cp1.y, cp2.x, cp2.y, p1.x, p1.y);
+
+      // Debug: Draw small cross at side points (skip corners)
+      /*
+      if (i > 0 && i < points.length - 1) {
+        const crossSize = 3;
+        path.moveTo(p1.x - crossSize, p1.y);
+        path.lineTo(p1.x + crossSize, p1.y);
+        path.moveTo(p1.x, p1.y - crossSize);
+        path.lineTo(p1.x, p1.y + crossSize);
+        path.moveTo(p1.x, p1.y); // Return to point for next curve
       }
+        */
     }
   }
 
