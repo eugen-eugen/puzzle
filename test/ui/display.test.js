@@ -46,9 +46,9 @@ describe("display", () => {
         bitmap: bitmap,
         paths: mockPaths,
         groupId: null,
-        calculateBoundingFrame: vi.fn().mockReturnValue(
-          new Rectangle(new Point(0, 0), 100, 80)
-        ),
+        calculateBoundingFrame: vi
+          .fn()
+          .mockReturnValue(new Rectangle(new Point(0, 0), 100, 80)),
       };
     });
 
@@ -138,9 +138,9 @@ describe("display", () => {
         bitmap: smallBitmap,
         paths: mockPaths,
         groupId: null,
-        calculateBoundingFrame: vi.fn().mockReturnValue(
-          new Rectangle(new Point(0, 0), 200, 20)
-        ),
+        calculateBoundingFrame: vi
+          .fn()
+          .mockReturnValue(new Rectangle(new Point(0, 0), 200, 20)),
       };
 
       const scale = 0.1;
@@ -222,9 +222,9 @@ describe("display", () => {
         bitmap: squareBitmap,
         paths: mockPaths,
         groupId: null,
-        calculateBoundingFrame: vi.fn().mockReturnValue(
-          new Rectangle(new Point(0, 0), 100, 100)
-        ),
+        calculateBoundingFrame: vi
+          .fn()
+          .mockReturnValue(new Rectangle(new Point(0, 0), 100, 100)),
       };
 
       const scale = 1.5;
