@@ -193,8 +193,6 @@ export class UIInteractionManager {
       this.activeTouchIds.add(event.interaction.id);
     }
 
-    clearAllPieceOutlines();
-
     this.isDragging = true;
     this._clearDragPauseTimer();
 

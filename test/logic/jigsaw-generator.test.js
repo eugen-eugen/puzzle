@@ -29,8 +29,13 @@ vi.mock("@/js/model/piece.js", () => ({
       // Mock bitmap (canvas element)
       this.bitmap = document.createElement("canvas");
 
-      // Mock path
-      this.path = new Path2D();
+      // Mock paths
+      this.paths = {
+        north: new Path2D(),
+        east: new Path2D(),
+        south: new Path2D(),
+        west: new Path2D(),
+      };
     }
   },
 }));
@@ -259,9 +264,12 @@ describe("jigsaw-generator", () => {
         expect(piece.bitmap).toBeDefined();
         expect(piece.bitmap).toBeInstanceOf(HTMLCanvasElement);
 
-        // Path should be defined and be a Path2D
-        expect(piece.path).toBeDefined();
-        expect(piece.path).toBeInstanceOf(Path2D);
+        // Paths should be defined with all 4 directions
+        expect(piece.paths).toBeDefined();
+        expect(piece.paths.north).toBeInstanceOf(Path2D);
+        expect(piece.paths.east).toBeInstanceOf(Path2D);
+        expect(piece.paths.south).toBeInstanceOf(Path2D);
+        expect(piece.paths.west).toBeInstanceOf(Path2D);
       });
     });
   });

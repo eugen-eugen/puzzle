@@ -20,8 +20,6 @@
 //
 // No side-effects: pure ES module.
 
-import { Util } from "../utils/numeric-util.js";
-
 export class Point {
   constructor(x = 0, y = 0) {
     // Wrap native DOMPoint for internal representation

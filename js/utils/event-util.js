@@ -38,58 +38,72 @@ function generateFunctionKey(fn) {
  *   // Anonymous functions with same implementation - only registered once:
  *   registerGlobalEvent('myEvent', (e) => console.log(e), document);
  *   registerGlobalEvent('myEvent', (e) => console.log(e), document); // Skipped (duplicate)
+ *   // Array of events with same handler:
+ *   registerGlobalEvent(['event1', 'event2'], (e) => console.log(e), document);
  *
- * @param {string} eventName - The name of the event to listen for
+ * @param {string|string[]} eventName - The name of the event(s) to listen for
  * @param {Function} handler - The event handler function
  * @param {EventTarget} [target=document] - The target to attach the listener to
  * @returns {boolean} True if listener was registered, false if already registered
  */
 export function registerGlobalEvent(eventName, handler, target = document) {
-  if (typeof eventName !== "string" || !eventName) {
-    console.warn("[event-util] Invalid event name:", eventName);
-    return false;
+  // Handle array of event names
+  if (Array.isArray(eventName)) {
+    let allRegistered = true;
+    eventName.forEach((name) => {
+      const registered = registerGlobalEvent(name, handler, target);
+      if (!registered) allRegistered = false;
+    });
+    return allRegistered;
   }
+  const eventNames = Array.isArray(eventName) ? eventName : [eventName];
+  eventNames.forEach((eventName) => {
+    if (typeof eventName !== "string" || !eventName) {
+      console.warn("[event-util] Invalid event name:", eventName);
+      return false;
+    }
 
-  if (typeof handler !== "function") {
-    console.warn("[event-util] Invalid handler:", handler);
-    return false;
-  }
+    if (typeof handler !== "function") {
+      console.warn("[event-util] Invalid handler:", handler);
+      return false;
+    }
 
-  if (!target || typeof target.addEventListener !== "function") {
-    console.warn("[event-util] Invalid target:", target);
-    return false;
-  }
+    if (!target || typeof target.addEventListener !== "function") {
+      console.warn("[event-util] Invalid target:", target);
+      return false;
+    }
 
-  // Generate key from the function's content
-  const dedupeKey = generateFunctionKey(handler);
+    // Generate key from the function's content
+    const dedupeKey = generateFunctionKey(handler);
 
-  // Get or create the event map for this target
-  let eventMap = registeredListeners.get(target);
-  if (!eventMap) {
-    eventMap = new Map();
-    registeredListeners.set(target, eventMap);
-  }
+    // Get or create the event map for this target
+    let eventMap = registeredListeners.get(target);
+    if (!eventMap) {
+      eventMap = new Map();
+      registeredListeners.set(target, eventMap);
+    }
 
-  // Get or create the handler map for this event
-  let handlerMap = eventMap.get(eventName);
-  if (!handlerMap) {
-    handlerMap = new Map();
-    eventMap.set(eventName, handlerMap);
-  }
+    // Get or create the handler map for this event
+    let handlerMap = eventMap.get(eventName);
+    if (!handlerMap) {
+      handlerMap = new Map();
+      eventMap.set(eventName, handlerMap);
+    }
 
-  // Check if handler is already registered
-  if (handlerMap.has(dedupeKey)) {
-    console.debug(
-      `[event-util] Handler already registered for event "${eventName}"`
-    );
-    return false;
-  }
+    // Check if handler is already registered
+    if (handlerMap.has(dedupeKey)) {
+      console.debug(
+        `[event-util] Handler already registered for event "${eventName}"`
+      );
+      return false;
+    }
 
-  // Register the handler
-  target.addEventListener(eventName, handler);
-  handlerMap.set(dedupeKey, handler);
+    // Register the handler
+    target.addEventListener(eventName, handler);
+    handlerMap.set(dedupeKey, handler);
 
-  return true;
+    return true;
+  });
 }
 
 /**

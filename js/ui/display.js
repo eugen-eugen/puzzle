@@ -13,6 +13,8 @@ import { getPieceElement } from "../logic/piece-renderer.js";
 import { Util } from "../utils/numeric-util.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "../logic/game-table-controller.js";
+import { Group } from "../model/group.js";
+import { NORTH, EAST, SOUTH, WEST } from "../constants/piece-constants.js";
 import {
   PIECES_GENERATED,
   PIECE_SELECT,
@@ -20,8 +22,12 @@ import {
   PIECE_DETACH_ANIMATION,
   PIECE_LONG_PRESS_START,
   PIECE_LONG_PRESS_END,
+  PIECES_CONNECTED,
+  PIECES_DISCONNECTED,
 } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
+import { boundingFrame } from "../geometry/polygon.js";
+import { resetAndClearCanvas } from "./ui-util.js";
 
 // Display Constants
 const MIN_ZOOM = 0.1;
@@ -90,6 +96,36 @@ registerGlobalEvent(PIECE_LONG_PRESS_END, (event) => {
   if (el) el.classList.remove("long-press-active");
 });
 
+// Register handler for both PIECES_CONNECTED and PIECES_DISCONNECTED events
+registerGlobalEvent([PIECES_CONNECTED, PIECES_DISCONNECTED], (event) => {
+  const { pieceId, neighbors } = event.detail;
+
+  // Collect all piece IDs that need border updates: the affected piece and its neighbors
+  const pieceIds = new Set([pieceId]);
+  [NORTH, EAST, SOUTH, WEST].forEach((direction) => {
+    if (neighbors[direction]) pieceIds.add(neighbors[direction].id);
+  });
+
+  // Redraw borders for all affected pieces
+  pieceIds.forEach((pieceId) => {
+    const piece = state.pieces.find((p) => p.id === pieceId);
+    if (!piece) return;
+
+    const element = getPieceElement(pieceId);
+    if (!element) return;
+
+    const canvas = element.querySelector("canvas");
+    if (!canvas) return;
+
+    const ctx = canvas.getContext("2d");
+
+    resetAndClearCanvas(canvas);
+    ctx.drawImage(piece.bitmap, 0, 0);
+
+    drawBorders(ctx, piece.paths, piece);
+  });
+});
+
 // Initialize the viewport element reference
 export function initViewport() {
   piecesViewport = document.getElementById("piecesViewport");
@@ -142,10 +178,6 @@ export function applyViewportState(v) {
  */
 export function clearAllPieceOutlines() {
   if (Util.isArrayEmpty(state.pieces)) return;
-
-  state.pieces.forEach((piece) => {
-    clearPieceOutline(piece);
-  });
 }
 
 /**
@@ -295,59 +327,7 @@ function updateViewportTransform() {
   piecesViewport.style.transform = `translate(${panOffset.x}px, ${panOffset.y}px) scale(${zoomLevel})`;
 }
 
-// Function to draw piece outline with specified color
-export function drawPieceOutline(piece, color, lineWidth = 3) {
-  if (!piece.path) {
-    console.warn(`[drawPieceOutline] No path found for piece ${piece.id}`);
-    return;
-  }
-
-  // Clear any previous outline by redrawing the piece
-  clearPieceOutline(piece);
-
-  // Add the outline on top
-  const element = getPieceElement(piece.id);
-  const canvas = element.querySelector("canvas");
-  const ctx = canvas.getContext("2d");
-  const scale = piece.scale;
-
-  ctx.save();
-  // Draw the outline using centered bounding frame translation (same as jigsawGenerator)
-  const boundingFrame = piece.calculateBoundingFrame();
-  ctx.scale(scale, scale);
-  ctx.translate(-boundingFrame.topLeft.x, -boundingFrame.topLeft.y);
-  ctx.strokeStyle = color;
-  ctx.lineWidth = lineWidth / scale; // Adjust line width for scale
-  ctx.stroke(piece.path);
-  ctx.restore();
-}
-
-// Function to clear piece outline (redraw without stroke)
-export function clearPieceOutline(piece) {
-  const element = getPieceElement(piece.id);
-  if (!element) {
-    return;
-  }
-
-  const canvas = element.querySelector("canvas");
-  if (!canvas) {
-    console.warn(`[clearPieceOutline] No canvas found for piece ${piece.id}`);
-    return;
-  }
-
-  const ctx = canvas.getContext("2d");
-
-  // Save current context state
-  ctx.save();
-
-  // Clear and redraw the piece without outline
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  ctx.scale(piece.scale, piece.scale);
-  ctx.drawImage(piece.bitmap, 0, 0);
-
-  // Restore context state
-  ctx.restore();
-}
+// Restore context state
 
 // Update orientation tip button visibility based on selected piece
 export function updateOrientationTipButton(selectedPiece) {
@@ -370,11 +350,7 @@ export function updateZoomDisplay() {
 
 // Apply visual feedback using shape outlines based on piece correctness
 export function applyPieceCorrectnessVisualFeedback(piece, isCorrect) {
-  if (isCorrect) {
-    drawPieceOutline(piece, "#2ea862", 4); // Green outline for correct pieces
-  } else {
-    drawPieceOutline(piece, "#c94848", 4); // Red outline for incorrect pieces
-  }
+  // Visual feedback currently disabled
 }
 
 // Export zoom constants for use by other modules
@@ -437,17 +413,100 @@ function lightenColor(color, amount) {
 }
 
 /**
+ * Draw borders on a canvas context for the given piece paths.
+ * Only strokes edges that don't connect to neighboring pieces in the group.
+ * @param {CanvasRenderingContext2D} ctx - The canvas context (must already have transform applied)
+ * @param {Object} paths - The piece paths object {north, east, south, west, combined}
+ * @param {Piece} piece - The piece object (needed to determine which edges to stroke)
+ */
+export function drawBorders(ctx, paths, piece) {
+  // Round the path vertices
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+
+  ctx.save();
+  var boundingFrame = piece.calculateBoundingFrame();
+
+  ctx.translate(
+    -boundingFrame.topLeft.x + debugOutlineWidth,
+    -boundingFrame.topLeft.y + debugOutlineWidth
+  );
+
+  // Determine which edges to stroke (only edges without neighbors)
+  const neighbors = piece ? Group.getGroupNeighbors(piece) : {};
+  const edgesToStroke = [];
+
+  if (!neighbors[NORTH]) edgesToStroke.push(paths.north);
+  if (!neighbors[EAST]) edgesToStroke.push(paths.east);
+  if (!neighbors[SOUTH]) edgesToStroke.push(paths.south);
+  if (!neighbors[WEST]) edgesToStroke.push(paths.west);
+
+  // If no piece provided or no group, stroke all edges
+  if (!piece || edgesToStroke.length === 0) {
+    edgesToStroke.push(paths.combined);
+  }
+  // Draw outlines only for free edges
+  for (const path of edgesToStroke) {
+    // Dark shadow/bottom edge
+    ctx.strokeStyle = darkenColor(DEBUG_OUTLINE_COLOR, 0.4);
+    ctx.lineWidth = debugOutlineWidth;
+    ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
+    ctx.shadowBlur = 4;
+    ctx.shadowOffsetX = 2;
+    ctx.shadowOffsetY = 2;
+    ctx.stroke(path);
+  }
+
+  // Reset shadow
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  // Main color
+  for (const path of edgesToStroke) {
+    ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
+    ctx.lineWidth = debugOutlineWidth;
+    ctx.stroke(path);
+  }
+  // Light highlight/top edge
+  for (const path of edgesToStroke) {
+    ctx.strokeStyle = lightenColor(DEBUG_OUTLINE_COLOR, 0.3);
+    ctx.lineWidth = debugOutlineWidth / 2;
+    ctx.stroke(path);
+  }
+  ctx.restore();
+}
+
+/**
  * Draw a piece to a canvas using its bounding frame and path.
+ * Only strokes edges that don't connect to neighboring pieces in the group.
  * @param {Rectangle} boundingFrame - The bounding frame of the piece
- * @param {Path2D} path - The piece path
+ * @param {Object} paths - The piece paths object {north, east, south, west, combined}
  * @param {Point} nw - The northwest corner position in image coordinates
  * @param {HTMLCanvasElement} master - The master canvas containing the full image
+ * @param {Piece} piece - The piece object (needed to determine which edges to stroke)
  * @returns {HTMLCanvasElement} The canvas with the drawn piece
  */
-export function drawPiece(boundingFrame, path, nw, master) {
+export function drawPiece(boundingFrame, paths, nw, master, piece) {
   // Use bounding frame dimensions directly for canvas
   const pw = Math.ceil(boundingFrame.width);
   const ph = Math.ceil(boundingFrame.height);
+
+  // Create canvas
+  const canvas = document.createElement("canvas");
+  canvas.width = pw + 2 * debugOutlineWidth;
+  canvas.height = ph + 2 * debugOutlineWidth;
+  const ctx = canvas.getContext("2d");
+
+  // Apply transform
+  ctx.translate(
+    -boundingFrame.topLeft.x + debugOutlineWidth,
+    -boundingFrame.topLeft.y + debugOutlineWidth
+  );
+
+  // Clear the canvas
+  resetAndClearCanvas(canvas);
+
   // Compute source rect based on actual piece boundaries
   const minPoint = boundingFrame.topLeft.add(nw);
   const maxPoint = boundingFrame.bottomRight.add(nw);
@@ -463,22 +522,9 @@ export function drawPiece(boundingFrame, path, nw, master) {
   const clipW = Math.min(srcW, master.width - clipX);
   const clipH = Math.min(srcH, master.height - clipY);
 
-  // Adjust destination offset to align clipped region correctly with centered frame
-  // After translation, coordinate system is offset by (-boundingFrame.topLeft.x, -boundingFrame.topLeft.y)
-  // So destination should be relative to the piece's corner position
-  const dx = clipX - nw.x;
-  const dy = clipY - nw.y;
-  const canvas = document.createElement("canvas");
-  canvas.width = pw + 2 * debugOutlineWidth;
-  canvas.height = ph + 2 * debugOutlineWidth;
-  const ctx = canvas.getContext("2d");
-  ctx.translate(
-    -boundingFrame.topLeft.x + debugOutlineWidth,
-    -boundingFrame.topLeft.y + debugOutlineWidth
-  );
+  // Use the pre-combined path for clipping
   ctx.save();
-  // Center the bounding frame in the canvas
-  ctx.clip(path);
+  ctx.clip(paths.combined);
   ctx.drawImage(
     master,
     clipX,
@@ -492,36 +538,6 @@ export function drawPiece(boundingFrame, path, nw, master) {
   );
   ctx.restore();
 
-  // Round the path vertices
-  ctx.lineJoin = "round";
-  ctx.lineCap = "round";
-
-  // Dark shadow/bottom edge
-  ctx.strokeStyle = darkenColor(DEBUG_OUTLINE_COLOR, 0.4);
-  ctx.lineWidth = debugOutlineWidth;
-  ctx.shadowColor = "rgba(0, 0, 0, 0.3)";
-  ctx.shadowBlur = 4;
-  ctx.shadowOffsetX = 2;
-  ctx.shadowOffsetY = 2;
-  ctx.stroke(path);
-
-  // Reset shadow
-  ctx.shadowColor = "transparent";
-  ctx.shadowBlur = 0;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-
-  // Main color
-  ctx.strokeStyle = DEBUG_OUTLINE_COLOR;
-  ctx.lineWidth = debugOutlineWidth;
-  ctx.stroke(path);
-
-  // Light highlight/top edge
-  ctx.strokeStyle = lightenColor(DEBUG_OUTLINE_COLOR, 0.3);
-  ctx.lineWidth = debugOutlineWidth / 2;
-  ctx.stroke(path);
-
-  ctx.restore();
   return canvas;
 }
 
@@ -696,10 +712,9 @@ export function createPieceElement(piece, scale) {
   canvas.height = scaledH;
 
   const ctx = canvas.getContext("2d");
-  ctx.save();
   ctx.scale(scale, scale);
   ctx.drawImage(piece.bitmap, 0, 0);
-  ctx.restore();
+  drawBorders(ctx, piece.paths, piece);
 
   wrapper.style.width = scaledW + "px";
   wrapper.style.height = scaledH + "px";

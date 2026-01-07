@@ -49,6 +49,11 @@ if (typeof Path2D === "undefined") {
     rect(x, y, width, height) {
       this.commands.push({ type: "rect", x, y, width, height });
     }
+    addPath(path) {
+      if (path instanceof Path2D) {
+        this.commands.push(...path.commands);
+      }
+    }
   };
 }
 

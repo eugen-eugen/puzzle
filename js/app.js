@@ -19,7 +19,6 @@ import { loadRemoteImageWithTimeout } from "./utils/image-util.js";
 import { gameTableController } from "./logic/game-table-controller.js";
 import {
   initViewport,
-  clearPieceOutline,
   applyPieceCorrectnessVisualFeedback,
   applyViewportGrayscaleFilter,
 } from "./ui/display.js";
@@ -57,11 +56,6 @@ let deepLinkActive = false; // true when URL provides image & pieces params
 
 // Check if pieces are in correct positions
 export function checkPuzzleCorrectness() {
-  // Clear previous validation outlines
-  state.pieces.forEach((piece) => {
-    clearPieceOutline(piece);
-  });
-
   let correctCount = 0;
   let incorrectCount = 0;
 

@@ -193,8 +193,21 @@ export const PERSISTENCE_CANNOT_RESUME = "persistence:cannot-resume";
  * @type {string}
  * @event pieces:connected
  * @property {Object} detail - Event detail
- * @property {number} detail.pieceAId - ID of first piece
- * @property {number} detail.pieceBId - ID of second piece
+ * @property {number} detail.pieceAId - ID of first piece (legacy)
+ * @property {number} detail.pieceBId - ID of second piece (legacy)
  * @property {number} detail.groupId - Resulting group ID
+ * @property {Object} detail.neighborsA - Neighbors of first piece (legacy)
+ * @property {Object} detail.neighborsB - Neighbors of second piece (legacy)
+ * @property {number} detail.pieceId - ID of the attached piece (conforming, same as pieceBId)
+ * @property {Object} detail.neighbors - Neighbors of the attached piece (conforming, same as neighborsB)
  */
 export const PIECES_CONNECTED = "pieces:connected";
+
+/**
+ * Event dispatched when a piece is disconnected from a group
+ * @event pieces:disconnected
+ * @property {Object} detail - Event detail
+ * @property {number} detail.pieceId - ID of the disconnected piece
+ * @property {Object} detail.neighbors - Neighbors of the disconnected piece {NORTH: piece, EAST: piece, ...}
+ */
+export const PIECES_DISCONNECTED = "pieces:disconnected";

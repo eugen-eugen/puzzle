@@ -1,5 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import { createPieceElement } from "@/js/ui/display.js";
+import { Rectangle } from "@/js/geometry/rectangle.js";
+import { Point } from "@/js/geometry/point.js";
 
 describe("display", () => {
   describe("createPieceElement", () => {
@@ -18,6 +20,11 @@ describe("display", () => {
         restore: vi.fn(),
         scale: vi.fn(),
         drawImage: vi.fn(),
+        translate: vi.fn(),
+        stroke: vi.fn(),
+        clip: vi.fn(),
+        clearRect: vi.fn(),
+        setTransform: vi.fn(),
       };
 
       // Mock getContext to return our mock context
@@ -25,9 +32,23 @@ describe("display", () => {
         mockContext
       );
 
+      // Mock paths object
+      const mockPaths = {
+        north: new Path2D(),
+        east: new Path2D(),
+        south: new Path2D(),
+        west: new Path2D(),
+        combined: new Path2D(),
+      };
+
       mockPiece = {
         id: 1,
         bitmap: bitmap,
+        paths: mockPaths,
+        groupId: null,
+        calculateBoundingFrame: vi.fn().mockReturnValue(
+          new Rectangle(new Point(0, 0), 100, 80)
+        ),
       };
     });
 
@@ -104,9 +125,22 @@ describe("display", () => {
       smallBitmap.width = 200; // Large width
       smallBitmap.height = 20; // Small height
 
+      const mockPaths = {
+        north: new Path2D(),
+        east: new Path2D(),
+        south: new Path2D(),
+        west: new Path2D(),
+        combined: new Path2D(),
+      };
+
       const smallPiece = {
         id: 2,
         bitmap: smallBitmap,
+        paths: mockPaths,
+        groupId: null,
+        calculateBoundingFrame: vi.fn().mockReturnValue(
+          new Rectangle(new Point(0, 0), 200, 20)
+        ),
       };
 
       const scale = 0.1;
@@ -175,9 +209,22 @@ describe("display", () => {
       squareBitmap.width = 100;
       squareBitmap.height = 100;
 
+      const mockPaths = {
+        north: new Path2D(),
+        east: new Path2D(),
+        south: new Path2D(),
+        west: new Path2D(),
+        combined: new Path2D(),
+      };
+
       const squarePiece = {
         id: 3,
         bitmap: squareBitmap,
+        paths: mockPaths,
+        groupId: null,
+        calculateBoundingFrame: vi.fn().mockReturnValue(
+          new Rectangle(new Point(0, 0), 100, 100)
+        ),
       };
 
       const scale = 1.5;

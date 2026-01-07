@@ -7,6 +7,8 @@ import { Point } from "../geometry/point.js";
 import { Rectangle } from "../geometry/rectangle.js";
 import { Graph, alg } from "graphlib";
 import { gameTableController } from "../logic/game-table-controller.js";
+import { groupManager } from "../logic/group-manager.js";
+import { NORTH, EAST, SOUTH, WEST } from "../constants/piece-constants.js";
 
 export class Group {
   /**
@@ -193,6 +195,53 @@ export class Group {
   }
 
   /**
+   * Get all neighbor pieces of a given piece within its group
+   * @param {Piece} piece - The piece to find neighbors for
+   * @returns {Object} Object with direction keys (NORTH, EAST, SOUTH, WEST) pointing to neighbor pieces
+   */
+  static getGroupNeighbors(piece) {
+    if (!piece || !piece.groupId) {
+      return {};
+    }
+
+    // Get the group this piece belongs to
+    const group = groupManager.getGroup(piece.groupId);
+    if (!group) {
+      return {};
+    }
+
+    const pieces = group.pieces;
+
+    // Build a map of grid positions for quick lookup
+    const gridMap = new Map();
+    for (const p of pieces) {
+      if (!p) continue;
+      const key = `${p.gridPos.x},${p.gridPos.y}`;
+      gridMap.set(key, p);
+    }
+
+    const neighbors = {};
+
+    // Check all four directions
+    const directions = [
+      { key: NORTH, x: piece.gridPos.x, y: piece.gridPos.y - 1 },
+      { key: EAST, x: piece.gridPos.x + 1, y: piece.gridPos.y },
+      { key: SOUTH, x: piece.gridPos.x, y: piece.gridPos.y + 1 },
+      { key: WEST, x: piece.gridPos.x - 1, y: piece.gridPos.y },
+    ];
+
+    for (const dir of directions) {
+      const key = `${dir.x},${dir.y}`;
+      const neighbor = gridMap.get(key);
+      if (neighbor) {
+        neighbors[dir.key] = neighbor;
+      }
+    }
+
+    return neighbors;
+  }
+
+  /**
    * Update the set of border pieces based on current group membership
    * A piece is a border piece if it has less than 4 neighbors within the group
    * @private
@@ -206,7 +255,7 @@ export class Group {
     const gridMap = new Map();
     for (const piece of this.pieces) {
       if (!piece) continue;
-      const key = `${piece.gridX},${piece.gridY}`;
+      const key = `${piece.gridPos.x},${piece.gridPos.y}`;
       gridMap.set(key, piece);
     }
 
@@ -218,10 +267,10 @@ export class Group {
 
       // Check all four potential neighbor positions based on grid coordinates
       const neighborPositions = [
-        { x: piece.gridX, y: piece.gridY - 1 }, // north
-        { x: piece.gridX + 1, y: piece.gridY }, // east
-        { x: piece.gridX, y: piece.gridY + 1 }, // south
-        { x: piece.gridX - 1, y: piece.gridY }, // west
+        { x: piece.gridPos.x, y: piece.gridPos.y - 1 }, // north
+        { x: piece.gridPos.x + 1, y: piece.gridPos.y }, // east
+        { x: piece.gridPos.x, y: piece.gridPos.y + 1 }, // south
+        { x: piece.gridPos.x - 1, y: piece.gridPos.y }, // west
       ];
 
       for (const pos of neighborPositions) {

@@ -38,7 +38,7 @@ export class Piece {
    * @param {number} data.w - Width in source image
    * @param {number} data.h - Height in source image
    * @param {HTMLCanvasElement} [data.bitmap] - Piece bitmap (will be generated if not provided)
-   * @param {Path2D} data.path - Piece path
+   * @param {Object} [data.paths] - Piece paths object {north, east, south, west} with Path2D for each edge
    * @param {number} [data.scale] - Display scale (defaults to DEFAULT_PIECE_SCALE)
    * @param {Point} [data.nw] - Northwest corner position
    * @param {number} [data.displayX] - Display X position (used if nw not provided)
@@ -64,9 +64,13 @@ export class Piece {
     // Physical dimensions - Rectangle stores position (imgX, imgY) and size (w, h)
     this.imgRect = new Rectangle(nw, data.w, data.h);
 
+    // Store nw and master for redrawing (needed for border updates)
+    this.nw = nw;
+    this.master = data.master;
+
     // Visual representation
     this.bitmap = data.bitmap;
-    this.path = data.path;
+    this.paths = data.paths;
     //TODO: scale has to do with display size, not with piece geometry
     this.scale = data.scale || DEFAULT_PIECE_SCALE;
 
@@ -96,15 +100,23 @@ export class Piece {
       );
     }
 
-    // Generate path if not provided and geometry is available
-    if (!this.path && this.corners && this.sPoints) {
-      this.path = this.generatePath();
+    // Generate paths if not provided and geometry is available
+    if (
+      !this.paths &&
+      this.corners &&
+      this.corners.nw &&
+      this.corners.ne &&
+      this.corners.se &&
+      this.corners.sw &&
+      this.sPoints
+    ) {
+      this.paths = this.generatePath();
     }
 
     // Generate bitmap if not provided and we have all necessary data
-    if (!this.bitmap && data.master && this.path && nw) {
+    if (!this.bitmap && data.master && this.paths && nw) {
       const frame = this.calculateBoundingFrame();
-      this.bitmap = drawPiece(frame, this.path, nw, data.master);
+      this.bitmap = drawPiece(frame, this.paths, nw, data.master, this);
     }
 
     // Register position with GameTableController
@@ -253,52 +265,82 @@ export class Piece {
   }
 
   /**
-   * Generate Path2D for this piece from corners and side points
-   * Each edge is a spline curve from corner to corner through side points
-   * @returns {Path2D} Generated path for this piece
+   * Generate Path2D objects for this piece from corners and side points
+   * Creates separate paths for each edge direction for selective rendering
+   * @returns {Object} Object with {north, east, south, west, combined} Path2D objects
    */
   generatePath() {
-    const path = new Path2D();
+    const paths = {
+      north: new Path2D(),
+      east: new Path2D(),
+      south: new Path2D(),
+      west: new Path2D(),
+      combined: new Path2D(),
+    };
 
-    // Start at NW corner
-    path.moveTo(this.corners.nw.x, this.corners.nw.y);
-
-    // North edge: spline nw -> ne through north sPoints
+    paths.north.moveTo(this.corners.nw.x, this.corners.nw.y);
     this._addEdgeSpline(
-      path,
+      paths.north,
       this.corners.nw,
       this.sPoints[NORTH],
       this.corners.ne
     );
 
-    // East edge: spline ne -> se through east sPoints
+    paths.east.moveTo(this.corners.ne.x, this.corners.ne.y);
     this._addEdgeSpline(
-      path,
+      paths.east,
       this.corners.ne,
       this.sPoints[EAST],
       this.corners.se
     );
 
-    // Move to NW to continue with west and south edges
-    path.moveTo(this.corners.nw.x, this.corners.nw.y);
-
-    // West edge: spline nw -> sw through west sPoints
+    paths.west.moveTo(this.corners.nw.x, this.corners.nw.y);
     this._addEdgeSpline(
-      path,
+      paths.west,
       this.corners.nw,
       this.sPoints[WEST],
       this.corners.sw
     );
 
-    // South edge: spline sw -> se through south sPoints
+    paths.south.moveTo(this.corners.sw.x, this.corners.sw.y);
     this._addEdgeSpline(
-      path,
+      paths.south,
       this.corners.sw,
       this.sPoints[SOUTH],
       this.corners.se
     );
 
-    return path;
+    paths.combined.moveTo(this.corners.nw.x, this.corners.nw.y);
+    this._addEdgeSpline(
+      paths.combined,
+      this.corners.nw,
+      this.sPoints[NORTH],
+      this.corners.ne
+    );
+
+    this._addEdgeSpline(
+      paths.combined,
+      this.corners.ne,
+      this.sPoints[EAST],
+      this.corners.se
+    );
+
+    paths.combined.moveTo(this.corners.nw.x, this.corners.nw.y);
+    this._addEdgeSpline(
+      paths.combined,
+      this.corners.nw,
+      this.sPoints[WEST],
+      this.corners.sw
+    );
+
+    this._addEdgeSpline(
+      paths.combined,
+      this.corners.sw,
+      this.sPoints[SOUTH],
+      this.corners.se
+    );
+
+    return paths;
   }
 
   /**

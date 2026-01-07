@@ -146,7 +146,12 @@ class Piece {
   
   // Visual representation
   bitmap: HTMLCanvasElement  // Rendered piece bitmap
-  path: Path2D               // 2D path for hit detection and rendering
+  paths: {                   // Separate Path2D for each edge direction
+    north: Path2D,           // Top edge path (nw -> ne)
+    east: Path2D,            // Right edge path (ne -> se)
+    south: Path2D,           // Bottom edge path (se -> sw)
+    west: Path2D             // Left edge path (sw -> nw)
+  }
   scale: number              // Display scale (default: 1.0)
   
   // Position and orientation
@@ -162,11 +167,17 @@ class Piece {
     sw: Point                // Southwest
   }
   sPoints: {                 // Side edge points (for connections)
-    north: Point[],
-    east: Point[],
-    south: Point[],
-    west: Point[]
+    north: Point[],          // Array of 5 points for north edge
+    east: Point[],           // Array of 5 points for east edge
+    south: Point[],          // Array of 5 points for south edge
+    west: Point[]            // Array of 5 points for west edge
   }
+
+**Note on Multi-Path Architecture:**
+The piece maintains 4 separate Path2D objects (one per edge direction) to enable 
+selective rendering. This allows the system to draw only edges that don't connect 
+to other pieces, providing visual feedback for disconnected edges. Each path is 
+independent and runs from one corner through the side points to the next corner.
   
   // Getters/Methods
   get worldData()            // World-space transformed geometry

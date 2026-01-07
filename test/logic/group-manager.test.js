@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from "vitest";
 import { GroupManager } from "@/js/logic/group-manager.js";
 import { Group } from "@/js/model/group.js";
+import { Point } from "@/js/geometry/point.js";
 
 // Mock dependencies
 vi.mock("@/js/game-engine.js", () => ({
@@ -24,6 +25,7 @@ vi.mock("@/js/logic/game-table-controller.js", () => ({
 vi.mock("@/js/constants/custom-events.js", () => ({
   GROUPS_CHANGED: "groups:changed",
   PIECES_CONNECTED: "pieces:connected",
+  PIECES_DISCONNECTED: "pieces:disconnected",
 }));
 
 // Helper function to create mock pieces
@@ -32,6 +34,7 @@ function createMockPiece(id, gridX, gridY) {
     id,
     gridX,
     gridY,
+    gridPos: new Point(gridX, gridY),
     groupId: null,
     position: {
       x: gridX * 100,

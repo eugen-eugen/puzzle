@@ -337,9 +337,14 @@ describe("Piece", () => {
   describe("generatePath", () => {
     it("should generate Path2D from corners and side points", () => {
       const piece = new Piece(createPieceData());
-      const path = piece.generatePath();
+      const paths = piece.generatePath();
 
-      expect(path).toBeInstanceOf(Path2D);
+      expect(paths).toBeDefined();
+      expect(paths.north).toBeInstanceOf(Path2D);
+      expect(paths.east).toBeInstanceOf(Path2D);
+      expect(paths.south).toBeInstanceOf(Path2D);
+      expect(paths.west).toBeInstanceOf(Path2D);
+      expect(paths.combined).toBeInstanceOf(Path2D);
     });
 
     it("should handle pieces without side points", () => {
@@ -353,9 +358,14 @@ describe("Piece", () => {
         sPoints: {},
       });
       const piece = new Piece(data);
-      const path = piece.generatePath();
+      const paths = piece.generatePath();
 
-      expect(path).toBeInstanceOf(Path2D);
+      expect(paths).toBeDefined();
+      expect(paths.north).toBeInstanceOf(Path2D);
+      expect(paths.east).toBeInstanceOf(Path2D);
+      expect(paths.south).toBeInstanceOf(Path2D);
+      expect(paths.west).toBeInstanceOf(Path2D);
+      expect(paths.combined).toBeInstanceOf(Path2D);
     });
 
     it("should include all provided side points", () => {
@@ -368,9 +378,14 @@ describe("Piece", () => {
         },
       });
       const piece = new Piece(data);
-      const path = piece.generatePath();
+      const paths = piece.generatePath();
 
-      expect(path).toBeInstanceOf(Path2D);
+      expect(paths).toBeDefined();
+      expect(paths.north).toBeInstanceOf(Path2D);
+      expect(paths.east).toBeInstanceOf(Path2D);
+      expect(paths.south).toBeInstanceOf(Path2D);
+      expect(paths.west).toBeInstanceOf(Path2D);
+      expect(paths.combined).toBeInstanceOf(Path2D);
     });
   });
 
@@ -449,7 +464,12 @@ describe("Piece", () => {
   describe("constructor with serialized data", () => {
     it("should create piece from serialized data", () => {
       const canvas = document.createElement("canvas");
-      const path = new Path2D();
+      const paths = {
+        north: new Path2D(),
+        east: new Path2D(),
+        south: new Path2D(),
+        west: new Path2D(),
+      };
       const data = {
         id: "piece-2",
         gridX: 2,
@@ -465,7 +485,7 @@ describe("Piece", () => {
         h: 150,
         scale: 0.8,
         bitmap: canvas,
-        path: path,
+        paths: paths,
         corners: {
           nw: new Point(0, 0),
           ne: new Point(150, 0),
@@ -486,7 +506,7 @@ describe("Piece", () => {
       expect(piece.groupId).toBe("group-abc");
       expect(piece.zIndex).toBe(15);
       expect(piece.bitmap).toBe(canvas);
-      expect(piece.path).toBe(path);
+      expect(piece.paths).toBe(paths);
       expect(piece.scale).toBe(0.8);
       expect(piece.imgRect.width).toBe(150);
       expect(piece.imgRect.height).toBe(150);

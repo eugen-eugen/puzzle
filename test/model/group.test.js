@@ -1,6 +1,7 @@
 // group.test.js - Unit tests for Group model
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { Group } from "@/js/model/group.js";
+import { Point } from "@/js/geometry/point.js";
 
 // Mock dependencies
 vi.mock("@/js/logic/game-table-controller.js", () => ({
@@ -22,6 +23,7 @@ function createMockPiece(id, gridX, gridY, neighbors = {}) {
     id,
     gridX,
     gridY,
+    gridPos: new Point(gridX, gridY),
     groupId: null,
     position: {
       x: gridX * 100,

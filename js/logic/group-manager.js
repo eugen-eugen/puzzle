@@ -9,7 +9,9 @@ import { gameTableController } from "./game-table-controller.js";
 import {
   GROUPS_CHANGED,
   PIECES_CONNECTED,
+  PIECES_DISCONNECTED,
 } from "../constants/custom-events.js";
+import { NORTH, EAST, SOUTH, WEST } from "../constants/piece-constants.js";
 
 // Regular expression to match group ID format (e.g., "g123")
 const GROUP_ID_PATTERN = /^g(\d+)/;
@@ -207,6 +209,8 @@ class GroupManager {
         })
       );
 
+      const neighbors = Group.getGroupNeighbors(pieceB);
+
       // Dispatch pieces connected event for persistence
       document.dispatchEvent(
         new CustomEvent(PIECES_CONNECTED, {
@@ -214,6 +218,8 @@ class GroupManager {
             pieceAId: pieceA.id,
             pieceBId: pieceB.id,
             groupId: keepGroup.id,
+            pieceId: pieceB.id,
+            neighbors: neighbors,
           },
         })
       );
@@ -242,6 +248,9 @@ class GroupManager {
     }
 
     try {
+      // Get neighbors BEFORE removing the piece from the group
+      const neighbors = Group.getGroupNeighbors(piece);
+
       // Remove piece from current group
       const fragmentGroups = currentGroup.removePieces([piece]);
 
@@ -257,6 +266,16 @@ class GroupManager {
           } with ${fragmentGroup.size()} pieces`
         );
       });
+
+      // Dispatch pieces disconnected event
+      document.dispatchEvent(
+        new CustomEvent(PIECES_DISCONNECTED, {
+          detail: {
+            pieceId: piece.id,
+            neighbors,
+          },
+        })
+      );
 
       // Dispatch group change event
       document.dispatchEvent(
