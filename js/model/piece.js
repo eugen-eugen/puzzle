@@ -30,42 +30,37 @@ export class Piece {
    * Create a new Piece
    * @param {Object} data - Piece initialization data
    * @param {string} data.id - Unique piece identifier
-   * @param {number} data.gridX - Grid X coordinate
-   * @param {number} data.gridY - Grid Y coordinate
+   * @param {Point} data.gridPos - Grid position
    * @param {string} [data.groupId] - Initial group ID (will be managed by GroupManager)
-   * @param {number} data.imgX - X coordinate in source image
-   * @param {number} data.imgY - Y coordinate in source image
+   * @param {Point} data.imgPos - Position in source image
    * @param {number} data.w - Width in source image
    * @param {number} data.h - Height in source image
    * @param {HTMLCanvasElement} [data.bitmap] - Piece bitmap (will be generated if not provided)
    * @param {Object} [data.paths] - Piece paths object {north, east, south, west} with Path2D for each edge
    * @param {number} [data.scale] - Display scale (defaults to DEFAULT_PIECE_SCALE)
-   * @param {Point} [data.nw] - Northwest corner position
-   * @param {number} [data.displayX] - Display X position (used if nw not provided)
-   * @param {number} [data.displayY] - Display Y position (used if nw not provided)
+   * @param {Point} [data.position] - Display position
    * @param {number} [data.rotation=0] - Rotation in degrees
    * @param {number} [data.zIndex] - Z-index for layering
    * @param {Object} [data.geometryCorners] - Corner points for geometry calculation
    * @param {Object} [data.geometrySidePoints] - Side points for geometry calculation
-   * @param {Object} [data.corners] - Pre-calculated corner points
-   * @param {Object} [data.sPoints] - Pre-calculated side points
+   * @param {Object} [data.corners] - Pre-calculated corner Point objects
+   * @param {Object} [data.sPoints] - Pre-calculated side Point arrays
    * @param {HTMLCanvasElement} [data.master] - Master canvas for bitmap generation
    */
   constructor(data) {
     // Core identity
     this.id = data.id;
-    this.gridPos = new Point(data.gridX, data.gridY);
+    this.gridPos = data.gridPos;
 
     // GroupId - set from data if available (deserialization), otherwise null (new piece)
     // GroupManager will set/update this during initialization
     this._groupId = data.groupId || null;
 
-    const nw = new Point(data.imgX, data.imgY);
-    // Physical dimensions - Rectangle stores position (imgX, imgY) and size (w, h)
-    this.imgRect = new Rectangle(nw, data.w, data.h);
+    // Physical dimensions - Rectangle stores position (imgPos) and size (w, h)
+    this.imgRect = new Rectangle(data.imgPos, data.w, data.h);
 
     // Store nw and master for redrawing (needed for border updates)
-    this.nw = nw;
+    this.nw = data.imgPos;
     this.master = data.master;
 
     // Visual representation
@@ -76,28 +71,25 @@ export class Piece {
 
     // Position and orientation
     // Position is now managed by GameTableController - initialize it there
-    const initialPosition =
-      data.nw instanceof Point
-        ? data.nw
-        : new Point(data.displayX || 0, data.displayY || 0);
+    const initialPosition = data.position || new Point(0, 0);
     this.rotation = data.rotation || 0;
     this.zIndex = data.zIndex !== undefined ? data.zIndex : null; // Z-index for layering, null means not yet assigned
 
     // Calculate piece geometry if geometry data is provided
-    if (data.geometryCorners && data.geometrySidePoints && nw) {
-      this.corners = normalizePointsToOrigin(data.geometryCorners, nw);
+    if (data.geometryCorners && data.geometrySidePoints) {
+      this.corners = normalizePointsToOrigin(data.geometryCorners, data.imgPos);
       const normalizedSidePoints = normalizePointsToOrigin(
         data.geometrySidePoints,
-        nw
+        data.imgPos
       );
       // Convert single points to arrays: empty for border, 3 copies for inner sides
       this.sPoints = this._convertSidePointArrays(normalizedSidePoints);
     } else {
-      this.corners = convertToPoints(data.corners);
-      // sPoints already in array format from serialization
-      this.sPoints = this._convertSidePointArrays(
-        convertToPoints(data.sPoints)
-      );
+      // corners and sPoints are already Point objects, but may need conversion
+      this.corners = data.corners;
+      this.sPoints = data.sPoints
+        ? this._convertSidePointArrays(data.sPoints)
+        : {};
     }
 
     // Generate paths if not provided and geometry is available
@@ -114,9 +106,9 @@ export class Piece {
     }
 
     // Generate bitmap if not provided and we have all necessary data
-    if (!this.bitmap && data.master && this.paths && nw) {
+    if (!this.bitmap && data.master && this.paths && this.nw) {
       const frame = this.calculateBoundingFrame();
-      this.bitmap = drawPiece(frame, this.paths, nw, data.master, this);
+      this.bitmap = drawPiece(frame, this.paths, this.nw, data.master, this);
     }
 
     // Register position with GameTableController
@@ -200,11 +192,7 @@ export class Piece {
         // Border side - empty array
         result[side] = [];
       } else if (Array.isArray(value)) {
-        // Already an array from deserialization - keep as is
         result[side] = value;
-      } else {
-        // Single point from geometry - convert to 3 copies
-        result[side] = [value, value.clone(), value.clone()];
       }
     });
     return result;
@@ -415,11 +403,9 @@ export class Piece {
       gameTableController.getPiecePosition(this.id) || new Point(0, 0);
     const data = {
       id: this.id,
-      gridX: this.gridPos.x,
-      gridY: this.gridPos.y,
+      gridPos: this.gridPos,
       rotation: this.rotation,
-      displayX: position.x,
-      displayY: position.y,
+      position: position,
       groupId: this.groupId,
       zIndex: this.zIndex,
       corners: this.corners,
@@ -427,8 +413,7 @@ export class Piece {
       w: this.imgRect.width,
       h: this.imgRect.height,
       scale: DEFAULT_PIECE_SCALE,
-      imgX: this.imgRect.position.x,
-      imgY: this.imgRect.position.y,
+      imgPos: this.imgRect.position,
     };
 
     if (includeBitmap && this.bitmap?.toDataURL) {
@@ -443,6 +428,63 @@ export class Piece {
     }
 
     return data;
+  }
+
+  /**
+   * Deserialize plain object to piece data with Point and Rectangle objects
+   * Does not create a Piece instance, but converts plain objects to proper geometry types
+   * Matches the output format of serialize()
+   * @param {Object} data - Serialized piece data from serialize()
+   * @returns {Object} Piece data with Point and Rectangle instances where applicable
+   * @static
+   */
+  static deserialize(data) {
+    // Convert to Point objects if they're plain objects (for backwards compatibility)
+    const gridPos =
+      data.gridPos instanceof Point
+        ? data.gridPos
+        : new Point(data.gridPos.x, data.gridPos.y);
+    const position =
+      data.position instanceof Point
+        ? data.position
+        : new Point(data.position.x, data.position.y);
+    const imgPos =
+      data.imgPos instanceof Point
+        ? data.imgPos
+        : new Point(data.imgPos.x, data.imgPos.y);
+
+    // Convert corners to Point objects if they're plain objects
+    const corners = convertToPoints(data.corners);
+
+    // Convert sPoints arrays to arrays of Point objects
+    const sPoints = {};
+    ALL_SIDES.forEach((side) => {
+      const value = data.sPoints?.[side];
+      if (!value || !Array.isArray(value)) {
+        sPoints[side] = [];
+      } else {
+        sPoints[side] = value.map((pt) =>
+          pt instanceof Point ? pt : new Point(pt.x, pt.y)
+        );
+      }
+    });
+
+    // Return object ready for Piece constructor
+    return {
+      id: data.id,
+      gridPos: gridPos,
+      rotation: data.rotation,
+      position: position,
+      groupId: data.groupId,
+      zIndex: data.zIndex,
+      corners: corners,
+      sPoints: sPoints,
+      w: data.w,
+      h: data.h,
+      imgPos: imgPos,
+      scale: data.scale,
+      bitmapData: data.bitmapData,
+    };
   }
 
   // ===== Utility Methods =====

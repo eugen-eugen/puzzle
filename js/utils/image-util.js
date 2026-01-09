@@ -1,6 +1,10 @@
 // image-util.js - Image manipulation utilities
 
 import { state } from "../game-engine.js";
+import {
+  isIndexedDBSupported,
+  loadImageFromDB,
+} from "../persistence/indexed-db-storage.js";
 
 /**
  * Convert an image to grayscale
@@ -191,6 +195,58 @@ export function loadRemoteImageWithTimeout(imageUrl, options = {}) {
   } = options;
 
   return new Promise((resolve, reject) => {
+    // Check if this is an IndexedDB reference
+    if (imageUrl.startsWith("idb:")) {
+      const imageId = imageUrl.substring(4); // Remove "idb:" prefix
+
+      if (!isIndexedDBSupported()) {
+        console.warn("[remote-image] IndexedDB not supported");
+        onError();
+        reject(new Error("IndexedDB not supported"));
+        return;
+      }
+
+      // Set up timeout for IndexedDB load
+      const timeoutId = setTimeout(() => {
+        console.warn("[remote-image] IndexedDB load timeout for:", imageId);
+        onTimeout();
+        reject(new Error(`IndexedDB load timeout: ${imageId}`));
+      }, timeout);
+
+      loadImageFromDB(imageId)
+        .then((imageData) => {
+          clearTimeout(timeoutId);
+          const url = URL.createObjectURL(imageData.blob);
+          const img = new Image();
+          img.onload = () => {
+            URL.revokeObjectURL(url);
+            console.info(
+              "[remote-image] IndexedDB image loaded successfully:",
+              imageId
+            );
+            onLoad(img);
+            resolve(img);
+          };
+          img.onerror = () => {
+            URL.revokeObjectURL(url);
+            console.warn(
+              "[remote-image] Failed to load IndexedDB image:",
+              imageId
+            );
+            onError();
+            reject(new Error(`Failed to load IndexedDB image: ${imageId}`));
+          };
+          img.src = url;
+        })
+        .catch((error) => {
+          clearTimeout(timeoutId);
+          console.warn("[remote-image] Failed to load from IndexedDB:", error);
+          onError();
+          reject(error);
+        });
+      return;
+    }
+
     // Load remote image with timeout
     const img = new Image();
     img.crossOrigin = "anonymous"; // allow canvas usage when CORS permits

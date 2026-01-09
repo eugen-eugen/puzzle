@@ -37,6 +37,30 @@
   margin-bottom: 1.5rem;
 }
 
+.picture-gallery-section-title {
+  grid-column: 1 / -1;
+  margin: 1rem 0 0.5rem 0;
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 600;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 0.5rem;
+}
+
+.picture-gallery-section-title:first-child {
+  margin-top: 0;
+}
+
+.picture-gallery-recent-item {
+  border-color: var(--accent-blue);
+  opacity: 0.95;
+}
+
+.picture-gallery-recent-item:hover {
+  opacity: 1;
+  border-color: var(--accent-green);
+}
+
 .picture-gallery-item {
   position: relative;
   aspect-ratio: 1;

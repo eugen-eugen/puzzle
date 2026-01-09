@@ -7,8 +7,7 @@ vi.mock("@/js/model/piece.js", () => ({
   Piece: class MockPiece {
     constructor(data) {
       this.id = data.id;
-      this.gridX = data.gridX;
-      this.gridY = data.gridY;
+      this.gridPos = data.gridPos;
 
       // Mock corners
       this.corners = {
@@ -228,14 +227,14 @@ describe("jigsaw-generator", () => {
 
       // Check that all grid positions are within bounds
       result.pieces.forEach((piece) => {
-        expect(piece.gridX).toBeGreaterThanOrEqual(0);
-        expect(piece.gridX).toBeLessThan(result.cols);
-        expect(piece.gridY).toBeGreaterThanOrEqual(0);
-        expect(piece.gridY).toBeLessThan(result.rows);
+        expect(piece.gridPos.x).toBeGreaterThanOrEqual(0);
+        expect(piece.gridPos.x).toBeLessThan(result.cols);
+        expect(piece.gridPos.y).toBeGreaterThanOrEqual(0);
+        expect(piece.gridPos.y).toBeLessThan(result.rows);
       });
 
       // Check that each grid position is unique
-      const positions = result.pieces.map((p) => `${p.gridX},${p.gridY}`);
+      const positions = result.pieces.map((p) => `${p.gridPos.x},${p.gridPos.y}`);
       const uniquePositions = new Set(positions);
       expect(uniquePositions.size).toBe(result.pieces.length);
     });

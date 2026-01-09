@@ -33,12 +33,11 @@ vi.mock("@/js/logic/game-table-controller.js", () => ({
 function createPieceData(overrides = {}) {
   return {
     id: "piece-1",
-    gridX: 0,
-    gridY: 0,
-    imgX: 0,
-    imgY: 0,
+    gridPos: new Point(overrides.gridX || 0, overrides.gridY || 0),
+    imgPos: new Point(overrides.imgX || 0, overrides.imgY || 0),
     w: 100,
     h: 100,
+    position: new Point(overrides.displayX || 0, overrides.displayY || 0),
     bitmap: document.createElement("canvas"),
     path: new Path2D(),
     corners: {
@@ -48,10 +47,10 @@ function createPieceData(overrides = {}) {
       sw: new Point(0, 100),
     },
     sPoints: {
-      north: new Point(50, -10),
-      east: new Point(110, 50),
-      south: new Point(50, 110),
-      west: new Point(-10, 50),
+      north: [new Point(50, -10), new Point(50, -10), new Point(50, -10)],
+      east: [new Point(110, 50), new Point(110, 50), new Point(110, 50)],
+      south: [new Point(50, 110), new Point(50, 110), new Point(50, 110)],
+      west: [new Point(-10, 50), new Point(-10, 50), new Point(-10, 50)],
     },
     ...overrides,
   };
@@ -104,11 +103,9 @@ describe("Piece", () => {
       );
     });
 
-    it("should prefer nw Point over displayX/displayY", () => {
+    it("should use provided position Point", () => {
       const data = createPieceData({
-        nw: new Point(500, 600),
-        displayX: 250,
-        displayY: 350,
+        position: new Point(500, 600),
       });
       const piece = new Piece(data);
 
@@ -405,15 +402,12 @@ describe("Piece", () => {
       const serialized = piece.serialize();
 
       expect(serialized.id).toBe("piece-1");
-      expect(serialized.gridX).toBe(0);
-      expect(serialized.gridY).toBe(0);
+      expect(serialized.gridPos).toEqual(new Point(0, 0));
       expect(serialized.rotation).toBe(45);
-      expect(serialized.displayX).toBe(300);
-      expect(serialized.displayY).toBe(400);
+      expect(serialized.position).toEqual(new Point(300, 400));
       expect(serialized.groupId).toBe("group-789");
       expect(serialized.zIndex).toBe(10);
-      expect(serialized.imgX).toBe(0);
-      expect(serialized.imgY).toBe(0);
+      expect(serialized.imgPos).toEqual(new Point(0, 0));
       expect(serialized.w).toBe(100);
       expect(serialized.h).toBe(100);
       expect(serialized.scale).toBe(DEFAULT_PIECE_SCALE);
@@ -472,15 +466,12 @@ describe("Piece", () => {
       };
       const data = {
         id: "piece-2",
-        gridX: 2,
-        gridY: 3,
+        gridPos: new Point(2, 3),
         rotation: 90,
-        displayX: 500,
-        displayY: 600,
+        position: new Point(500, 600),
         groupId: "group-abc",
         zIndex: 15,
-        imgX: 200,
-        imgY: 300,
+        imgPos: new Point(200, 300),
         w: 150,
         h: 150,
         scale: 0.8,
@@ -517,12 +508,11 @@ describe("Piece", () => {
       const path = new Path2D();
       const minimalData = {
         id: "piece-3",
-        gridX: 0,
-        gridY: 0,
-        imgX: 0,
-        imgY: 0,
+        gridPos: new Point(0, 0),
+        imgPos: new Point(0, 0),
         w: 100,
         h: 100,
+        position: new Point(0, 0),
         bitmap: canvas,
         path: path,
         corners: {

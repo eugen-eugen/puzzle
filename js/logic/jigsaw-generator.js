@@ -101,19 +101,17 @@ export function generateJigsawPieces(img, targetCount) {
       const pieceId = id++;
       const pieceData = {
         id: pieceId,
-        gridX: c,
-        gridY: r,
+        gridPos: new Point(c, r),
         w: frame.width,
         h: frame.height,
-        imgX: nw.x,
-        imgY: nw.y,
+        imgPos: nw,
         rotation:
           RANDOM_ROTATIONS[Math.floor(Math.random() * RANDOM_ROTATIONS.length)],
         groupId: "g" + pieceId, // Each piece starts in its own group
         // Geometry data for calculation and path/bitmap generation
         geometryCorners: { nw, ne, se, sw },
         geometrySidePoints,
-        nw,
+        position: new Point(nw.x, nw.y),
         master, // Pass master canvas for bitmap generation
       };
 

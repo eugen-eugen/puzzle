@@ -418,13 +418,12 @@ function reconstructPieces(data, masterImage) {
     const mctx = master.getContext("2d");
     mctx.drawImage(masterImage, 0, 0);
 
-    const piece = new Piece({ ...sp, master });
+    // Deserialize to convert Point objects, then add master
+    const deserializedData = Piece.deserialize(sp);
+    const piece = new Piece({ ...deserializedData, master });
 
     state.pieces.push(piece);
-    gameTableController.setPiecePosition(
-      piece.id,
-      new Point(sp.displayX || 0, sp.displayY || 0)
-    );
+    gameTableController.setPiecePosition(piece.id, deserializedData.position);
     return piece;
   });
 

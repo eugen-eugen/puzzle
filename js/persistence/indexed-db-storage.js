@@ -51,7 +51,7 @@ export function isIndexedDBSupported() {
 
 /**
  * Store an image file in IndexedDB
- * Clears all previous images to ensure only the most recent image is kept
+ * Keeps only the 3 most recent images, deleting older ones
  */
 export async function storeImageInDB(file) {
   if (!isIndexedDBSupported()) {
@@ -61,13 +61,13 @@ export async function storeImageInDB(file) {
   try {
     await initIndexedDB();
 
-    // Clear all existing images first to ensure only one image is stored
+    // Keep only the 3 most recent images
     try {
-      await clearAllImages();
-      console.log("Cleared previous images before storing new one");
+      await keepRecentImages(3);
+      console.log("Maintained last 3 recent images");
     } catch (clearError) {
       console.warn(
-        "Failed to clear previous images, proceeding anyway:",
+        "Failed to maintain recent images, proceeding anyway:",
         clearError
       );
     }
@@ -227,6 +227,109 @@ export async function listStoredImages() {
     });
   } catch (error) {
     console.error("Error listing images from IndexedDB:", error);
+    throw error;
+  }
+}
+
+/**
+ * Keep only the N most recent images, deleting older ones
+ * @param {number} count - Number of recent images to keep (default: 3)
+ */
+export async function keepRecentImages(count = 3) {
+  if (!isIndexedDBSupported()) {
+    throw new Error("IndexedDB not supported");
+  }
+
+  try {
+    await initIndexedDB();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], "readwrite");
+      const store = transaction.objectStore(STORE_NAME);
+      const index = store.index("timestamp");
+      const request = index.openCursor(null, "prev"); // Open cursor in descending order
+
+      let kept = 0;
+      const toDelete = [];
+
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+          if (kept < count) {
+            kept++;
+          } else {
+            toDelete.push(cursor.primaryKey);
+          }
+          cursor.continue();
+        } else {
+          // Delete old images
+          toDelete.forEach((id) => {
+            store.delete(id);
+          });
+          console.log(
+            `Kept ${kept} recent images, deleted ${toDelete.length} old images`
+          );
+          resolve(true);
+        }
+      };
+
+      request.onerror = () => {
+        console.error("Failed to keep recent images:", request.error);
+        reject(request.error);
+      };
+    });
+  } catch (error) {
+    console.error("Error keeping recent images:", error);
+    throw error;
+  }
+}
+
+/**
+ * Get the N most recent images sorted by timestamp (newest first)
+ * @param {number} count - Number of recent images to retrieve (default: 3)
+ * @returns {Promise<Array>} Array of recent images with their metadata
+ */
+export async function getRecentImages(count = 3) {
+  if (!isIndexedDBSupported()) {
+    throw new Error("IndexedDB not supported");
+  }
+
+  try {
+    await initIndexedDB();
+
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([STORE_NAME], "readonly");
+      const store = transaction.objectStore(STORE_NAME);
+      const index = store.index("timestamp");
+      const request = index.openCursor(null, "prev"); // Descending order (newest first)
+
+      const images = [];
+
+      request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor && images.length < count) {
+          const item = cursor.value;
+          images.push({
+            id: item.id,
+            filename: item.filename,
+            blob: item.blob,
+            size: item.size,
+            type: item.type,
+            timestamp: item.timestamp,
+          });
+          cursor.continue();
+        } else {
+          resolve(images);
+        }
+      };
+
+      request.onerror = () => {
+        console.error("Failed to get recent images:", request.error);
+        reject(request.error);
+      };
+    });
+  } catch (error) {
+    console.error("Error getting recent images:", error);
     throw error;
   }
 }

@@ -6,6 +6,10 @@ import {
   DEEPLINK_DISABLED,
   IMAGE_UPLOAD_REQUEST,
 } from "../constants/custom-events.js";
+import {
+  isIndexedDBSupported,
+  getRecentImages,
+} from "../persistence/indexed-db-storage.js";
 
 const PICTURES_PATH = "pictures/";
 const DEFAULT_PIECES = 20;
@@ -145,8 +149,75 @@ export async function showPictureGallery(onSelect, onClose) {
   // Load available pictures
   const pictures = await loadAvailablePictures();
 
+  // Load recent IndexedDB images if supported
+  let recentImages = [];
+  if (isIndexedDBSupported()) {
+    try {
+      recentImages = await getRecentImages(3);
+      console.log(
+        `[picture-gallery] Loaded ${recentImages.length} recent images from IndexedDB`
+      );
+    } catch (error) {
+      console.warn("[picture-gallery] Failed to load recent images:", error);
+    }
+  }
+
   function renderGallery(filter) {
     grid.innerHTML = "";
+
+    // Add recent images section if we have any
+    if (recentImages.length > 0 && !filter) {
+      const recentSection = document.createElement("div");
+      recentSection.className = "picture-gallery-recent-section";
+
+      const recentTitle = document.createElement("h3");
+      recentTitle.className = "picture-gallery-section-title";
+      recentTitle.textContent = t("gallery.recentImages");
+      grid.appendChild(recentTitle);
+
+      // Add recent images
+      recentImages.forEach((recentImage) => {
+        const item = document.createElement("a");
+        item.className = "picture-gallery-item picture-gallery-recent-item";
+        const imageUrl = URL.createObjectURL(recentImage.blob);
+        const deepLinkUrl = `?image=idb:${recentImage.id}&pieces=${DEFAULT_PIECES}&norotate=y`;
+        item.href = deepLinkUrl;
+        item.title = `${recentImage.filename} - ${t("gallery.itemTooltip", {
+          title: recentImage.filename,
+          pieces: DEFAULT_PIECES,
+        })}`;
+
+        const imageContainer = document.createElement("div");
+        imageContainer.className = "picture-gallery-item-container";
+
+        const img = document.createElement("img");
+        img.alt = recentImage.filename;
+        img.src = imageUrl;
+        img.loading = "eager"; // Load recent images immediately
+
+        img.addEventListener("error", () => {
+          item.style.display = "none";
+          URL.revokeObjectURL(imageUrl);
+        });
+
+        const titleDiv = document.createElement("div");
+        titleDiv.className = "picture-gallery-item-title";
+        titleDiv.textContent = recentImage.filename;
+
+        imageContainer.appendChild(img);
+        imageContainer.appendChild(titleDiv);
+        item.appendChild(imageContainer);
+
+        item.addEventListener("click", (e) => {
+          e.preventDefault();
+          hidePictureGallery();
+          if (onSelect) onSelect(deepLinkUrl);
+          URL.revokeObjectURL(imageUrl);
+        });
+        grid.appendChild(item);
+      });
+    }
+
     let filtered = pictures;
     // Highlight selected filter
     [babyBtn, studentBtn, masterBtn].forEach((btn) =>
