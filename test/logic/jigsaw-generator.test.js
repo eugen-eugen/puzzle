@@ -234,7 +234,9 @@ describe("jigsaw-generator", () => {
       });
 
       // Check that each grid position is unique
-      const positions = result.pieces.map((p) => `${p.gridPos.x},${p.gridPos.y}`);
+      const positions = result.pieces.map(
+        (p) => `${p.gridPos.x},${p.gridPos.y}`
+      );
       const uniquePositions = new Set(positions);
       expect(uniquePositions.size).toBe(result.pieces.length);
     });
