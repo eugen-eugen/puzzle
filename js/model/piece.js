@@ -192,7 +192,14 @@ export class Piece {
         // Border side - empty array
         result[side] = [];
       } else if (Array.isArray(value)) {
-        result[side] = value;
+        // Already an array - ensure Point instances
+        result[side] = value.map(pt => 
+          pt instanceof Point ? pt : new Point(pt.x, pt.y)
+        );
+      } else {
+        // Single Point from test data or geometry - convert to array with 3 copies
+        const point = value instanceof Point ? value : new Point(value.x, value.y);
+        result[side] = [point, point, point];
       }
     });
     return result;

@@ -118,7 +118,7 @@ describe("Piece", () => {
     it("should handle geometry data with normalization", () => {
       const nwOrigin = new Point(50, 60);
       const data = createPieceData({
-        nw: nwOrigin,
+        imgPos: nwOrigin,
         geometryCorners: {
           nw: new Point(50, 60),
           ne: new Point(150, 60),
@@ -131,12 +131,10 @@ describe("Piece", () => {
           south: new Point(100, 170),
           west: new Point(40, 110),
         },
-        imgX: 50,
-        imgY: 60,
       });
       const piece = new Piece(data);
 
-      // Should be normalized to origin relative to nw (imgX, imgY)
+      // Should be normalized to origin relative to imgPos
       expect(piece.corners.nw).toEqual(new Point(0, 0));
       expect(piece.corners.ne).toEqual(new Point(100, 0));
       // sPoints are now arrays - check first element
