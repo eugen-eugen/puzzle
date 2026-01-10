@@ -106,9 +106,12 @@ export class Piece {
     }
 
     // Generate bitmap if not provided and we have all necessary data
-    if (!this.bitmap && data.master && this.paths && this.nw) {
+    if (!this.bitmap && this.paths && this.nw) {
       const frame = this.calculateBoundingFrame();
-      this.bitmap = drawPiece(frame, this.paths, this.nw, data.master, this);
+      if (data.master) {
+        // Normal case: draw piece from master image
+        this.bitmap = drawPiece(frame, this.paths, this.nw, data.master, this);
+      }
     }
 
     // Register position with GameTableController
@@ -193,12 +196,13 @@ export class Piece {
         result[side] = [];
       } else if (Array.isArray(value)) {
         // Already an array - ensure Point instances
-        result[side] = value.map(pt => 
+        result[side] = value.map((pt) =>
           pt instanceof Point ? pt : new Point(pt.x, pt.y)
         );
       } else {
         // Single Point from test data or geometry - convert to array with 3 copies
-        const point = value instanceof Point ? value : new Point(value.x, value.y);
+        const point =
+          value instanceof Point ? value : new Point(value.x, value.y);
         result[side] = [point, point, point];
       }
     });

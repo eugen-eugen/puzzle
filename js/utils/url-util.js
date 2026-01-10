@@ -16,6 +16,7 @@ export function parseDeepLinkParams() {
     const noRotateParam = params.get("norotate");
     const removeColorParam = params.get("removeColor");
     const licenseParam = params.get("license");
+    const resumeParam = params.get("resume");
 
     // Deep link requires both image and pieces parameters
     if (!imageParam || !piecesParam) {
@@ -36,6 +37,7 @@ export function parseDeepLinkParams() {
 
     const noRotate = noRotateParam === "y" ? "y" : "n";
     const removeColor = removeColorParam === "y" ? "y" : "n";
+    const resume = resumeParam || "n";
 
     // Save to application state (flat structure)
     state.deepLinkImageUrl = imageParam;
@@ -43,6 +45,7 @@ export function parseDeepLinkParams() {
     state.deepLinkNoRotate = noRotate;
     state.deepLinkRemoveColor = removeColor;
     state.deepLinkLicense = licenseParam || null;
+    state.deepLinkResume = resume;
     state.noRotate = noRotate === "y";
   } catch (err) {
     console.warn("[url-util] Error parsing deep link params:", err);

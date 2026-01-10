@@ -41,6 +41,7 @@ class State {
     this.deepLinkNoRotate = "n";
     this.deepLinkRemoveColor = "n";
     this.deepLinkLicense = null;
+    this.deepLinkResume = "n";
 
     // Viewport state (pan/zoom)
     this.viewport = {

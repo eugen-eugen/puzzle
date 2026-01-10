@@ -211,7 +211,8 @@ export async function showPictureGallery(onSelect, onClose) {
         item.addEventListener("click", (e) => {
           e.preventDefault();
           hidePictureGallery();
-          if (onSelect) onSelect(deepLinkUrl);
+          if (onSelect)
+            onSelect(deepLinkUrl, `idb:${recentImage.id}`, recentImage.id);
           URL.revokeObjectURL(imageUrl);
         });
         grid.appendChild(item);
@@ -318,7 +319,7 @@ export async function showPictureGallery(onSelect, onClose) {
       item.addEventListener("click", (e) => {
         e.preventDefault();
         hidePictureGallery();
-        if (onSelect) onSelect(deepLinkUrl);
+        if (onSelect) onSelect(deepLinkUrl, picture.url);
       });
       grid.appendChild(item);
     });

@@ -39,6 +39,7 @@ import {
   isIndexedDBSupported,
   storeImageInDB,
 } from "../persistence/indexed-db-storage.js";
+import { setCurrentImageForPersistence } from "../persistence/persistence.js";
 import { applyLicenseIfPresent } from "../utils/image-util.js";
 import { showPictureGallery } from "./picture-gallery.js";
 
@@ -250,6 +251,11 @@ async function generatePuzzle() {
   progressDisplay.textContent = t("status.generating");
 
   try {
+    // Set current image for persistence tracking
+    if (state.image.source) {
+      setCurrentImageForPersistence(state.image.source);
+    }
+
     // Add license text to image if present
     const imageWithLicense = await applyLicenseIfPresent(state.image.data);
 
@@ -468,7 +474,6 @@ async function handleImageUpload(file) {
       try {
         console.log("[controlBar] Attempting to store file in IndexedDB");
         const result = await storeImageInDB(file);
-        state.image.source = `idb:${result.imageId}`; // 'idb:img_timestamp_randomid'
         setCurrentImageId(result.imageId); // Update state.image.id
         setCurrentImageSource(`idb:${result.imageId}`); // Update state.image.source
         console.log(

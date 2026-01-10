@@ -11,6 +11,8 @@ import {
   initPersistence,
   clearSavedGame,
   loadGame,
+  hasSavedGame,
+  setCurrentImageForPersistence,
 } from "./persistence/persistence.js";
 import { showResumeModal } from "./components/resume.js";
 import { state } from "./game-engine.js";
@@ -179,6 +181,61 @@ async function bootstrap() {
   initPersistence();
 
   if (state.deepLinkImageUrl) {
+    // Check if resume=y and saved game exists for this image
+    if (state.deepLinkResume === "y" && hasSavedGame(state.deepLinkImageUrl)) {
+      console.info("[deeplink] Resume=y: Asking user to resume saved game");
+      hidePictureGallery();
+      showResumeModal({
+        onResume: () => {
+          // Load the saved game for this image
+          setCurrentImageForPersistence(state.deepLinkImageUrl);
+          loadGame(state.deepLinkImageUrl);
+        },
+        onDiscard: () => {
+          // Clear saved game and start new game with deeplink parameters
+          clearSavedGame(state.deepLinkImageUrl);
+          deepLinkActive = true;
+          window.dispatchEvent(new CustomEvent(DEEPLINK_ENABLED));
+
+          loadRemoteImageWithTimeout(state.deepLinkImageUrl, {
+            timeout: 10000,
+            onLoad: async (img) => {
+              setCurrentImage(img);
+              setCurrentImageSource(state.deepLinkImageUrl);
+              setCurrentImageLicense(state.deepLinkLicense);
+              const sliderVal = pieceCountToSlider(state.deepLinkPieceCount);
+              setSliderValue(sliderVal);
+              updatePieceDisplay();
+              applyViewportGrayscaleFilter(state.deepLinkRemoveColor);
+              await generatePuzzle();
+              deepLinkActive = false;
+            },
+            onTimeout: () => {
+              deepLinkActive = false;
+              window.dispatchEvent(
+                new CustomEvent(DEEPLINK_DISABLED, {
+                  detail: { reason: "timeout" },
+                })
+              );
+            },
+            onError: () => {
+              deepLinkActive = false;
+              window.dispatchEvent(
+                new CustomEvent(DEEPLINK_DISABLED, {
+                  detail: { reason: "error" },
+                })
+              );
+            },
+          }).catch(() => {});
+        },
+        onCancel: () => {
+          // User cancelled - do nothing
+        },
+        hasResume: true,
+      });
+      return; // Skip normal deeplink flow
+    }
+
     deepLinkActive = true; // mark so persistence skip resume
     window.dispatchEvent(new CustomEvent(DEEPLINK_ENABLED)); // Notify control bar to hide controls
 

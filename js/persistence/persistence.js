@@ -24,7 +24,9 @@ import {
 import { registerGlobalEvent } from "../utils/event-util.js";
 import { ALL_SIDES } from "../constants/piece-constants.js";
 
-const LS_KEY = "puzzle.save.v2";
+const LS_KEY_PREFIX = "puzzle.save.v3.";
+const LS_INDEX_KEY = "puzzle.save.index";
+const MAX_SAVED_GAMES = 20;
 const AUTO_SAVE_DELAY = 1200; // ms debounce
 const STORE_BITMAPS = false; // Enable only for debugging tiny puzzles
 const MAX_RETRY_LIGHTEN = 1; // Attempts to retry without bitmaps on quota error
@@ -32,6 +34,79 @@ const FALLBACK_SIZE_SOFT_LIMIT = 2_500_000; // ~2.5MB soft limit
 
 let dirty = false;
 let autoSaveTimer = null;
+let currentImageKey = null; // Track current image for persistence
+
+/**
+ * Generate a storage key for an image URL
+ * @param {string} imageUrl - Image URL or identifier
+ * @returns {string} Storage key
+ */
+function getImageKey(imageUrl) {
+  if (!imageUrl) return null;
+  // Create a simple hash from the URL
+  const hash = imageUrl.split("").reduce((a, b) => {
+    a = (a << 5) - a + b.charCodeAt(0);
+    return a & a;
+  }, 0);
+  return `img_${Math.abs(hash)}`;
+}
+
+/**
+ * Get list of saved games with metadata
+ * @returns {Array} Array of {key, imageUrl, timestamp, size}
+ */
+function getSavedGamesList() {
+  try {
+    const raw = localStorage.getItem(LS_INDEX_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    return [];
+  }
+}
+
+/**
+ * Update saved games index with new entry
+ * Implements LRU eviction when limit reached
+ * @param {string} imageKey - Image key
+ * @param {string} imageUrl - Image URL
+ * @param {number} size - Save data size
+ */
+function updateSavedGamesIndex(imageKey, imageUrl, size) {
+  let games = getSavedGamesList();
+  const timestamp = Date.now();
+
+  // Remove existing entry for this image
+  games = games.filter((g) => g.key !== imageKey);
+
+  // Add new entry at the front (most recent)
+  games.unshift({ key: imageKey, imageUrl, timestamp, size });
+
+  // If we exceed max games, remove oldest and delete their saves
+  while (games.length > MAX_SAVED_GAMES) {
+    const removed = games.pop();
+    try {
+      localStorage.removeItem(LS_KEY_PREFIX + removed.key);
+      console.info(`[persistence] Evicted old save for ${removed.imageUrl}`);
+    } catch (e) {
+      console.warn(`[persistence] Failed to evict save for ${removed.key}`, e);
+    }
+  }
+
+  try {
+    localStorage.setItem(LS_INDEX_KEY, JSON.stringify(games));
+  } catch (e) {
+    console.warn("[persistence] Failed to update index", e);
+  }
+}
+
+/**
+ * Set current image for persistence
+ * @param {string} imageUrl - Image URL or identifier
+ */
+function setCurrentImageForPersistence(imageUrl) {
+  currentImageKey = getImageKey(imageUrl);
+  console.info(`[persistence] Set current image key: ${currentImageKey}`);
+}
 
 /**
  * Initialize persistence module
@@ -63,7 +138,16 @@ function initPersistence() {
     manualSave: saveNow,
     load: loadGame,
     clear: clearSavedGame,
-    stats: () => ({ size: localStorage.getItem(LS_KEY)?.length || 0 }),
+    clearAll: clearAllSavedGames,
+    listGames: getSavedGamesList,
+    stats: () => {
+      const key = currentImageKey ? LS_KEY_PREFIX + currentImageKey : null;
+      return {
+        currentKey: currentImageKey,
+        size: key ? localStorage.getItem(key)?.length || 0 : 0,
+        totalGames: getSavedGamesList().length,
+      };
+    },
   };
 
   // Save on page unload
@@ -215,9 +299,20 @@ function saveNow() {
       }
 
       try {
-        localStorage.setItem(LS_KEY, json);
+        if (!currentImageKey) {
+          console.warn("[persistence] No current image key, skipping save");
+          return;
+        }
+        const storageKey = LS_KEY_PREFIX + currentImageKey;
+        localStorage.setItem(storageKey, json);
+
+        // Update index with metadata
+        const imageUrl = state.currentImageSource || "unknown";
+        updateSavedGamesIndex(currentImageKey, imageUrl, json.length);
+
         dirty = false;
         console.info("[persistence] Saved successfully", {
+          imageKey: currentImageKey,
           pieces: payload.pieces.length,
           size: `${(json.length / 1024).toFixed(1)}KB`,
         });
@@ -244,57 +339,104 @@ function saveNow() {
 }
 
 /**
- * Check if saved game exists in localStorage
+ * Check if saved game exists for a specific image
+ * @param {string} imageUrl - Image URL (optional, uses current if not provided)
  * @returns {boolean} True if saved game exists
  */
-function hasSavedGame() {
-  return !!localStorage.getItem(LS_KEY);
+function hasSavedGame(imageUrl = null) {
+  const key = imageUrl ? getImageKey(imageUrl) : currentImageKey;
+  if (!key) return false;
+  return !!localStorage.getItem(LS_KEY_PREFIX + key);
 }
 
 /**
- * Clear saved game from localStorage
+ * Clear saved game for specific image
+ * @param {string} imageUrl - Image URL (optional, uses current if not provided)
  */
-function clearSavedGame() {
-  localStorage.removeItem(LS_KEY);
-  console.info("[persistence] Cleared save");
+function clearSavedGame(imageUrl = null) {
+  const key = imageUrl ? getImageKey(imageUrl) : currentImageKey;
+  if (!key) {
+    console.warn("[persistence] No image key to clear");
+    return;
+  }
+  const storageKey = LS_KEY_PREFIX + key;
+  localStorage.removeItem(storageKey);
+
+  // Remove from index
+  let games = getSavedGamesList();
+  games = games.filter((g) => g.key !== key);
+  localStorage.setItem(LS_INDEX_KEY, JSON.stringify(games));
+
+  console.info(`[persistence] Cleared save for ${key}`);
 }
 
 /**
- * Try to offer resume - emits events based on whether save exists
+ * Clear all saved games
+ */
+function clearAllSavedGames() {
+  const games = getSavedGamesList();
+  games.forEach((game) => {
+    localStorage.removeItem(LS_KEY_PREFIX + game.key);
+  });
+  localStorage.removeItem(LS_INDEX_KEY);
+  console.info("[persistence] Cleared all saved games");
+}
+
+/**
+ * Try to offer resume for a specific image
  * Emits PERSISTENCE_CAN_RESUME with saved state if available,
  * or PERSISTENCE_CANNOT_RESUME if not
+ * @param {string} imageUrl - Image URL to check for saved game
  */
-function tryOfferResume() {
-  const hasGame = hasSavedGame();
+function tryOfferResume(imageUrl = null) {
+  const hasGame = hasSavedGame(imageUrl);
+  const key = imageUrl ? getImageKey(imageUrl) : currentImageKey;
 
-  if (hasGame) {
-    const raw = localStorage.getItem(LS_KEY);
+  if (hasGame && key) {
+    const storageKey = LS_KEY_PREFIX + key;
+    const raw = localStorage.getItem(storageKey);
     try {
       const data = JSON.parse(raw);
       // Emit can-resume event with saved state
       document.dispatchEvent(
         new CustomEvent(PERSISTENCE_CAN_RESUME, {
-          detail: { savedState: data },
+          detail: { savedState: data, imageUrl: imageUrl || data.imageSource },
         })
       );
     } catch (e) {
-      console.warn("[persistence] Corrupt save; clearing");
-      clearSavedGame();
-      document.dispatchEvent(new CustomEvent(PERSISTENCE_CANNOT_RESUME));
+      console.warn(`[persistence] Corrupt save for ${key}; clearing`);
+      clearSavedGame(imageUrl);
+      document.dispatchEvent(
+        new CustomEvent(PERSISTENCE_CANNOT_RESUME, {
+          detail: { imageUrl },
+        })
+      );
     }
   } else {
     // No saved game - emit cannot-resume event
-    document.dispatchEvent(new CustomEvent(PERSISTENCE_CANNOT_RESUME));
+    document.dispatchEvent(
+      new CustomEvent(PERSISTENCE_CANNOT_RESUME, {
+        detail: { imageUrl },
+      })
+    );
   }
 }
 
 /**
- * Load game from localStorage
+ * Load game from localStorage for specific image
+ * @param {string} imageUrl - Image URL (optional, uses current if not provided)
  */
-function loadGame() {
-  const raw = localStorage.getItem(LS_KEY);
+function loadGame(imageUrl = null, imageId = null) {
+  const key = imageUrl ? getImageKey(imageUrl) : currentImageKey;
+  if (!key) {
+    console.warn("[persistence] No image key to load");
+    return;
+  }
+
+  const storageKey = LS_KEY_PREFIX + key;
+  const raw = localStorage.getItem(storageKey);
   if (!raw) {
-    console.warn("[persistence] No saved game found");
+    console.warn(`[persistence] No saved game found for ${key}`);
     return;
   }
 
@@ -340,14 +482,14 @@ function loadGame() {
     };
 
     // Handle IndexedDB sources
-    if (imgSource.startsWith("idb:") && data.imageSource.imageId) {
+    if (imgSource.startsWith("idb:") && imageId) {
       console.log(
         "[persistence] Attempting to load IndexedDB source:",
-        data.imageSource.imageId
+        imageId
       );
 
       if (isIndexedDBSupported()) {
-        loadImageFromDB(data.imageSource.imageId)
+        loadImageFromDB(imageId)
           .then((imageData) => {
             const url = URL.createObjectURL(imageData.blob);
             img.src = url;
@@ -373,18 +515,11 @@ function loadGame() {
       }
     }
     // Handle URL sources
-    else if (
-      imgSource.startsWith("http://") ||
-      imgSource.startsWith("https://")
-    ) {
+    else {
       img.crossOrigin = "anonymous";
       img.src = imgSource;
     }
     // Handle local file sources (can't reload)
-    else {
-      console.warn("[persistence] Cannot reload local file:", imgSource);
-      reconstructPieces(data, null);
-    }
   }
   // Fallback for old save format with embedded image data
   else if (data.image?.src) {
@@ -412,11 +547,16 @@ function loadGame() {
  */
 function reconstructPieces(data, masterImage) {
   const pieces = data.pieces.map((sp) => {
-    const master = document.createElement("canvas");
-    master.width = masterImage.width;
-    master.height = masterImage.height;
-    const mctx = master.getContext("2d");
-    mctx.drawImage(masterImage, 0, 0);
+    let master = null;
+
+    // Only create master canvas if we have a master image
+    if (masterImage) {
+      master = document.createElement("canvas");
+      master.width = masterImage.width;
+      master.height = masterImage.height;
+      const mctx = master.getContext("2d");
+      mctx.drawImage(masterImage, 0, 0);
+    }
 
     // Deserialize to convert Point objects, then add master
     const deserializedData = Piece.deserialize(sp);
@@ -485,5 +625,8 @@ export {
   hasSavedGame,
   tryOfferResume,
   clearSavedGame,
+  clearAllSavedGames,
   loadGame,
+  setCurrentImageForPersistence,
+  getSavedGamesList,
 };
