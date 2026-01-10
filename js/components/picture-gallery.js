@@ -180,7 +180,7 @@ export async function showPictureGallery(onSelect, onClose) {
         const item = document.createElement("a");
         item.className = "picture-gallery-item picture-gallery-recent-item";
         const imageUrl = URL.createObjectURL(recentImage.blob);
-        const deepLinkUrl = `?image=idb:${recentImage.id}&pieces=${DEFAULT_PIECES}&norotate=y`;
+        const deepLinkUrl = `?image=idb:${recentImage.id}&pieces=${DEFAULT_PIECES}&norotate=y&resume=y`;
         item.href = deepLinkUrl;
         item.title = `${recentImage.filename} - ${t("gallery.itemTooltip", {
           title: recentImage.filename,
@@ -256,7 +256,7 @@ export async function showPictureGallery(onSelect, onClose) {
       const removeColorParam = removeColor ? `&removeColor=${removeColor}` : "";
       const deepLinkUrl = `?image=${encodeURIComponent(
         picture.url
-      )}&pieces=${numPieces}&norotate=y${removeColorParam}${license}`;
+      )}&pieces=${numPieces}&norotate=y${removeColorParam}${license}&resume=y`;
       item.href = deepLinkUrl;
       item.title = t("gallery.itemTooltip", {
         title: picture.title,

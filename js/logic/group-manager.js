@@ -187,6 +187,12 @@ class GroupManager {
         return false;
       }
 
+      // Capture border pieces before merge
+      const borderBeforeMerge = new Set([
+        ...groupA.allBorderPieces,
+        ...groupB.allBorderPieces,
+      ]);
+
       // Merge smaller group into larger group
       const [keepGroup, mergeGroup] =
         groupA.size() >= groupB.size() ? [groupA, groupB] : [groupB, groupA];
@@ -205,6 +211,7 @@ class GroupManager {
             type: "merged",
             fromGroupId: mergeGroup.id,
             toGroupId: keepGroup.id,
+            changedBorder: borderBeforeMerge,
           },
         })
       );
@@ -251,6 +258,12 @@ class GroupManager {
       // Get neighbors BEFORE removing the piece from the group
       const neighbors = Group.getGroupNeighbors(piece);
 
+      // Build changedBorder: detached piece itself + its neighbors
+      const changedBorder = [
+        piece,
+        ...Object.values(neighbors).filter((n) => n !== null),
+      ];
+
       // Remove piece from current group
       const fragmentGroups = currentGroup.removePieces([piece]);
 
@@ -284,6 +297,7 @@ class GroupManager {
             type: "detached",
             pieceId: piece.id,
             newGroupId: newGroup.id,
+            changedBorder,
           },
         })
       );

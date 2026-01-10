@@ -426,7 +426,7 @@ function tryOfferResume(imageUrl = null) {
  * Load game from localStorage for specific image
  * @param {string} imageUrl - Image URL (optional, uses current if not provided)
  */
-function loadGame(imageUrl = null, imageId = null) {
+function loadGame(imageUrl = null) {
   const key = imageUrl ? getImageKey(imageUrl) : currentImageKey;
   if (!key) {
     console.warn("[persistence] No image key to load");
@@ -482,14 +482,14 @@ function loadGame(imageUrl = null, imageId = null) {
     };
 
     // Handle IndexedDB sources
-    if (imgSource.startsWith("idb:") && imageId) {
+    if (imgSource.startsWith("idb:") && state.image.id) {
       console.log(
         "[persistence] Attempting to load IndexedDB source:",
-        imageId
+        state.image.id
       );
 
       if (isIndexedDBSupported()) {
-        loadImageFromDB(imageId)
+        loadImageFromDB(state.image.id)
           .then((imageData) => {
             const url = URL.createObjectURL(imageData.blob);
             img.src = url;

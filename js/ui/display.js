@@ -22,8 +22,7 @@ import {
   PIECE_DETACH_ANIMATION,
   PIECE_LONG_PRESS_START,
   PIECE_LONG_PRESS_END,
-  PIECES_CONNECTED,
-  PIECES_DISCONNECTED,
+  GROUPS_CHANGED,
 } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
 import { boundingFrame } from "../geometry/polygon.js";
@@ -96,22 +95,17 @@ registerGlobalEvent(PIECE_LONG_PRESS_END, (event) => {
   if (el) el.classList.remove("long-press-active");
 });
 
-// Register handler for both PIECES_CONNECTED and PIECES_DISCONNECTED events
-registerGlobalEvent([PIECES_CONNECTED, PIECES_DISCONNECTED], (event) => {
-  const { pieceId, neighbors } = event.detail;
+// Register handler for GROUPS_CHANGED event to update borders on affected pieces
+registerGlobalEvent(GROUPS_CHANGED, (event) => {
+  const { changedBorder } = event.detail;
 
-  // Collect all piece IDs that need border updates: the affected piece and its neighbors
-  const pieceIds = new Set([pieceId]);
-  [NORTH, EAST, SOUTH, WEST].forEach((direction) => {
-    if (neighbors[direction]) pieceIds.add(neighbors[direction].id);
-  });
+  if (!changedBorder || changedBorder.length === 0) return;
 
-  // Redraw borders for all affected pieces
-  pieceIds.forEach((pieceId) => {
-    const piece = state.pieces.find((p) => p.id === pieceId);
+  // Redraw borders for all pieces in changedBorder
+  changedBorder.forEach((piece) => {
     if (!piece) return;
 
-    const element = getPieceElement(pieceId);
+    const element = getPieceElement(piece.id);
     if (!element) return;
 
     const canvas = element.querySelector("canvas");
@@ -441,10 +435,6 @@ export function drawBorders(ctx, paths, piece) {
   if (!neighbors[SOUTH]) edgesToStroke.push(paths.south);
   if (!neighbors[WEST]) edgesToStroke.push(paths.west);
 
-  // If no piece provided or no group, stroke all edges
-  if (!piece || edgesToStroke.length === 0) {
-    edgesToStroke.push(paths.combined);
-  }
   // Draw outlines only for free edges
   for (const path of edgesToStroke) {
     // Dark shadow/bottom edge
