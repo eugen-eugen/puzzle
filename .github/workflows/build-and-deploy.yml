@@ -160,6 +160,9 @@ jobs:
           git clone https://x-access-token:${PZL_TOKEN}@github.com/eugen-eugen/pzl.git pzl-repo
           cd pzl-repo
           
+          # Configure git to use token for push operations
+          git remote set-url origin https://x-access-token:${PZL_TOKEN}@github.com/eugen-eugen/pzl.git
+          
           # Create or checkout main branch
           git checkout main || git checkout -b main
           
