@@ -28,20 +28,23 @@
 
 ---
 ##  Architecture Overview
+
+**Note:** All client code is located in the `client/` directory. Server code (when implemented) will be in `server/`.
+
 | Module | Purpose |
 |--------|---------|
-| `js/app.js` | UI bootstrap, zoom/pan, progress, resume modal, orchestrates modules |
-| `js/jigsaw-generator.js` | Generates pieces via lattice + side waypoints & geometry |
-| `js/piece-renderer.js` | Renders canvases inside absolutely positioned DIV wrappers and handles drag / rotate |
-| `js/connection-manager.js` | Geometric side matching (corner + sPoint waypoint checks) + group merging with border piece detection |
-| `js/utils/spatial-index.js` | Uniform grid spatial index for coarse candidate lookup |
-| `js/game-engine.js` | Central mutable state container (pieces, totals, snap settings) |
-| `js/group-manager.js` | Group lifecycle management, merging, detachment, and connectivity validation |
-| `js/model/group.js` | Group data model with border piece tracking and fragmentation detection |
-| `js/model/piece.js` | Piece data model with geometry, transforms, and protected groupId property |
-| `js/persistence.js` | Serialize / deserialize puzzle state into `localStorage` (light mode by default) |
-| `js/utils/image-util.js` | Image manipulation utilities (grayscale, license text, remote loading) |
-| `js/i18n.js` | Internationalization system with dynamic JSON locale loading |
+| `client/js/app.js` | UI bootstrap, zoom/pan, progress, resume modal, orchestrates modules |
+| `client/js/jigsaw-generator.js` | Generates pieces via lattice + side waypoints & geometry |
+| `client/js/piece-renderer.js` | Renders canvases inside absolutely positioned DIV wrappers and handles drag / rotate |
+| `client/js/connection-manager.js` | Geometric side matching (corner + sPoint waypoint checks) + group merging with border piece detection |
+| `client/js/utils/spatial-index.js` | Uniform grid spatial index for coarse candidate lookup |
+| `client/js/game-engine.js` | Central mutable state container (pieces, totals, snap settings) |
+| `client/js/group-manager.js` | Group lifecycle management, merging, detachment, and connectivity validation |
+| `client/js/model/group.js` | Group data model with border piece tracking and fragmentation detection |
+| `client/js/model/piece.js` | Piece data model with geometry, transforms, and protected groupId property |
+| `client/js/persistence.js` | Serialize / deserialize puzzle state into `localStorage` (light mode by default) |
+| `client/js/utils/image-util.js` | Image manipulation utilities (grayscale, license text, remote loading) |
+| `client/js/i18n.js` | Internationalization system with dynamic JSON locale loading |
 
 > The design favors small focused modules over a monolithic engine to keep iteration fast.
 
@@ -197,7 +200,7 @@ When you deploy changes and bump `SW_VERSION` in `service-worker.js`, the new se
 5. Increment `SW_VERSION` to ensure updated manifest & icons are re-fetched.
 
 ### Apple Touch Icon
-For best iOS appearance add a real `apple-touch-icon` (180x180). After adding, replace the temporary manifest link-as-icon in `index.html` with:
+For best iOS appearance add a real `apple-touch-icon` (180x180). After adding, replace the temporary manifest link-as-icon in `client/index.html` with:
 ```html
 <link rel="apple-touch-icon" href="icons/apple-touch-icon-180.png" />
 ```
@@ -220,20 +223,20 @@ For best iOS appearance add a real `apple-touch-icon` (180x180). After adding, r
 The UI now supports multiple languages via lightweight JSON resource files.
 
 ### Current Locales
-- English (`i18n/en.json`)
-- Deutsch / German (`i18n/de.json`)
+- English (`client/i18n/en.json`)
+- Deutsch / German (`client/i18n/de.json`)
 
 ### How It Works
 - Each translatable element in the DOM has a `data-i18n` attribute (inner HTML) or `data-i18n-title` / `data-i18n-aria-label` for attributes.
 - Large help content and modal bodies use an HTML string value (e.g. `help.bodyHtml`).
-- Dynamic runtime strings (progress, errors, resume modal) use a `t(key, params)` helper from `js/i18n.js`.
+- Dynamic runtime strings (progress, errors, resume modal) use a `t(key, params)` helper from `client/js/i18n.js`.
 - Placeholders like `{score}`, `{total}`, `{percent}`, `{error}` are replaced with values passed in `params`.
 - Selected language persists in `localStorage` under key `lang`.
 
 ### Adding a New Language
-1. Copy `i18n/en.json` → `i18n/<code>.json` (e.g. `fr.json`).
+1. Copy `client/i18n/en.json` → `client/i18n/<code>.json` (e.g. `fr.json`).
 2. Translate values (keep placeholder tokens intact).
-3. Add `<option value="<code>">XX</option>` to the language `<select id="langSelect">` in `index.html`.
+3. Add `<option value="<code>">XX</option>` to the language `<select id="langSelect">` in `client/index.html`.
 4. (Optional) If right‑to‑left language, apply `document.documentElement.dir = 'rtl';` in `loadLanguage()` when detecting locale code.
 5. Bump `SW_VERSION` in `service-worker.js` so new locale file is cached offline.
 
@@ -276,6 +279,7 @@ A special build mode is available for creating a locked-down version of the game
 
 #### Building in Restricted Mode
 ```bash
+cd client
 npm run build:restricted
 ```
 
@@ -309,23 +313,32 @@ This sets the `BUILD_MODE=restricted` environment variable which:
 ## Directory Structure (Simplified)
 ```
 puzzle/
-  index.html
   README.md
+  LICENSE
   docs/
     GAME_SPECIFICATION.md
-  js/
-    app.js
-    persistence.js
-    jigsaw-generator.js
-    piece-renderer.js
-    connection-manager.js
-    game-engine.js
-    utils/
-      spatial-index.js
-      sparse-grid.js
-      image-util.js
-  css/
-    (stylesheets)
+  client/
+    index.html
+    package.json
+    vite.config.js
+    js/
+      app.js
+      persistence.js
+      jigsaw-generator.js
+      piece-renderer.js
+      connection-manager.js
+      game-engine.js
+      utils/
+        spatial-index.js
+        sparse-grid.js
+        image-util.js
+    css/
+      (stylesheets)
+    i18n/
+      en.json
+      de.json
+  server/
+    (multiplayer server - future)
 ```
 
 ---

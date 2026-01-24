@@ -1,0 +1,99 @@
+MIT License
+
+Copyright (c) 2025 Puzzle Lab Contributors
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+================================================================================
+THIRD-PARTY IMAGE ATTRIBUTIONS
+================================================================================
+
+This application may include images that are subject to their own licenses.
+The following images are used with proper attribution:
+
+
+© Frau Locke (Grundschultante) / Worksheet Crafter
+--------------------------------------------------
+  - kleidung.png (kleidung.png)
+
+© Tim Reckmann / ccnull.de / CC-BY 2.0
+--------------------------------------
+  - Regenbogen Hintergrund mit Sternen (regenbogen-hintergrund-mit-sternen-1101110-1920x1280.jpg)
+
+CC BY-SA 3.0 - Wikimedia Commons
+--------------------------------
+  - Animal Cell Structure
+    https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Structure_of_animal_cell.JPG/2560px-Structure_of_animal_cell.JPG
+
+© Laurent ERRERA / Wikimedia Commons / CC BY-SA 2.0
+---------------------------------------------------
+  - Airbus A320-200
+    https://upload.wikimedia.org/wikipedia/commons/thumb/a/ab/Airbus_A320-200_Airbus_Industries_%28AIB%29_%27House_colors%27_F-WWBA_-_MSN_001_%2810276181983%29_crop.jpg/1920px-Airbus_A320-200_Airbus_Industries_%28AIB%29_%27House_colors%27_F-WWBA_-_MSN_001_%2810276181983%29_crop.jpg
+
+Image source: tildacdn.com
+--------------------------
+  - Blauer Traktor
+    https://static.tildacdn.com/tild6634-6535-4636-b938-333935393465/Group_297-min.jpg
+
+Image source: kinoafisha.info
+-----------------------------
+  - Blauer Traktor
+    https://static.kinoafisha.info/k/articles/1200/upload/editor/articles/542647252404.jpg.webp
+
+© kgberger / Wikimedia Commons / CC BY-SA 3.0
+---------------------------------------------
+  - Deutschland Karte
+    https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/BRD.png/1200px-BRD.png
+
+© zjazjazoie / Pixabay
+----------------------
+  - Rainbow Soap Bubbles
+    https://cdn.pixabay.com/photo/2016/07/20/03/08/bubbles-1529553_1280.jpg
+  - Rainbow Soap Bubbles
+    https://cdn.pixabay.com/photo/2016/07/20/03/08/bubbles-1529553_1280.jpg
+
+© RalfDesign / Pixabay
+----------------------
+  - Dinosaurier Karikaturen
+    https://cdn.pixabay.com/photo/2019/10/24/19/48/dinosaurs-4575110_1280.png
+
+© AlekYank / Pixabay
+--------------------
+  - Drachen Dinosaurier
+    https://cdn.pixabay.com/photo/2024/07/18/19/39/dragons-8904903_1280.jpg
+
+Public Domain - Wikimedia Commons
+---------------------------------
+  - Khata by Repin
+    https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Khata_by_Repin.jpg/960px-Khata_by_Repin.jpg
+
+================================================================================
+DEPENDENCIES
+================================================================================
+
+This project uses the following third-party libraries, each under their own
+license terms. Please refer to their respective package directories in
+node_modules for full license texts:
+
+  - graphlib: Graph data structure library
+  - vite: Build tool and development server
+  - vitest: Unit testing framework
+  - And other development dependencies listed in package.json
+
+For production builds, only runtime dependencies are included.

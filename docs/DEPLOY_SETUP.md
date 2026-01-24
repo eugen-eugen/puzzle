@@ -134,9 +134,9 @@ To manually trigger a deployment without pushing:
 - Regenerate the token with correct permissions and update the secret
 
 ### Build fails with "Could not resolve entry module"
-- Check that vite.config.js syntax is correct
+- Check that client/vite.config.js syntax is correct
 - Ensure all plugins are properly closed with matching braces
 
 ### Restricted build includes unwanted files
 - Verify BUILD_MODE=restricted is set in the build command
-- Check vite.config.js plugins for proper conditional logic
+- Check client/vite.config.js plugins for proper conditional logic
