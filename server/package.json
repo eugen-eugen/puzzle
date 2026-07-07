@@ -1,0 +1,23 @@
+{
+  "name": "puzzle-game-server",
+  "version": "1.0.0",
+  "description": "Multiplayer game server for puzzle game using Colyseus",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "keywords": [
+    "colyseus",
+    "game-server",
+    "multiplayer"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "colyseus": "^0.15.26",
+    "express": "^4.21.2",
+    "cors": "^2.8.5"
+  }
+}

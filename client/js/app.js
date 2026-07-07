@@ -44,12 +44,14 @@ import {
   PERSISTENCE_RESTORE,
   PERSISTENCE_CAN_RESUME,
   PERSISTENCE_CANNOT_RESUME,
+  PIECES_GENERATED,
 } from "./constants/custom-events.js";
 import { NORTH, EAST, SOUTH, WEST } from "./constants/piece-constants.js";
 import { registerGlobalEvent } from "./utils/event-util.js";
 import { PUZZLE_STATE_CHANGED } from "./constants/custom-events.js";
 import { parseDeepLinkParams } from "./utils/url-util.js";
 import { initHelp } from "./components/help.js";
+import { networkManager } from "./comm/network-manager.js";
 
 // DOM elements for puzzle-specific functionality
 const piecesContainer = document.getElementById("piecesContainer");
@@ -318,6 +320,19 @@ async function bootstrap() {
         // User selected a picture - navigate to deep link
         window.location.href = deepLinkUrl;
       });
+    }
+  });
+
+  // Listen for game start (pieces generated) to enable multiplayer
+  registerGlobalEvent(PIECES_GENERATED, async () => {
+    console.log('🎮 Game started - connecting to multiplayer server...');
+    try {
+      await networkManager.connect({
+        playerName: 'Player' // TODO: Get from user input
+      });
+      console.log('✅ Multiplayer enabled');
+    } catch (error) {
+      console.warn('⚠️ Multiplayer connection failed (game will work in single-player mode):', error);
     }
   });
 
