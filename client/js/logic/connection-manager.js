@@ -13,7 +13,12 @@ import { gameTableController } from "./game-table-controller.js";
 // Geometry utilities (new Point-based refactor)
 import { dist2 as pointDist2 } from "../geometry/point.js";
 import { groupManager } from "./group-manager.js";
-import { highlightGroup, unhighlightGroup, clearGroupHighlights, hasGroupElement } from "./group-renderer.js";
+import {
+  highlightGroup,
+  unhighlightGroup,
+  clearGroupHighlights,
+  hasGroupElement,
+} from "./group-renderer.js";
 import { DRAG_MOVE, DRAG_END } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
 import { isEmptyOrNullish } from "../utils/array-util.js";
@@ -94,7 +99,7 @@ function matchWaypoints(
   sWaypoints,
   positionTolerance,
   profileTolerance,
-  reversed = false
+  reversed = false,
 ) {
   if (mWaypoints.length !== sWaypoints.length) return null;
 
@@ -156,14 +161,14 @@ function matchSides(movingPiece, stationaryPiece, movingWD, stationaryWD) {
           mWaypoints,
           sWaypoints,
           positionTolerance,
-          profileTolerance
+          profileTolerance,
         ) ||
         matchWaypoints(
           mWaypoints,
           [...sWaypoints].reverse(),
           positionTolerance,
           profileTolerance,
-          true
+          true,
         );
 
       if (waypointMatch && waypointMatch.profileValid) {
@@ -225,7 +230,7 @@ function findCandidate(movingPiece) {
       movingPiece,
       candidate,
       movingWD,
-      candidate.worldData
+      candidate.worldData,
     );
 
     if (match && (!best || match.score < best.score)) best = match;
@@ -275,7 +280,11 @@ function applyHighlight(candidates) {
   const highlightedGroupIds = new Set();
   pieceIds.forEach((id) => {
     const piece = state.pieces?.find((p) => p.id === id);
-    if (piece?.groupId && hasGroupElement(piece.groupId) && !highlightedGroupIds.has(piece.groupId)) {
+    if (
+      piece?.groupId &&
+      hasGroupElement(piece.groupId) &&
+      !highlightedGroupIds.has(piece.groupId)
+    ) {
       highlightedGroupIds.add(piece.groupId);
       highlightGroup(piece.groupId);
     }
@@ -290,7 +299,7 @@ function finePlace(movingPiece, connection) {
   if (!connection) return;
   // Align first moving corner to stationary corner A
   const stationaryPiece = state.pieces.find(
-    (p) => p.id === connection.stationaryPieceId
+    (p) => p.id === connection.stationaryPieceId,
   );
   if (!stationaryPiece) return;
 
@@ -367,7 +376,7 @@ registerGlobalEvent(DRAG_END, (event) => {
     // Apply the best connection
     const bestConnection = connections[0];
     const stationaryPiece = state.pieces.find(
-      (p) => p.id === bestConnection.candidate.stationaryPieceId
+      (p) => p.id === bestConnection.candidate.stationaryPieceId,
     );
 
     if (stationaryPiece) {

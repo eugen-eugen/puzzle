@@ -63,7 +63,7 @@ class GroupManager {
 
       if (components.length > 1) {
         console.warn(
-          `[GroupManager] Group ${groupId} is fragmented into ${components.length} components`
+          `[GroupManager] Group ${groupId} is fragmented into ${components.length} components`,
         );
       }
 
@@ -84,7 +84,7 @@ class GroupManager {
     });
 
     console.log(
-      `[GroupManager] Initialized with ${this.groups.size} groups for ${state.pieces.length} pieces`
+      `[GroupManager] Initialized with ${this.groups.size} groups for ${state.pieces.length} pieces`,
     );
 
     this.updateNextGroupId();
@@ -190,7 +190,7 @@ class GroupManager {
       const allPieces = [...groupA.allPieces, ...groupB.allPieces];
       if (!Group.arePiecesConnected(allPieces)) {
         console.warn(
-          "[GroupManager] Cannot merge - would create disconnected group"
+          "[GroupManager] Cannot merge - would create disconnected group",
         );
         return false;
       }
@@ -221,7 +221,7 @@ class GroupManager {
             toGroupId: keepGroup.id,
             changedBorder: borderBeforeMerge,
           },
-        })
+        }),
       );
 
       const neighbors = Group.getGroupNeighbors(pieceB);
@@ -236,7 +236,7 @@ class GroupManager {
             pieceId: pieceB.id,
             neighbors: neighbors,
           },
-        })
+        }),
       );
 
       return true;
@@ -284,7 +284,7 @@ class GroupManager {
         console.log(
           `[GroupManager] Created fragment group ${
             fragmentGroup.id
-          } with ${fragmentGroup.size()} pieces`
+          } with ${fragmentGroup.size()} pieces`,
         );
       });
 
@@ -295,7 +295,7 @@ class GroupManager {
             pieceId: piece.id,
             neighbors,
           },
-        })
+        }),
       );
 
       // Dispatch group change event
@@ -308,7 +308,7 @@ class GroupManager {
             newGroupId: newGroup.id,
             changedBorder,
           },
-        })
+        }),
       );
       return newGroup;
     } catch (error) {

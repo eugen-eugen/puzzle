@@ -22,7 +22,14 @@ const SPLINE_TENSION = 0.2;
  * @param {Point|number} [offsetOrDx=0] - Point offset or horizontal offset number
  * @param {number} [dy=0] - Vertical offset (only used when offsetOrDx is a number)
  */
-export function addEdgeSpline(path, startCorner, sidePoints, endCorner, offsetOrDx = 0, dy = 0) {
+export function addEdgeSpline(
+  path,
+  startCorner,
+  sidePoints,
+  endCorner,
+  offsetOrDx = 0,
+  dy = 0,
+) {
   const dx = offsetOrDx instanceof Point ? offsetOrDx.x : offsetOrDx;
   const dyVal = offsetOrDx instanceof Point ? offsetOrDx.y : dy;
 
@@ -48,9 +55,12 @@ export function addEdgeSpline(path, startCorner, sidePoints, endCorner, offsetOr
     const cp2 = p1.sub(tangent2);
 
     path.bezierCurveTo(
-      cp1.x + dx, cp1.y + dyVal,
-      cp2.x + dx, cp2.y + dyVal,
-      p1.x + dx, p1.y + dyVal,
+      cp1.x + dx,
+      cp1.y + dyVal,
+      cp2.x + dx,
+      cp2.y + dyVal,
+      p1.x + dx,
+      p1.y + dyVal,
     );
   }
 }
@@ -66,7 +76,14 @@ export function addEdgeSpline(path, startCorner, sidePoints, endCorner, offsetOr
  * @param {Point|number} [offsetOrDx=0] - Point offset or horizontal offset number
  * @param {number} [dy=0] - Vertical offset (only used when offsetOrDx is a number)
  */
-export function addEdgeSplineReversed(path, fromCorner, sidePoints, toCorner, offsetOrDx = 0, dy = 0) {
+export function addEdgeSplineReversed(
+  path,
+  fromCorner,
+  sidePoints,
+  toCorner,
+  offsetOrDx = 0,
+  dy = 0,
+) {
   if (!sidePoints || sidePoints.length === 0) {
     const dx = offsetOrDx instanceof Point ? offsetOrDx.x : offsetOrDx;
     const dyVal = offsetOrDx instanceof Point ? offsetOrDx.y : dy;

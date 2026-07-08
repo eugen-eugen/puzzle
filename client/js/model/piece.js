@@ -81,7 +81,7 @@ export class Piece {
       this.corners = normalizePointsToOrigin(data.geometryCorners, data.imgPos);
       const normalizedSidePoints = normalizePointsToOrigin(
         data.geometrySidePoints,
-        data.imgPos
+        data.imgPos,
       );
       // Convert single points to arrays: empty for border, 3 copies for inner sides
       this.sPoints = this._convertSidePointArrays(normalizedSidePoints);
@@ -198,7 +198,7 @@ export class Piece {
       } else if (Array.isArray(value)) {
         // Already an array - ensure Point instances
         result[side] = value.map((pt) =>
-          pt instanceof Point ? pt : new Point(pt.x, pt.y)
+          pt instanceof Point ? pt : new Point(pt.x, pt.y),
         );
       } else {
         // Single Point from test data or geometry - convert to array with 3 copies
@@ -283,7 +283,7 @@ export class Piece {
       paths.north,
       this.corners.nw,
       this.sPoints[NORTH],
-      this.corners.ne
+      this.corners.ne,
     );
 
     paths.east.moveTo(this.corners.ne.x, this.corners.ne.y);
@@ -291,7 +291,7 @@ export class Piece {
       paths.east,
       this.corners.ne,
       this.sPoints[EAST],
-      this.corners.se
+      this.corners.se,
     );
 
     paths.west.moveTo(this.corners.nw.x, this.corners.nw.y);
@@ -299,7 +299,7 @@ export class Piece {
       paths.west,
       this.corners.nw,
       this.sPoints[WEST],
-      this.corners.sw
+      this.corners.sw,
     );
 
     paths.south.moveTo(this.corners.sw.x, this.corners.sw.y);
@@ -307,7 +307,7 @@ export class Piece {
       paths.south,
       this.corners.sw,
       this.sPoints[SOUTH],
-      this.corners.se
+      this.corners.se,
     );
 
     paths.combined.moveTo(this.corners.nw.x, this.corners.nw.y);
@@ -315,14 +315,14 @@ export class Piece {
       paths.combined,
       this.corners.nw,
       this.sPoints[NORTH],
-      this.corners.ne
+      this.corners.ne,
     );
 
     this._addEdgeSpline(
       paths.combined,
       this.corners.ne,
       this.sPoints[EAST],
-      this.corners.se
+      this.corners.se,
     );
 
     paths.combined.moveTo(this.corners.nw.x, this.corners.nw.y);
@@ -330,14 +330,14 @@ export class Piece {
       paths.combined,
       this.corners.nw,
       this.sPoints[WEST],
-      this.corners.sw
+      this.corners.sw,
     );
 
     this._addEdgeSpline(
       paths.combined,
       this.corners.sw,
       this.sPoints[SOUTH],
-      this.corners.se
+      this.corners.se,
     );
 
     return paths;
@@ -388,7 +388,7 @@ export class Piece {
       } catch (e) {
         console.warn(
           `[Piece] Failed to serialize bitmap for piece ${this.id}:`,
-          e
+          e,
         );
       }
     }
@@ -430,7 +430,7 @@ export class Piece {
         sPoints[side] = [];
       } else {
         sPoints[side] = value.map((pt) =>
-          pt instanceof Point ? pt : new Point(pt.x, pt.y)
+          pt instanceof Point ? pt : new Point(pt.x, pt.y),
         );
       }
     });

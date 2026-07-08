@@ -93,7 +93,7 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
     gameTableController.setPiecePosition(
       p.id,
       pieces[indices[index]].imgRect.position,
-      wrapper
+      wrapper,
     );
     applyPieceTransform(p);
   });
@@ -127,7 +127,7 @@ export function renderPiecesAtPositions(container, pieces) {
   const avgSize =
     (pieces.reduce(
       (acc, p) => acc + Math.min(p.imgRect.width, p.imgRect.height),
-      0
+      0,
     ) /
       pieces.length) *
     (pieces[0]?.scale || DEFAULT_PIECE_SCALE || 0.7);
