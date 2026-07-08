@@ -7,6 +7,7 @@ import { DEFAULT_PIECE_SCALE } from "../constants/piece-constants.js";
 import { groupManager } from "./group-manager.js";
 import { gameTableController } from "./game-table-controller.js";
 import { UIInteractionManager } from "../ui/ui-interaction-manager.js";
+import { renderExistingGroups } from "./group-renderer.js";
 
 /**
  * Map of piece IDs to their DOM elements
@@ -104,6 +105,8 @@ export function scatterInitialPieces(container, pieces, noRotate = false) {
   gameTableController.updateViewportArea(areaW, areaH);
   gameTableController.syncAllPositions();
   gameTableController.attachPieceElements(pieceElements);
+
+  // Initialize group renderer for new games (no groups yet)
 }
 
 /**
@@ -160,6 +163,9 @@ export function renderPiecesAtPositions(container, pieces) {
   uiManager = new UIInteractionManager(pieceElements);
 
   pieces.forEach((p, index) => applyPieceTransform(p));
+
+  // Render existing multi-piece groups as single canvas elements
+  renderExistingGroups();
 }
 
 /**

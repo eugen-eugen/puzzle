@@ -99,6 +99,17 @@ The workflow runs on every push to `main` branch:
 | Remote Pictures | ✅ Included | ✅ Included |
 | Base Path | `/puzzle/` | `/pzl/` |
 
+## Local Development
+
+Start the Vite development server with hot module replacement:
+
+```bash
+cd client
+npm run dev
+```
+
+The app will be available at http://localhost:3000/puzzle/. Any changes to source files are immediately reflected in the browser without manual reload.
+
 ## Triggering Deployments
 
 Deployments happen automatically when you push to `main`:

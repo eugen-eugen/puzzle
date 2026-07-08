@@ -16,6 +16,7 @@ import {
   setPieceElements,
 } from "../ui/display.js";
 import { groupManager } from "./group-manager.js";
+import { hasGroupElement, updateGroupPosition } from "./group-renderer.js";
 import { state } from "../game-engine.js";
 import { ALL_SIDES } from "../constants/piece-constants.js";
 // Spatial index now fully managed here
@@ -125,7 +126,7 @@ export class GameTableController {
     return (
       (state.pieces.reduce(
         (acc, p) => acc + Math.min(p.imgRect.width, p.imgRect.height),
-        0
+        0,
       ) /
         state.pieces.length) *
       (state.pieces[0]?.scale || 1)
@@ -257,7 +258,7 @@ export class GameTableController {
    * @param {Object} piece - The piece object
    * @returns {Object} {worldCorners, worldSPoints}
    */
-  //TODO: worldData have to to with display size, not with piece geometry. Maybe move scale out of Piece?
+  //TODO: worldData have to do with display size, not with piece geometry. Maybe move scale out of Piece?
   _computeWorldDataInternal(piece) {
     // Requires: piece.bitmap.width/height, position from controller, piece.rotation, piece.scale
     const scale = piece.scale;
@@ -269,7 +270,7 @@ export class GameTableController {
     // The piece position now represents the visual center, so calculate canvas top-left
     const bitmapSize = new Point(
       piece.bitmap.width * scale,
-      piece.bitmap.height * scale
+      piece.bitmap.height * scale,
     );
     const canvasCenter = bitmapSize.scaled(0.5);
     const scaledCenterOffset = boundingFrame.centerOffset.scaled(scale);
@@ -364,6 +365,11 @@ export class GameTableController {
     const group = groupManager.getGroup(groupId);
     if (!group) return;
     group.allPieces.forEach((p) => this.movePiece(p.id, delta));
+
+    // Update group element position if rendered as single canvas
+    if (hasGroupElement(groupId)) {
+      updateGroupPosition(groupId);
+    }
   }
 
   // ----------------------------
@@ -407,6 +413,11 @@ export class GameTableController {
       // Apply transform to DOM element (position and rotation)
       applyPieceTransform(piece);
     });
+
+    // Update group element position if rendered as single canvas
+    if (hasGroupElement(groupId)) {
+      updateGroupPosition(groupId);
+    }
   }
 
   // ----------------------------

@@ -27,6 +27,7 @@ import {
 import { registerGlobalEvent } from "../utils/event-util.js";
 import { boundingFrame } from "../geometry/polygon.js";
 import { resetAndClearCanvas } from "./ui-util.js";
+import { darkenColor, lightenColor } from "../utils/color-util.js";
 
 // Display Constants
 const MIN_ZOOM = 0.1;
@@ -51,6 +52,14 @@ let pieceElementsMap = null;
 // Cached debug outline width (calculated once per game)
 let debugOutlineWidth = 4;
 
+/**
+ * Get the current debug outline width
+ * @returns {number}
+ */
+export function getOutlineWidth() {
+  return debugOutlineWidth;
+}
+
 // Listen for pieces generation event to calculate debug outline width
 registerGlobalEvent(
   PIECES_GENERATED,
@@ -58,7 +67,7 @@ registerGlobalEvent(
     const totalPieces = event.detail.totalPieces || 20;
     debugOutlineWidth = 8 * Math.sqrt(Math.sqrt(20 / totalPieces));
   },
-  window
+  window,
 );
 
 // Register listeners for piece UI events
@@ -192,7 +201,7 @@ export function applyPieceTransform(piece) {
   // Calculate how much to offset the element position to center the piece shape
   const canvasCenter = new Point(
     element.offsetWidth,
-    element.offsetHeight
+    element.offsetHeight,
   ).scaled(0.5);
   const scaledCenterOffset = boundingFrame.centerOffset.scaled(piece.scale);
   const offset = scaledCenterOffset.sub(canvasCenter);
@@ -363,7 +372,9 @@ export {
 export function applyHighlight(pieceId) {
   if (!pieceElementsMap) return;
 
+  // Clear all highlights from pieces
   pieceElementsMap.forEach((el) => el.classList.remove("candidate-highlight"));
+
   if (pieceId == null) return;
 
   // Handle both single ID and array of IDs
@@ -377,34 +388,6 @@ export function applyHighlight(pieceId) {
 
 // Drawing Constants
 const DEBUG_OUTLINE_COLOR = "#D2691E"; // Ahorn (maple) autumn color
-
-/**
- * Darken a hex color by a given amount
- * @param {string} color - Hex color string (e.g., "#ff00aa")
- * @param {number} amount - Amount to darken (0-1)
- * @returns {string} RGB color string
- */
-function darkenColor(color, amount) {
-  const hex = color.replace("#", "");
-  const r = Math.max(0, parseInt(hex.substring(0, 2), 16) * (1 - amount));
-  const g = Math.max(0, parseInt(hex.substring(2, 4), 16) * (1 - amount));
-  const b = Math.max(0, parseInt(hex.substring(4, 6), 16) * (1 - amount));
-  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
-}
-
-/**
- * Lighten a hex color by a given amount
- * @param {string} color - Hex color string (e.g., "#ff00aa")
- * @param {number} amount - Amount to lighten (0-1)
- * @returns {string} RGB color string
- */
-function lightenColor(color, amount) {
-  const hex = color.replace("#", "");
-  const r = Math.min(255, parseInt(hex.substring(0, 2), 16) + 255 * amount);
-  const g = Math.min(255, parseInt(hex.substring(2, 4), 16) + 255 * amount);
-  const b = Math.min(255, parseInt(hex.substring(4, 6), 16) + 255 * amount);
-  return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
-}
 
 /**
  * Draw borders on a canvas context for the given piece paths.
@@ -423,7 +406,7 @@ export function drawBorders(ctx, paths, piece) {
 
   ctx.translate(
     -boundingFrame.topLeft.x + debugOutlineWidth,
-    -boundingFrame.topLeft.y + debugOutlineWidth
+    -boundingFrame.topLeft.y + debugOutlineWidth,
   );
 
   // Determine which edges to stroke (only edges without neighbors)
@@ -491,7 +474,7 @@ export function drawPiece(boundingFrame, paths, nw, master, piece) {
   // Apply transform
   ctx.translate(
     -boundingFrame.topLeft.x + debugOutlineWidth,
-    -boundingFrame.topLeft.y + debugOutlineWidth
+    -boundingFrame.topLeft.y + debugOutlineWidth,
   );
 
   // Clear the canvas
@@ -512,7 +495,7 @@ export function drawPiece(boundingFrame, paths, nw, master, piece) {
   const clipW = Math.min(srcW, master.width - clipX);
   const clipH = Math.min(srcH, master.height - clipY);
 
-  // Use the pre-combined path for clipping
+  // Clip with the piece path and draw master image
   ctx.save();
   ctx.clip(paths.combined);
   ctx.drawImage(
@@ -524,7 +507,7 @@ export function drawPiece(boundingFrame, paths, nw, master, piece) {
     boundingFrame.position.x,
     boundingFrame.position.y,
     clipW,
-    clipH
+    clipH,
   );
   ctx.restore();
 

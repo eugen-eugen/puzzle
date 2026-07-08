@@ -135,6 +135,14 @@ class GroupManager {
   }
 
   /**
+   * Get all groups as an iterable of [groupId, group] entries
+   * @returns {IterableIterator<[string, Group]>}
+   */
+  getAllGroups() {
+    return this.groups.entries();
+  }
+
+  /**
    * Get group containing a specific piece
    * @param {Piece} piece - The piece to find the group for
    * @returns {Group|undefined} The group containing the piece or undefined if not found
@@ -296,6 +304,7 @@ class GroupManager {
           detail: {
             type: "detached",
             pieceId: piece.id,
+            fromGroupId: currentGroup.id,
             newGroupId: newGroup.id,
             changedBorder,
           },

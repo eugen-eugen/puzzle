@@ -13,6 +13,7 @@ import { gameTableController } from "./game-table-controller.js";
 // Geometry utilities (new Point-based refactor)
 import { dist2 as pointDist2 } from "../geometry/point.js";
 import { groupManager } from "./group-manager.js";
+import { highlightGroup, unhighlightGroup, clearGroupHighlights, hasGroupElement } from "./group-renderer.js";
 import { DRAG_MOVE, DRAG_END } from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
 import { isEmptyOrNullish } from "../utils/array-util.js";
@@ -238,6 +239,7 @@ function applyHighlight(candidates) {
     if (currentHighlight) {
       currentHighlight = null;
       displayApplyHighlight(null);
+      clearGroupHighlights();
     }
     return;
   }
@@ -258,6 +260,9 @@ function applyHighlight(candidates) {
 
   if (currentIds === newIds) return; // unchanged
 
+  // Clear previous group highlights
+  clearGroupHighlights();
+
   currentHighlight = candidates.map((c) => ({
     pieceId: c.candidate.stationaryPieceId,
     data: c.candidate,
@@ -265,6 +270,16 @@ function applyHighlight(candidates) {
 
   // Pass array of piece IDs to highlight
   displayApplyHighlight(pieceIds);
+
+  // Highlight group borders in green for stationary pieces that belong to rendered groups
+  const highlightedGroupIds = new Set();
+  pieceIds.forEach((id) => {
+    const piece = state.pieces?.find((p) => p.id === id);
+    if (piece?.groupId && hasGroupElement(piece.groupId) && !highlightedGroupIds.has(piece.groupId)) {
+      highlightedGroupIds.add(piece.groupId);
+      highlightGroup(piece.groupId);
+    }
+  });
 }
 
 function clearHighlight() {
