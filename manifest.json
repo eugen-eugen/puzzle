@@ -5,13 +5,16 @@
   "version": "1.0.0",
   "author": "Puzzle Lab Contributors",
   "license": "MIT",
-  "start_url": "./",
-  "scope": "./",
+  "start_url": "/puzzle/",
+  "scope": "/puzzle/",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#121212",
   "theme_color": "#222a36",
-  "categories": ["games", "puzzle"],
+  "categories": [
+    "games",
+    "puzzle"
+  ],
   "screenshots": [],
   "icons": [
     {
