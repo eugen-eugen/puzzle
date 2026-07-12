@@ -32,7 +32,7 @@ const groupElements = new Map();
  * Lazily resolve the pieces container and current scale from the DOM.
  */
 function getContainer() {
-  return document.getElementById("piecesContainer");
+  return document.getElementById("piecesViewport");
 }
 
 function getCurrentScale() {
@@ -336,6 +336,39 @@ function buildFreeEdgesPath(pieces, offset) {
 }
 
 /**
+ * Build a path containing only internal edges (edges WITH a group neighbor).
+ * Used for stroking thin inner borders between connected pieces.
+ */
+function buildInternalEdgesPath(pieces, offset) {
+  const path = new Path2D();
+
+  for (const piece of pieces) {
+    const neighbors = Group.getGroupNeighbors(piece);
+    const shift = piece.nw.sub(offset);
+    const corners = piece.corners;
+
+    if (neighbors[NORTH]) {
+      path.moveTo(corners.nw.x + shift.x, corners.nw.y + shift.y);
+      addEdgeSpline(path, corners.nw, piece.sPoints[NORTH], corners.ne, shift);
+    }
+    if (neighbors[EAST]) {
+      path.moveTo(corners.ne.x + shift.x, corners.ne.y + shift.y);
+      addEdgeSpline(path, corners.ne, piece.sPoints[EAST], corners.se, shift);
+    }
+    if (neighbors[SOUTH]) {
+      path.moveTo(corners.sw.x + shift.x, corners.sw.y + shift.y);
+      addEdgeSpline(path, corners.sw, piece.sPoints[SOUTH], corners.se, shift);
+    }
+    if (neighbors[WEST]) {
+      path.moveTo(corners.nw.x + shift.x, corners.nw.y + shift.y);
+      addEdgeSpline(path, corners.nw, piece.sPoints[WEST], corners.sw, shift);
+    }
+  }
+
+  return path;
+}
+
+/**
  * Draw borders on the group canvas.
  * @param {CanvasRenderingContext2D} ctx
  * @param {Path2D} borderPath
@@ -416,6 +449,14 @@ function renderGroupCanvas(
     ph,
   );
   ctx.restore();
+
+  // Draw thin inner borders on internal edges
+  const internalPath = buildInternalEdgesPath(pieces, groupBounds.offset);
+  ctx.lineJoin = "round";
+  ctx.lineCap = "round";
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = outlineWidth / 3;
+  ctx.stroke(internalPath);
 
   // Draw borders on free edges only
   const borderPath = buildFreeEdgesPath(pieces, groupBounds.offset);

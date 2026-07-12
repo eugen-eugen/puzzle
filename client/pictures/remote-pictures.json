@@ -1,7 +1,7 @@
 {
   "pictures": [
     {
-      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a7/Structure_of_animal_cell.JPG/2560px-Structure_of_animal_cell.JPG",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/a/a7/Structure_of_animal_cell.JPG",
       "title": "Animal Cell Structure",
       "removeColor": "n",
       "license": "CC BY-SA 3.0 - Wikimedia Commons"
@@ -28,7 +28,7 @@
       "license": "Image source: kinoafisha.info"
     },
     {
-      "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/BRD.png/1200px-BRD.png",
+      "url": "https://upload.wikimedia.org/wikipedia/commons/1/12/BRD.png",
       "title": "Deutschland Karte",
       "pieces": 40,
       "removeColor": "n",
@@ -67,6 +67,13 @@
       "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/Khata_by_Repin.jpg/960px-Khata_by_Repin.jpg",
       "title": "Khata by Repin",
       "pieces": 100,
+      "removeColor": "n",
+      "license": "Public Domain - Wikimedia Commons"
+    },
+    {
+      "url": "https://upload.wikimedia.org/wikipedia/commons/c/ce/Kramskoy_Portrait_of_a_Woman.jpg",
+      "title": "Неизвестная (Kramskoy)",
+      "pieces": 30,
       "removeColor": "n",
       "license": "Public Domain - Wikimedia Commons"
     }
