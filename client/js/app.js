@@ -51,7 +51,11 @@ import { registerGlobalEvent } from "./utils/event-util.js";
 import { PUZZLE_STATE_CHANGED } from "./constants/custom-events.js";
 import { parseDeepLinkParams } from "./utils/url-util.js";
 import { initHelp } from "./components/help.js";
-import { initOnlineMode, onPuzzleReady, buildJoinUrl } from "./comm/online-game.js";
+import {
+  initOnlineMode,
+  onPuzzleReady,
+  buildJoinUrl,
+} from "./comm/online-game.js";
 import { isOnlineMode } from "./comm/network-manager.js";
 import { Point } from "./geometry/point.js";
 import { Piece } from "./model/piece.js";
@@ -70,7 +74,10 @@ function applyServerPieceState(serverPieces) {
   for (const piece of state.pieces) {
     const remote = serverPieces[piece.id];
     if (!remote) continue;
-    gameTableController.setPiecePosition(piece.id, new Point(remote.x, remote.y));
+    gameTableController.setPiecePosition(
+      piece.id,
+      new Point(remote.x, remote.y),
+    );
     if (remote.rotation !== undefined) piece.setRotation(remote.rotation);
     if (remote.groupId !== undefined) piece._setGroupId(remote.groupId);
     if (remote.zIndex !== undefined) piece.zIndex = remote.zIndex;
@@ -81,7 +88,11 @@ function applyServerPieceState(serverPieces) {
  * Reconstruct pieces from full serialized server state (same as persistence resume).
  * This ensures geometry (corners, sPoints) is identical to the host's pieces.
  */
-function reconstructPiecesFromServer(masterImage, serializedPieces, piecePositions) {
+function reconstructPiecesFromServer(
+  masterImage,
+  serializedPieces,
+  piecePositions,
+) {
   // Create master canvas from image
   const master = document.createElement("canvas");
   master.width = masterImage.width;
@@ -101,8 +112,12 @@ function reconstructPiecesFromServer(masterImage, serializedPieces, piecePositio
     // Use latest position from piecePositions if available (may be more up-to-date than full_state)
     const latestPos = piecePositions?.[piece.id];
     if (latestPos) {
-      gameTableController.setPiecePosition(piece.id, new Point(latestPos.x, latestPos.y));
-      if (latestPos.rotation !== undefined) piece.setRotation(latestPos.rotation);
+      gameTableController.setPiecePosition(
+        piece.id,
+        new Point(latestPos.x, latestPos.y),
+      );
+      if (latestPos.rotation !== undefined)
+        piece.setRotation(latestPos.rotation);
       if (latestPos.groupId !== undefined) piece._setGroupId(latestPos.groupId);
       if (latestPos.zIndex !== undefined) piece.zIndex = latestPos.zIndex;
     } else {
@@ -127,7 +142,8 @@ function showOnlineGameInfo(roomId) {
   const joinUrl = buildJoinUrl(roomId);
   const banner = document.createElement("div");
   banner.id = "online-game-banner";
-  banner.style.cssText = "position:fixed;top:0;left:0;right:0;background:#2ea862;color:#fff;padding:8px 16px;text-align:center;z-index:9999;font-size:14px;";
+  banner.style.cssText =
+    "position:fixed;top:0;left:0;right:0;background:#2ea862;color:#fff;padding:8px 16px;text-align:center;z-index:9999;font-size:14px;";
   banner.innerHTML = `
     🌐 Online Game | Share link: <input type="text" value="${joinUrl}" readonly
       style="width:300px;padding:2px 6px;border:none;border-radius:3px;font-size:12px;"
@@ -141,7 +157,8 @@ function showOnlineGameInfo(roomId) {
   // Listen for player count updates
   document.addEventListener("online:player_count", (event) => {
     const el = document.getElementById("online-player-count");
-    if (el) el.textContent = `${event.detail.count} player${event.detail.count > 1 ? "s" : ""}`;
+    if (el)
+      el.textContent = `${event.detail.count} player${event.detail.count > 1 ? "s" : ""}`;
   });
 }
 
@@ -173,13 +190,13 @@ export function checkPuzzleCorrectness() {
         rotationCounts[r] = (rotationCounts[r] || 0) + 1;
       });
       const mostCommonRotation = Object.entries(rotationCounts).sort(
-        (a, b) => b[1] - a[1]
+        (a, b) => b[1] - a[1],
       )[0][0];
 
       if (piece.rotation !== Number(mostCommonRotation)) {
         isCorrect = false;
         reasons.push(
-          `Inconsistent rotation: ${piece.rotation}° (most pieces at ${mostCommonRotation}°)`
+          `Inconsistent rotation: ${piece.rotation}° (most pieces at ${mostCommonRotation}°)`,
         );
       }
     }
@@ -187,16 +204,16 @@ export function checkPuzzleCorrectness() {
     // Get pieces that should be neighbors based on grid coordinates
     const expectedNeighbors = {
       [NORTH]: state.pieces.find(
-        (p) => p.gridX === piece.gridX && p.gridY === piece.gridY - 1
+        (p) => p.gridX === piece.gridX && p.gridY === piece.gridY - 1,
       ),
       [EAST]: state.pieces.find(
-        (p) => p.gridX === piece.gridX + 1 && p.gridY === piece.gridY
+        (p) => p.gridX === piece.gridX + 1 && p.gridY === piece.gridY,
       ),
       [SOUTH]: state.pieces.find(
-        (p) => p.gridX === piece.gridX && p.gridY === piece.gridY + 1
+        (p) => p.gridX === piece.gridX && p.gridY === piece.gridY + 1,
       ),
       [WEST]: state.pieces.find(
-        (p) => p.gridX === piece.gridX - 1 && p.gridY === piece.gridY
+        (p) => p.gridX === piece.gridX - 1 && p.gridY === piece.gridY,
       ),
     };
 
@@ -209,24 +226,24 @@ export function checkPuzzleCorrectness() {
           if (piece.groupId !== expectedNeighbor.groupId) {
             isCorrect = false;
             reasons.push(
-              `Not connected to expected neighbor at (${expectedNeighbor.gridX}, ${expectedNeighbor.gridY})`
+              `Not connected to expected neighbor at (${expectedNeighbor.gridX}, ${expectedNeighbor.gridY})`,
             );
           } else {
             // Check if neighbor is correctly positioned by comparing corner alignment
             const positionIsCorrect = gameTableController.arePiecesNeighbors(
               piece,
-              expectedNeighbor
+              expectedNeighbor,
             );
 
             if (!positionIsCorrect) {
               isCorrect = false;
               reasons.push(
-                `Neighbor ${direction} (${expectedNeighbor.gridX}, ${expectedNeighbor.gridY}) corners are not properly aligned with this piece`
+                `Neighbor ${direction} (${expectedNeighbor.gridX}, ${expectedNeighbor.gridY}) corners are not properly aligned with this piece`,
               );
             }
           }
         }
-      }
+      },
     );
 
     // Apply visual feedback using shape outlines
@@ -294,8 +311,16 @@ async function bootstrap() {
             }
 
             // Reconstruct pieces from server's full serialized state (includes geometry)
-            if (initState.pieces && Array.isArray(initState.pieces) && initState.pieces.length > 0) {
-              reconstructPiecesFromServer(img, initState.pieces, initState.piecePositions);
+            if (
+              initState.pieces &&
+              Array.isArray(initState.pieces) &&
+              initState.pieces.length > 0
+            ) {
+              reconstructPiecesFromServer(
+                img,
+                initState.pieces,
+                initState.piecePositions,
+              );
             } else {
               // Fallback: generate locally if server has no piece data yet
               const sliderVal = pieceCountToSlider(config.pieceCount);
@@ -377,7 +402,7 @@ async function bootstrap() {
               window.dispatchEvent(
                 new CustomEvent(DEEPLINK_DISABLED, {
                   detail: { reason: "timeout" },
-                })
+                }),
               );
             },
             onError: () => {
@@ -385,7 +410,7 @@ async function bootstrap() {
               window.dispatchEvent(
                 new CustomEvent(DEEPLINK_DISABLED, {
                   detail: { reason: "error" },
-                })
+                }),
               );
             },
           }).catch(() => {});
@@ -429,7 +454,7 @@ async function bootstrap() {
         window.dispatchEvent(
           new CustomEvent(DEEPLINK_DISABLED, {
             detail: { reason: "timeout" },
-          })
+          }),
         );
         document.dispatchEvent(new CustomEvent(PERSISTENCE_RESTORE));
       },
@@ -439,7 +464,7 @@ async function bootstrap() {
         window.dispatchEvent(
           new CustomEvent(DEEPLINK_DISABLED, {
             detail: { reason: "error" },
-          })
+          }),
         );
         document.dispatchEvent(new CustomEvent(PERSISTENCE_RESTORE));
       },
@@ -458,7 +483,7 @@ async function bootstrap() {
         document.dispatchEvent(
           new CustomEvent(PUZZLE_STATE_CHANGED, {
             detail: { action: "cleared" },
-          })
+          }),
         );
         // Show picture gallery when user selects "new session" (unless in deep link mode)
         if (!deepLinkActive) {
@@ -489,7 +514,7 @@ async function bootstrap() {
     try {
       clearSavedGame();
       console.info(
-        "[deep-link] Previous session discarded due to deep link mode"
+        "[deep-link] Previous session discarded due to deep link mode",
       );
     } catch (e) {
       console.warn("[deep-link] Failed to clear previous save", e);

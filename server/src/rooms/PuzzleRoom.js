@@ -45,10 +45,14 @@ export class PuzzleRoom extends Room {
       }
 
       // Broadcast updated pieces to all OTHER clients
-      this.broadcast("state_update", {
-        pieces: data.pieces,
-        fromClient: client.sessionId,
-      }, { except: client });
+      this.broadcast(
+        "state_update",
+        {
+          pieces: data.pieces,
+          fromClient: client.sessionId,
+        },
+        { except: client },
+      );
     });
 
     // Handle full state sync (sent after initial scatter or on join)
@@ -74,15 +78,21 @@ export class PuzzleRoom extends Room {
         }
       }
 
-      console.log(`[PuzzleRoom] Full state received from ${client.sessionId}, ${Array.isArray(data.pieces) ? data.pieces.length : 0} pieces`);
+      console.log(
+        `[PuzzleRoom] Full state received from ${client.sessionId}, ${Array.isArray(data.pieces) ? data.pieces.length : 0} pieces`,
+      );
     });
 
     // Handle config update (image URL, piece count, etc.)
     this.onMessage("config", (client, data) => {
-      if (data.imageUrl !== undefined) this.puzzleConfig.imageUrl = data.imageUrl;
-      if (data.pieceCount !== undefined) this.puzzleConfig.pieceCount = data.pieceCount;
-      if (data.noRotate !== undefined) this.puzzleConfig.noRotate = data.noRotate;
-      if (data.removeColor !== undefined) this.puzzleConfig.removeColor = data.removeColor;
+      if (data.imageUrl !== undefined)
+        this.puzzleConfig.imageUrl = data.imageUrl;
+      if (data.pieceCount !== undefined)
+        this.puzzleConfig.pieceCount = data.pieceCount;
+      if (data.noRotate !== undefined)
+        this.puzzleConfig.noRotate = data.noRotate;
+      if (data.removeColor !== undefined)
+        this.puzzleConfig.removeColor = data.removeColor;
       if (data.license !== undefined) this.puzzleConfig.license = data.license;
 
       // Broadcast config to all clients
@@ -92,8 +102,10 @@ export class PuzzleRoom extends Room {
 
   _getClientCount() {
     // Colyseus client collection varies by version — handle both
-    if (this.clients && typeof this.clients.size === "number") return this.clients.size;
-    if (this.clients && typeof this.clients.length === "number") return this.clients.length;
+    if (this.clients && typeof this.clients.size === "number")
+      return this.clients.size;
+    if (this.clients && typeof this.clients.length === "number")
+      return this.clients.length;
     if (this._clients) return this._clients.size || this._clients.length || 0;
     return 0;
   }
@@ -117,7 +129,9 @@ export class PuzzleRoom extends Room {
 
   onLeave(client, consented) {
     const count = this._getClientCount();
-    console.log(`[PuzzleRoom] ${client.sessionId} left (${count} players remaining)`);
+    console.log(
+      `[PuzzleRoom] ${client.sessionId} left (${count} players remaining)`,
+    );
     this.broadcast("player_count", { count });
   }
 

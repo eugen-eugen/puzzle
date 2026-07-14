@@ -46,7 +46,6 @@ export async function initOnlineMode(callbacks) {
 
       console.log(`[OnlineGame] Room created: ${roomId}`);
       console.log(`[OnlineGame] Share URL: ${buildJoinUrl(roomId)}`);
-
     } else if (state.onlineMode === "join") {
       // Join an existing room
       const initState = await joinOnlineGame(state.onlineRoomId);

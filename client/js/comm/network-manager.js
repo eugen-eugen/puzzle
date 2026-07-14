@@ -6,10 +6,19 @@ import { state } from "../game-engine.js";
 import { gameTableController } from "../logic/game-table-controller.js";
 import { groupManager } from "../logic/group-manager.js";
 import { Group } from "../model/group.js";
-import { hasGroupElement, updateGroupPosition, renderGroup, removeGroupElement } from "../logic/group-renderer.js";
+import {
+  hasGroupElement,
+  updateGroupPosition,
+  renderGroup,
+  removeGroupElement,
+} from "../logic/group-renderer.js";
 import { getPieceElement } from "../logic/piece-renderer.js";
 import { Point } from "../geometry/point.js";
-import { DRAG_END, PIECES_CONNECTED, PIECES_DISCONNECTED } from "../constants/custom-events.js";
+import {
+  DRAG_END,
+  PIECES_CONNECTED,
+  PIECES_DISCONNECTED,
+} from "../constants/custom-events.js";
 import { registerGlobalEvent } from "../utils/event-util.js";
 
 // ================================
@@ -108,7 +117,9 @@ export async function joinOnlineGame(roomId) {
 
   setupRoomListeners();
 
-  console.log(`[NetworkManager] Joined game: ${room.id} (${initState.playerCount} players)`);
+  console.log(
+    `[NetworkManager] Joined game: ${room.id} (${initState.playerCount} players)`,
+  );
   return initState;
 }
 
@@ -195,7 +206,10 @@ function setupRoomListeners() {
       if (!localPiece) continue;
 
       // Update position
-      gameTableController.setPiecePosition(localPiece.id, new Point(piece.x, piece.y));
+      gameTableController.setPiecePosition(
+        localPiece.id,
+        new Point(piece.x, piece.y),
+      );
 
       // Update rotation
       if (piece.rotation !== undefined) {
@@ -259,7 +273,7 @@ function setupRoomListeners() {
   // Receive player count updates
   room.onMessage("player_count", (data) => {
     document.dispatchEvent(
-      new CustomEvent("online:player_count", { detail: data })
+      new CustomEvent("online:player_count", { detail: data }),
     );
   });
 
@@ -283,7 +297,7 @@ function applyRemoteGroupMembership(remoteGroupId, piecesToAdd) {
     // Group doesn't exist locally yet — create it with all pieces that should be in it
     // First, collect ALL pieces that have this groupId (including ones already set from earlier updates)
     const allGroupPieces = state.pieces.filter(
-      (p) => p.groupId === remoteGroupId
+      (p) => p.groupId === remoteGroupId,
     );
 
     // Add the new pieces
@@ -301,7 +315,9 @@ function applyRemoteGroupMembership(remoteGroupId, piecesToAdd) {
     }
 
     // Create the group without connectivity validation (trust server)
-    group = new Group(remoteGroupId, allPieces, { validateConnectivity: false });
+    group = new Group(remoteGroupId, allPieces, {
+      validateConnectivity: false,
+    });
     groupManager.registerGroup(group);
   } else {
     // Group exists — add the new pieces to it
@@ -452,12 +468,14 @@ registerGlobalEvent(PIECES_DISCONNECTED, (event) => {
   if (!piece) return;
 
   const pos = gameTableController.getPiecePosition(piece.id);
-  sendMove([{
-    id: piece.id,
-    x: pos.x,
-    y: pos.y,
-    rotation: piece.rotation,
-    groupId: piece.groupId,
-    zIndex: piece.zIndex,
-  }]);
+  sendMove([
+    {
+      id: piece.id,
+      x: pos.x,
+      y: pos.y,
+      rotation: piece.rotation,
+      groupId: piece.groupId,
+      zIndex: piece.zIndex,
+    },
+  ]);
 });
