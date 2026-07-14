@@ -357,7 +357,9 @@ async function connectWorkerRoom(roomId) {
     socket.addEventListener("close", (event) => {
       for (const callback of leaveHandlers) callback(event.code);
     });
-    socket.addEventListener("error", () => reject(new Error(`Failed to connect to ${wsUrl}`)));
+    socket.addEventListener("error", () =>
+      reject(new Error(`Failed to connect to ${wsUrl}`)),
+    );
   });
 
   return roomLike;

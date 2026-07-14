@@ -9,6 +9,34 @@ import {
 
 const rooms = new Map();
 
+function getCorsHeaders(request) {
+  const origin = request.headers.get("Origin") || "*";
+  return {
+    "Access-Control-Allow-Origin": origin,
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Max-Age": "86400",
+    Vary: "Origin",
+  };
+}
+
+function jsonResponse(request, body, init = {}) {
+  return Response.json(body, {
+    ...init,
+    headers: {
+      ...getCorsHeaders(request),
+      ...(init.headers || {}),
+    },
+  });
+}
+
+function optionsResponse(request) {
+  return new Response(null, {
+    status: 204,
+    headers: getCorsHeaders(request),
+  });
+}
+
 function getRoom(roomId, options = null) {
   let room = rooms.get(roomId);
   if (!room) {
@@ -29,10 +57,6 @@ function getRoom(roomId, options = null) {
 
 function createRoomId() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12);
-}
-
-function jsonResponse(body, init = {}) {
-  return Response.json(body, init);
 }
 
 function parseJsonMessage(data) {
@@ -130,12 +154,16 @@ export default {
   async fetch(request) {
     const url = new URL(request.url);
 
+    if (request.method === "OPTIONS") {
+      return optionsResponse(request);
+    }
+
     if (url.pathname === "/health") {
-      return jsonResponse({ ok: true, runtime: "worker" });
+      return jsonResponse(request, { ok: true, runtime: "worker" });
     }
 
     if (url.pathname === "/api/rooms" && request.method === "GET") {
-      return jsonResponse({
+      return jsonResponse(request, {
         rooms: Array.from(rooms.values()).map((room) => ({
           roomId: room.id,
           playerCount: countPlayers(room.clients),
@@ -148,12 +176,12 @@ export default {
     if (url.pathname === "/api/rooms" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
       const roomId = createRoom(body);
-      return jsonResponse({ roomId });
+      return jsonResponse(request, { roomId });
     }
 
     if (url.pathname === "/api/rooms/new" && request.method === "GET") {
       const roomId = createRoom({});
-      return jsonResponse({ roomId });
+      return jsonResponse(request, { roomId });
     }
 
     if (url.pathname.startsWith("/api/rooms/")) {
@@ -161,20 +189,24 @@ export default {
       const room = rooms.get(roomId);
 
       if (!room) {
-        return jsonResponse({ error: "Room not found" }, { status: 404 });
+        return jsonResponse(
+          request,
+          { error: "Room not found" },
+          { status: 404 },
+        );
       }
 
       if (request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
         return attachWebSocket(room, request);
       }
 
-      return jsonResponse({
+      return jsonResponse(request, {
         roomId: room.id,
         playerCount: countPlayers(room.clients),
         config: room.session.config,
       });
     }
 
-    return jsonResponse({ error: "Not found" }, { status: 404 });
+    return jsonResponse(request, { error: "Not found" }, { status: 404 });
   },
 };
