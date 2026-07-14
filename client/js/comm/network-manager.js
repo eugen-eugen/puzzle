@@ -1,7 +1,6 @@
-// network-manager.js - Colyseus client for multiplayer puzzle synchronization
+// network-manager.js - multiplayer transport for puzzle synchronization
 // Handles connection lifecycle, state sync, and conflict resolution.
 
-import { Client } from "colyseus.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "../logic/game-table-controller.js";
 import { groupManager } from "../logic/group-manager.js";
@@ -24,7 +23,7 @@ import { registerGlobalEvent } from "../utils/event-util.js";
 // ================================
 // Configuration
 // ================================
-const SERVER_URL = "ws://localhost:2567";
+const SERVER_URL = "https://puzzle.jemo-prog.workers.dev";
 
 // ================================
 // Module State
@@ -62,7 +61,7 @@ export function getRoomId() {
  * @returns {number}
  */
 export function getPlayerCount() {
-  return room?.state?.playerCount || 1;
+  return room?.playerCount || 1;
 }
 
 /**
@@ -76,9 +75,7 @@ export function getPlayerCount() {
  * @returns {Promise<string>} The room/game ID for sharing
  */
 export async function startOnlineGame(config) {
-  client = new Client(SERVER_URL);
-
-  room = await client.joinOrCreate("puzzle", {
+  room = await createWorkerRoom({
     imageUrl: config.imageUrl,
     pieceCount: config.pieceCount,
     noRotate: config.noRotate || false,
@@ -101,19 +98,12 @@ export async function startOnlineGame(config) {
  * @returns {Promise<Object>} The initial state { config, pieces }
  */
 export async function joinOnlineGame(roomId) {
-  client = new Client(SERVER_URL);
-
-  room = await client.joinById(roomId);
+  room = await joinWorkerRoom(roomId);
 
   isOnline = true;
   localSessionId = room.sessionId;
 
-  // Wait for init_state message
-  const initState = await new Promise((resolve) => {
-    room.onMessage("init_state", (data) => {
-      resolve(data);
-    });
-  });
+  const initState = await room.initState;
 
   setupRoomListeners();
 
@@ -164,7 +154,6 @@ export function disconnect() {
     room.leave();
     room = null;
   }
-  client = null;
   isOnline = false;
   localSessionId = null;
 }
@@ -272,6 +261,7 @@ function setupRoomListeners() {
 
   // Receive player count updates
   room.onMessage("player_count", (data) => {
+    room.playerCount = data.count ?? room.playerCount ?? 1;
     document.dispatchEvent(
       new CustomEvent("online:player_count", { detail: data }),
     );
@@ -283,6 +273,94 @@ function setupRoomListeners() {
     isOnline = false;
     document.dispatchEvent(new CustomEvent("online:disconnected"));
   });
+}
+
+async function createWorkerRoom(config) {
+  const response = await fetch(`${SERVER_URL}/api/rooms`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    throw new Error(`Failed to create room (${response.status})`);
+  }
+
+  const { roomId } = await response.json();
+  return connectWorkerRoom(roomId);
+}
+
+async function joinWorkerRoom(roomId) {
+  return connectWorkerRoom(roomId);
+}
+
+async function connectWorkerRoom(roomId) {
+  const wsUrl = `${SERVER_URL.replace(/^https:/, "wss:").replace(/^http:/, "ws:")}/api/rooms/${roomId}`;
+  const socket = new WebSocket(wsUrl);
+  socket.binaryType = "arraybuffer";
+
+  const listeners = new Map();
+  const leaveHandlers = new Set();
+  const pending = [];
+  let resolveInitState = null;
+  const initState = new Promise((resolve) => {
+    resolveInitState = resolve;
+  });
+
+  const roomLike = {
+    id: roomId,
+    sessionId: roomId,
+    playerCount: 1,
+    initState,
+    onMessage(type, callback) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type).add(callback);
+    },
+    onLeave(callback) {
+      leaveHandlers.add(callback);
+    },
+    send(type, data) {
+      const payload = JSON.stringify({ type, data });
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(payload);
+        return;
+      }
+      pending.push(payload);
+    },
+    leave() {
+      socket.close(1000, "client leave");
+    },
+  };
+
+  await new Promise((resolve, reject) => {
+    socket.addEventListener("open", () => {
+      for (const message of pending.splice(0)) socket.send(message);
+      resolve();
+    });
+    socket.addEventListener("message", (event) => {
+      const message = JSON.parse(event.data);
+      if (!message || typeof message !== "object") return;
+
+      if (message.type === "init_state") {
+        roomLike.playerCount = message.payload?.playerCount ?? 1;
+        resolveInitState?.(message.payload);
+      }
+
+      if (message.type === "player_count") {
+        roomLike.playerCount = message.payload?.count ?? roomLike.playerCount;
+      }
+
+      const callbacks = listeners.get(message.type);
+      if (callbacks) {
+        for (const callback of callbacks) callback(message.payload);
+      }
+    });
+    socket.addEventListener("close", (event) => {
+      for (const callback of leaveHandlers) callback(event.code);
+    });
+    socket.addEventListener("error", () => reject(new Error(`Failed to connect to ${wsUrl}`)));
+  });
+
+  return roomLike;
 }
 
 /**

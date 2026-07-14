@@ -134,6 +134,17 @@ export default {
       return jsonResponse({ ok: true, runtime: "worker" });
     }
 
+    if (url.pathname === "/api/rooms" && request.method === "GET") {
+      return jsonResponse({
+        rooms: Array.from(rooms.values()).map((room) => ({
+          roomId: room.id,
+          playerCount: countPlayers(room.clients),
+          config: room.session.config,
+        })),
+        count: rooms.size,
+      });
+    }
+
     if (url.pathname === "/api/rooms" && request.method === "POST") {
       const body = await request.json().catch(() => ({}));
       const roomId = createRoom(body);
