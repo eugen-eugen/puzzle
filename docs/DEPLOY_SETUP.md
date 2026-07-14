@@ -151,4 +151,3 @@ To manually trigger a deployment without pushing:
 ### Restricted build includes unwanted files
 - Verify BUILD_MODE=restricted is set in the build command
 - Check client/vite.config.js plugins for proper conditional logic
-
