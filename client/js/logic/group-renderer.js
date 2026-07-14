@@ -208,6 +208,18 @@ export function hasGroupElement(groupId) {
 }
 
 /**
+ * Remove a group's rendered element from the DOM and internal map.
+ * @param {string} groupId
+ */
+export function removeGroupElement(groupId) {
+  const wrapper = groupElements.get(groupId);
+  if (wrapper) {
+    wrapper.remove();
+    groupElements.delete(groupId);
+  }
+}
+
+/**
  * Get the group element for a given group ID
  * @param {string} groupId
  * @returns {HTMLElement|undefined}
@@ -580,6 +592,8 @@ registerGlobalEvent(GROUPS_CHANGED, (event) => {
       renderGroup(toGroupId);
     });
   } else if (type === "detached" && fromGroupId) {
+    const { fragmentGroupIds = [] } = event.detail;
+
     // Remove old group rendering
     if (groupElements.has(fromGroupId)) {
       const oldWrapper = groupElements.get(fromGroupId);
@@ -597,30 +611,36 @@ registerGlobalEvent(GROUPS_CHANGED, (event) => {
       }
     }
 
-    // Re-render the remaining group if it still has multiple pieces
-    const remainingGroup = groupManager.getGroup(fromGroupId);
-    if (remainingGroup && remainingGroup.size() > 1) {
-      requestAnimationFrame(() => {
-        // Show piece canvases temporarily until group renders
-        remainingGroup.allPieces.forEach((p) => {
+    // Show all piece canvases that were in the old group (needed for fragments too)
+    const allAffectedGroups = [fromGroupId, ...fragmentGroupIds];
+    for (const gid of allAffectedGroups) {
+      const g = groupManager.getGroup(gid);
+      if (g) {
+        g.allPieces.forEach((p) => {
           const el = getPieceElement(p.id);
           if (el) {
             const canvas = el.querySelector("canvas");
             if (canvas) canvas.style.visibility = "";
           }
         });
-        renderGroup(fromGroupId);
-      });
-    } else if (remainingGroup) {
-      // Single piece remaining - show its canvas
-      remainingGroup.allPieces.forEach((p) => {
-        const el = getPieceElement(p.id);
-        if (el) {
-          const canvas = el.querySelector("canvas");
-          if (canvas) canvas.style.visibility = "";
-        }
-      });
+      }
     }
+
+    // Re-render the remaining original group if it still has multiple pieces
+    requestAnimationFrame(() => {
+      const remainingGroup = groupManager.getGroup(fromGroupId);
+      if (remainingGroup && remainingGroup.size() > 1) {
+        renderGroup(fromGroupId);
+      }
+
+      // Render fragment groups (created by splitting)
+      for (const fragId of fragmentGroupIds) {
+        const fragGroup = groupManager.getGroup(fragId);
+        if (fragGroup && fragGroup.size() > 1) {
+          renderGroup(fragId);
+        }
+      }
+    });
   }
 });
 

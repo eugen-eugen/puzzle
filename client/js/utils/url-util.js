@@ -11,6 +11,19 @@ import { state } from "../game-engine.js";
 export function parseDeepLinkParams() {
   try {
     const params = new URLSearchParams(window.location.search);
+
+    // Parse online multiplayer parameter (independent of deep link)
+    const onlineParam = params.get("online");
+    if (onlineParam) {
+      if (onlineParam === "new") {
+        state.onlineMode = "host";
+        state.onlineRoomId = null;
+      } else {
+        state.onlineMode = "join";
+        state.onlineRoomId = onlineParam;
+      }
+    }
+
     const imageParam = params.get("image");
     const piecesParam = params.get("pieces");
     const noRotateParam = params.get("norotate");

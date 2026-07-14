@@ -23,6 +23,7 @@ import {
   initViewport,
   applyPieceCorrectnessVisualFeedback,
   applyViewportGrayscaleFilter,
+  getViewport,
 } from "./ui/display.js";
 import {
   initControlBar,
@@ -50,11 +51,99 @@ import { registerGlobalEvent } from "./utils/event-util.js";
 import { PUZZLE_STATE_CHANGED } from "./constants/custom-events.js";
 import { parseDeepLinkParams } from "./utils/url-util.js";
 import { initHelp } from "./components/help.js";
+import { initOnlineMode, onPuzzleReady, buildJoinUrl } from "./comm/online-game.js";
+import { isOnlineMode } from "./comm/network-manager.js";
+import { Point } from "./geometry/point.js";
+import { Piece } from "./model/piece.js";
+import { renderPiecesAtPositions } from "./logic/piece-renderer.js";
 
 // DOM elements for puzzle-specific functionality
 const piecesContainer = document.getElementById("piecesContainer");
 
 let deepLinkActive = false; // true when URL provides image & pieces params
+
+/**
+ * Apply piece positions received from the server to local state.
+ * Called when joining an existing game that already has piece positions.
+ */
+function applyServerPieceState(serverPieces) {
+  for (const piece of state.pieces) {
+    const remote = serverPieces[piece.id];
+    if (!remote) continue;
+    gameTableController.setPiecePosition(piece.id, new Point(remote.x, remote.y));
+    if (remote.rotation !== undefined) piece.setRotation(remote.rotation);
+    if (remote.groupId !== undefined) piece._setGroupId(remote.groupId);
+    if (remote.zIndex !== undefined) piece.zIndex = remote.zIndex;
+  }
+}
+
+/**
+ * Reconstruct pieces from full serialized server state (same as persistence resume).
+ * This ensures geometry (corners, sPoints) is identical to the host's pieces.
+ */
+function reconstructPiecesFromServer(masterImage, serializedPieces, piecePositions) {
+  // Create master canvas from image
+  const master = document.createElement("canvas");
+  master.width = masterImage.width;
+  master.height = masterImage.height;
+  const mctx = master.getContext("2d");
+  mctx.drawImage(masterImage, 0, 0);
+
+  // Reset state pieces
+  state.pieces = [];
+
+  // Deserialize each piece
+  for (const sp of serializedPieces) {
+    const deserializedData = Piece.deserialize(sp);
+    const piece = new Piece({ ...deserializedData, master });
+    state.pieces.push(piece);
+
+    // Use latest position from piecePositions if available (may be more up-to-date than full_state)
+    const latestPos = piecePositions?.[piece.id];
+    if (latestPos) {
+      gameTableController.setPiecePosition(piece.id, new Point(latestPos.x, latestPos.y));
+      if (latestPos.rotation !== undefined) piece.setRotation(latestPos.rotation);
+      if (latestPos.groupId !== undefined) piece._setGroupId(latestPos.groupId);
+      if (latestPos.zIndex !== undefined) piece.zIndex = latestPos.zIndex;
+    } else {
+      gameTableController.setPiecePosition(piece.id, deserializedData.position);
+    }
+  }
+
+  state.totalPieces = state.pieces.length;
+
+  // Render pieces at their positions
+  const viewport = getViewport();
+  if (viewport) {
+    viewport.innerHTML = "";
+    renderPiecesAtPositions(viewport, state.pieces);
+  }
+}
+
+/**
+ * Show online game info banner with shareable link.
+ */
+function showOnlineGameInfo(roomId) {
+  const joinUrl = buildJoinUrl(roomId);
+  const banner = document.createElement("div");
+  banner.id = "online-game-banner";
+  banner.style.cssText = "position:fixed;top:0;left:0;right:0;background:#2ea862;color:#fff;padding:8px 16px;text-align:center;z-index:9999;font-size:14px;";
+  banner.innerHTML = `
+    🌐 Online Game | Share link: <input type="text" value="${joinUrl}" readonly
+      style="width:300px;padding:2px 6px;border:none;border-radius:3px;font-size:12px;"
+      onclick="this.select()"/>
+    <button onclick="navigator.clipboard.writeText('${joinUrl}');this.textContent='Copied!'"
+      style="margin-left:8px;padding:2px 8px;border:none;border-radius:3px;cursor:pointer;">Copy</button>
+    <span id="online-player-count" style="margin-left:16px;">1 player</span>
+  `;
+  document.body.prepend(banner);
+
+  // Listen for player count updates
+  document.addEventListener("online:player_count", (event) => {
+    const el = document.getElementById("online-player-count");
+    if (el) el.textContent = `${event.detail.count} player${event.detail.count > 1 ? "s" : ""}`;
+  });
+}
 
 // Check if pieces are in correct positions
 export function checkPuzzleCorrectness() {
@@ -177,6 +266,78 @@ async function bootstrap() {
   // Parse and save to state
   parseDeepLinkParams();
 
+  // Online multiplayer mode: ?online=new or ?online=<roomId>
+  if (state.onlineMode === "join") {
+    // Joining an existing game - connect to server, receive config, load puzzle
+    hidePictureGallery();
+    deepLinkActive = true;
+    await initOnlineMode({
+      onJoinReceiveConfig: async (initState) => {
+        const config = initState.config;
+        if (!config || !config.imageUrl) {
+          console.error("[online] No image URL in server config");
+          deepLinkActive = false;
+          return;
+        }
+
+        // Set state from server config
+        state.noRotate = config.noRotate || false;
+
+        loadRemoteImageWithTimeout(config.imageUrl, {
+          timeout: 10000,
+          onLoad: async (img) => {
+            setCurrentImage(img);
+            setCurrentImageSource(config.imageUrl);
+            setCurrentImageLicense(config.license);
+            if (config.removeColor) {
+              applyViewportGrayscaleFilter("y");
+            }
+
+            // Reconstruct pieces from server's full serialized state (includes geometry)
+            if (initState.pieces && Array.isArray(initState.pieces) && initState.pieces.length > 0) {
+              reconstructPiecesFromServer(img, initState.pieces, initState.piecePositions);
+            } else {
+              // Fallback: generate locally if server has no piece data yet
+              const sliderVal = pieceCountToSlider(config.pieceCount);
+              setSliderValue(sliderVal);
+              updatePieceDisplay();
+              await generatePuzzle();
+              onPuzzleReady();
+            }
+
+            showOnlineGameInfo(initState.roomId);
+            deepLinkActive = false;
+          },
+          onError: () => {
+            deepLinkActive = false;
+            console.error("[online] Failed to load image from server config");
+          },
+          onTimeout: () => {
+            deepLinkActive = false;
+            console.error("[online] Timeout loading image from server config");
+          },
+        }).catch(() => {});
+      },
+      onError: (msg) => {
+        deepLinkActive = false;
+        alert(`Failed to join online game: ${msg}`);
+      },
+    });
+    return; // Skip normal flow
+  }
+
+  if (state.onlineMode === "host") {
+    // Host mode - just connect to server, puzzle generation happens via deep link flow
+    initOnlineMode({
+      onRoomCreated: (roomId) => {
+        showOnlineGameInfo(roomId);
+      },
+      onError: (msg) => {
+        console.error("[online] Failed to create room:", msg);
+      },
+    });
+  }
+
   // Initialize persistence (event-driven architecture)
   initPersistence();
 
@@ -208,6 +369,7 @@ async function bootstrap() {
               updatePieceDisplay();
               applyViewportGrayscaleFilter(state.deepLinkRemoveColor);
               await generatePuzzle();
+              onPuzzleReady();
               deepLinkActive = false;
             },
             onTimeout: () => {
@@ -256,6 +418,7 @@ async function bootstrap() {
         applyViewportGrayscaleFilter(state.deepLinkRemoveColor);
 
         await generatePuzzle();
+        onPuzzleReady();
         // Reset deep link flag so persistence can start saving changes
         deepLinkActive = false;
         // Hide gallery if it was shown

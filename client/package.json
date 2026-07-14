@@ -21,6 +21,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "colyseus.js": "^0.15.0",
     "graphlib": "^2.1.8"
   },
   "devDependencies": {

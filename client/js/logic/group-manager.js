@@ -167,6 +167,14 @@ class GroupManager {
   }
 
   /**
+   * Register an externally-created group (e.g., from remote sync).
+   * @param {Group} group - The group to register
+   */
+  registerGroup(group) {
+    this.groups.set(group.id, group);
+  }
+
+  /**
    * Merge two groups together
    * This is the main method called when pieces connect
    * @param {Piece} pieceA - First piece whose group will be merged
@@ -279,8 +287,10 @@ class GroupManager {
       const newGroup = this.createSinglePieceGroup(piece);
 
       // Handle any fragments created by removal
+      const fragmentGroupIds = [];
       fragmentGroups.forEach((fragmentGroup) => {
         this.groups.set(fragmentGroup.id, fragmentGroup);
+        fragmentGroupIds.push(fragmentGroup.id);
         console.log(
           `[GroupManager] Created fragment group ${
             fragmentGroup.id
@@ -306,6 +316,7 @@ class GroupManager {
             pieceId: piece.id,
             fromGroupId: currentGroup.id,
             newGroupId: newGroup.id,
+            fragmentGroupIds,
             changedBorder,
           },
         }),

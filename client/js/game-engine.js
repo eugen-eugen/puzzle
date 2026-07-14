@@ -43,6 +43,10 @@ class State {
     this.deepLinkLicense = null;
     this.deepLinkResume = "n";
 
+    // Online multiplayer state
+    this.onlineMode = null; // "host" | "join" | null
+    this.onlineRoomId = null; // Room ID for joining
+
     // Viewport state (pan/zoom)
     this.viewport = {
       offsetX: 0,
