@@ -85,9 +85,7 @@ export function onPuzzleReady() {
  * @returns {string}
  */
 export function buildJoinUrl(roomId) {
-  const publicAppBaseUrl = import.meta.env.VITE_PUBLIC_APP_URL;
-  const baseUrl = publicAppBaseUrl || window.location.href;
-  const url = new URL(baseUrl);
+  const url = new URL(window.location.href);
 
   // Ensure the share link always points to the public puzzle app, not the current query string.
   url.search = "";
