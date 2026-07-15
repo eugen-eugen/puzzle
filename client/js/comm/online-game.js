@@ -92,7 +92,9 @@ export function buildJoinUrl(roomId) {
   // Ensure the share link always points to the public puzzle app, not the current query string.
   url.search = "";
 
-  const pathname = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
+  const pathname = url.pathname.endsWith("/")
+    ? url.pathname
+    : `${url.pathname}/`;
   url.pathname = pathname;
   url.searchParams.set("online", roomId);
 
