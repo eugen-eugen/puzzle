@@ -1,3 +1,6 @@
 name = "puzzle"
 main = "src/worker.js"
 compatibility_date = "2026-07-14"
+
+[vars]
+PUBLIC_APP_URL = "https://eugen-eugen.github.io/puzzle/"

@@ -8,6 +8,7 @@ import {
 } from "./shared/puzzle-session.js";
 
 const rooms = new Map();
+const DEFAULT_PUBLIC_APP_URL = "https://eugen-eugen.github.io/puzzle/";
 
 function getCorsHeaders(request) {
   const origin = request.headers.get("Origin") || "*";
@@ -35,6 +36,27 @@ function optionsResponse(request) {
     status: 204,
     headers: getCorsHeaders(request),
   });
+}
+
+function buildPublicAppRedirectUrl(requestUrl, publicAppUrl) {
+  const target = new URL(publicAppUrl || DEFAULT_PUBLIC_APP_URL);
+  const basePath = target.pathname.endsWith("/")
+    ? target.pathname
+    : `${target.pathname}/`;
+
+  let relativePath = requestUrl.pathname;
+  if (relativePath === "/puzzle") {
+    relativePath = "";
+  } else if (relativePath.startsWith("/puzzle/")) {
+    relativePath = relativePath.slice("/puzzle/".length);
+  } else if (relativePath.startsWith("/")) {
+    relativePath = relativePath.slice(1);
+  }
+
+  target.pathname = `${basePath}${relativePath}`;
+  target.search = requestUrl.search;
+
+  return target.toString();
 }
 
 function getRoom(roomId, options = null) {
@@ -151,11 +173,19 @@ function createRoom(requestBody = {}) {
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
+    const publicAppUrl = env?.PUBLIC_APP_URL || DEFAULT_PUBLIC_APP_URL;
 
     if (request.method === "OPTIONS") {
       return optionsResponse(request);
+    }
+
+    if (url.pathname !== "/health" && !url.pathname.startsWith("/api/")) {
+      return Response.redirect(
+        buildPublicAppRedirectUrl(url, publicAppUrl),
+        302,
+      );
     }
 
     if (url.pathname === "/health") {

@@ -85,9 +85,16 @@ export function onPuzzleReady() {
  * @returns {string}
  */
 export function buildJoinUrl(roomId) {
-  const url = new URL(window.location.href);
-  // Clear all existing params
+  const publicAppBaseUrl = import.meta.env.VITE_PUBLIC_APP_URL;
+  const baseUrl = publicAppBaseUrl || window.location.href;
+  const url = new URL(baseUrl);
+
+  // Ensure the share link always points to the public puzzle app, not the current query string.
   url.search = "";
+
+  const pathname = url.pathname.endsWith("/") ? url.pathname : `${url.pathname}/`;
+  url.pathname = pathname;
   url.searchParams.set("online", roomId);
+
   return url.toString();
 }
