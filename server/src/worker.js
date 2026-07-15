@@ -172,7 +172,12 @@ export class PuzzleRoom extends DurableObject {
       "init_state",
       createInitState(this.session, roomId, playerCount),
     );
-    broadcast(this.getConnectedSockets(), "player_count", { count: playerCount }, server);
+    broadcast(
+      this.getConnectedSockets(),
+      "player_count",
+      { count: playerCount },
+      server,
+    );
 
     return new Response(null, {
       status: 101,
@@ -219,7 +224,11 @@ export class PuzzleRoom extends DurableObject {
     if (type === "config") {
       applyConfig(this.session, data);
       await this.persistState();
-      broadcast(this.getConnectedSockets(), "config_update", this.session.config);
+      broadcast(
+        this.getConnectedSockets(),
+        "config_update",
+        this.session.config,
+      );
     }
   }
 
@@ -227,7 +236,9 @@ export class PuzzleRoom extends DurableObject {
     const remainingSockets = this.getConnectedSockets().filter(
       (socket) => socket !== ws,
     );
-    broadcast(remainingSockets, "player_count", { count: remainingSockets.length });
+    broadcast(remainingSockets, "player_count", {
+      count: remainingSockets.length,
+    });
     ws.close(code, reason);
   }
 }
