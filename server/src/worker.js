@@ -99,6 +99,13 @@ async function initRoom(env, roomId, requestBody = {}) {
 async function getRoomResponse(env, roomId, request) {
   const stub = env.PUZZLE_ROOM.getByName(roomId);
   const response = await stub.fetch(request);
+
+  // Important: preserve DO WebSocket upgrade responses as-is.
+  // Re-wrapping a 101 response drops the `webSocket` handle and breaks the handshake.
+  if (request.headers.get("Upgrade")?.toLowerCase() === "websocket") {
+    return response;
+  }
+
   return withCorsHeaders(request, response);
 }
 
