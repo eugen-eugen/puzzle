@@ -353,7 +353,7 @@ async function bootstrap() {
 
   if (state.onlineMode === "host") {
     // Host mode - just connect to server, puzzle generation happens via deep link flow
-    initOnlineMode({
+    await initOnlineMode({
       onRoomCreated: (roomId) => {
         showOnlineGameInfo(roomId);
       },

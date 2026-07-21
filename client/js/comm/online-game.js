@@ -11,6 +11,19 @@ import {
   getRoomId,
 } from "./network-manager.js";
 
+let pendingInitialSync = false;
+
+function syncInitialStateNow() {
+  sendFullState();
+  sendConfig({
+    imageUrl: state.deepLinkImageUrl || state.image?.source,
+    pieceCount: state.totalPieces,
+    noRotate: state.noRotate,
+    removeColor: state.puzzleSettings?.removeColor || false,
+    license: state.image?.license || null,
+  });
+}
+
 /**
  * Initialize online game mode based on URL parameters.
  * Should be called after parseDeepLinkParams() has set state.onlineMode.
@@ -44,6 +57,11 @@ export async function initOnlineMode(callbacks) {
         callbacks.onRoomCreated(roomId);
       }
 
+      if (pendingInitialSync && isOnlineMode()) {
+        syncInitialStateNow();
+        pendingInitialSync = false;
+      }
+
       console.log(`[OnlineGame] Room created: ${roomId}`);
       console.log(`[OnlineGame] Share URL: ${buildJoinUrl(roomId)}`);
     } else if (state.onlineMode === "join") {
@@ -67,15 +85,13 @@ export async function initOnlineMode(callbacks) {
  * Only relevant for the host.
  */
 export function onPuzzleReady() {
-  if (isOnlineMode() && state.onlineMode === "host") {
-    sendFullState();
-    sendConfig({
-      imageUrl: state.deepLinkImageUrl || state.image?.source,
-      pieceCount: state.totalPieces,
-      noRotate: state.noRotate,
-      removeColor: state.puzzleSettings?.removeColor || false,
-      license: state.image?.license || null,
-    });
+  if (state.onlineMode !== "host") return;
+
+  if (isOnlineMode()) {
+    syncInitialStateNow();
+    pendingInitialSync = false;
+  } else {
+    pendingInitialSync = true;
   }
 }
 
