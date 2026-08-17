@@ -13,6 +13,7 @@ import { getPieceElement } from "../logic/piece-renderer.js";
 import { Util } from "../utils/numeric-util.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "../logic/game-table-controller.js";
+import { isOnlineMode, getRemotelyMovedPieces } from "../comm/network-manager.js";
 import { Group } from "../model/group.js";
 import { NORTH, EAST, SOUTH, WEST } from "../constants/piece-constants.js";
 import {
@@ -644,7 +645,17 @@ export function fitAllPiecesInView() {
   const contH = piecesContainer?.clientHeight || 0;
   if (contW === 0 || contH === 0) return;
 
-  const bounds = gameTableController.calculatePiecesBounds(state.pieces);
+  // In multiplayer, exclude pieces moved by remote players from bounds calculation
+  let pieces = state.pieces;
+  if (isOnlineMode()) {
+    const remote = getRemotelyMovedPieces();
+    if (remote.size > 0) {
+      pieces = state.pieces.filter((p) => !remote.has(p.id));
+      if (pieces.length === 0) return;
+    }
+  }
+
+  const bounds = gameTableController.calculatePiecesBounds(pieces);
 
   if (!bounds) return;
   const minX = bounds.topLeft.x;

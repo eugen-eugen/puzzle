@@ -10,6 +10,7 @@ import {
   isIndexedDBSupported,
   getRecentImages,
 } from "../persistence/indexed-db-storage.js";
+import { fetchRecentRooms } from "../comm/network-manager.js";
 
 const PICTURES_PATH = "pictures/";
 const DEFAULT_PIECES = 20;
@@ -133,9 +134,15 @@ export async function showPictureGallery(onSelect, onClose) {
   masterBtn.innerHTML = "🧙‍♂️";
   masterBtn.title = t("gallery.filterMaster");
 
+  const onlineBtn = document.createElement("button");
+  onlineBtn.className = "picture-gallery-filter-btn";
+  onlineBtn.innerHTML = "🌐";
+  onlineBtn.title = t("gallery.filterOnline");
+
   filterBar.appendChild(babyBtn);
   filterBar.appendChild(studentBtn);
   filterBar.appendChild(masterBtn);
+  filterBar.appendChild(onlineBtn);
   gallery.appendChild(filterBar);
 
   // --- Selected filter state ---
@@ -164,6 +171,16 @@ export async function showPictureGallery(onSelect, onClose) {
 
   function renderGallery(filter) {
     grid.innerHTML = "";
+
+    // If "online" filter is selected, show recent rooms instead
+    if (filter === "online") {
+      [babyBtn, studentBtn, masterBtn, onlineBtn].forEach((btn) =>
+        btn.classList.remove("selected")
+      );
+      onlineBtn.classList.add("selected");
+      renderOnlineRooms();
+      return;
+    }
 
     // Add recent images section if we have any
     if (recentImages.length > 0 && !filter) {
@@ -221,7 +238,7 @@ export async function showPictureGallery(onSelect, onClose) {
 
     let filtered = pictures;
     // Highlight selected filter
-    [babyBtn, studentBtn, masterBtn].forEach((btn) =>
+    [babyBtn, studentBtn, masterBtn, onlineBtn].forEach((btn) =>
       btn.classList.remove("selected")
     );
     if (filter === "baby") {
@@ -390,6 +407,78 @@ export async function showPictureGallery(onSelect, onClose) {
   // Initial render: show all
   renderGallery();
 
+  async function renderOnlineRooms() {
+    grid.innerHTML = "";
+    const loading = document.createElement("p");
+    loading.textContent = t("gallery.loadingRooms");
+    loading.style.textAlign = "center";
+    loading.style.padding = "2em";
+    grid.appendChild(loading);
+
+    const rooms = await fetchRecentRooms();
+    grid.innerHTML = "";
+
+    if (rooms.length === 0) {
+      const empty = document.createElement("p");
+      empty.textContent = t("gallery.noOnlineRooms");
+      empty.style.textAlign = "center";
+      empty.style.padding = "2em";
+      grid.appendChild(empty);
+      return;
+    }
+
+    rooms.forEach((room) => {
+      const item = document.createElement("a");
+      item.className = "picture-gallery-item";
+      const deepLinkUrl = `?online=${room.roomId}`;
+      item.href = deepLinkUrl;
+      item.title = `${t("gallery.joinRoom")} ${room.roomId}`;
+
+      const imageContainer = document.createElement("div");
+      imageContainer.className = "picture-gallery-item-container";
+
+      const img = document.createElement("img");
+      img.alt = room.roomId;
+      img.loading = "lazy";
+      if (room.imageUrl) {
+        img.src = room.imageUrl;
+      } else {
+        img.style.display = "none";
+      }
+      img.addEventListener("error", () => {
+        img.style.display = "none";
+      });
+
+      const titleDiv = document.createElement("div");
+      titleDiv.className = "picture-gallery-item-title";
+      const pieces = room.pieceCount ? ` (${room.pieceCount} pcs)` : "";
+      const ago = formatTimeAgo(room.createdAt);
+      titleDiv.textContent = `🌐 ${room.roomId.slice(0, 6)}…${pieces}`;
+      titleDiv.title = ago;
+
+      imageContainer.appendChild(img);
+      imageContainer.appendChild(titleDiv);
+      item.appendChild(imageContainer);
+
+      item.addEventListener("click", (e) => {
+        e.preventDefault();
+        hidePictureGallery();
+        if (onSelect) onSelect(deepLinkUrl);
+      });
+      grid.appendChild(item);
+    });
+  }
+
+  function formatTimeAgo(timestamp) {
+    if (!timestamp) return "";
+    const minutes = Math.floor((Date.now() - timestamp) / 60000);
+    if (minutes < 1) return t("gallery.justNow");
+    if (minutes < 60) return `${minutes}m ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours}h ago`;
+    return `${Math.floor(hours / 24)}d ago`;
+  }
+
   // Filter button handlers (toggle)
   babyBtn.addEventListener("click", () => {
     if (selectedFilter === "baby") {
@@ -416,6 +505,15 @@ export async function showPictureGallery(onSelect, onClose) {
     } else {
       selectedFilter = "master";
       renderGallery("master");
+    }
+  });
+  onlineBtn.addEventListener("click", () => {
+    if (selectedFilter === "online") {
+      selectedFilter = null;
+      renderGallery();
+    } else {
+      selectedFilter = "online";
+      renderGallery("online");
     }
   });
 

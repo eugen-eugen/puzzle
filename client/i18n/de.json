@@ -36,5 +36,10 @@
   "gallery.filterStudent": "Schüler (10-100 Teile)",
   "gallery.filterMaster": "Meister (>100 Teile)",
   "gallery.noPictures": "Für diesen Filter sind keine Bilder verfügbar.",
-  "gallery.itemTooltip": "{title} - Puzzle mit {pieces} Teilen starten"
+  "gallery.itemTooltip": "{title} - Puzzle mit {pieces} Teilen starten",
+  "gallery.filterOnline": "Online-Spiele",
+  "gallery.loadingRooms": "Lade Online-Räume…",
+  "gallery.noOnlineRooms": "Keine aktuellen Online-Spiele gefunden.",
+  "gallery.joinRoom": "Raum beitreten",
+  "gallery.justNow": "Gerade eben"
 }

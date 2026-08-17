@@ -9,3 +9,7 @@ class_name = "PuzzleRoom"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["PuzzleRoom"]
+
+[[kv_namespaces]]
+binding = "ROOM_REGISTRY"
+id = "cb866ede870f40afbbc229a2405c09d6"

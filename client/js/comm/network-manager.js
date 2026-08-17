@@ -36,6 +36,9 @@ let localSessionId = null;
 /** Set of piece IDs currently being dragged locally (immune to remote updates) */
 const locallyDraggedPieces = new Set();
 
+/** Set of piece IDs that have been moved by remote players (excluded from local auto-zoom) */
+const remotelyMovedPieces = new Set();
+
 // ================================
 // Public API
 // ================================
@@ -62,6 +65,21 @@ export function getRoomId() {
  */
 export function getPlayerCount() {
   return room?.playerCount || 1;
+}
+
+/**
+ * Fetch the list of recent online game rooms from the server.
+ * @returns {Promise<Array<{roomId: string, imageUrl: string|null, pieceCount: number|null, createdAt: number}>>}
+ */
+export async function fetchRecentRooms() {
+  try {
+    const response = await fetch(`${SERVER_URL}/api/rooms`);
+    if (!response.ok) return [];
+    const data = await response.json();
+    return data.rooms || [];
+  } catch {
+    return [];
+  }
 }
 
 /**
@@ -156,6 +174,7 @@ export function disconnect() {
   }
   isOnline = false;
   localSessionId = null;
+  remotelyMovedPieces.clear();
 }
 
 /**
@@ -164,6 +183,7 @@ export function disconnect() {
  */
 export function markPieceDragging(pieceId) {
   locallyDraggedPieces.add(pieceId);
+  remotelyMovedPieces.delete(pieceId);
 }
 
 /**
@@ -172,6 +192,14 @@ export function markPieceDragging(pieceId) {
  */
 export function unmarkPieceDragging(pieceId) {
   locallyDraggedPieces.delete(pieceId);
+}
+
+/**
+ * Get the set of piece IDs moved by remote players
+ * @returns {Set<number>}
+ */
+export function getRemotelyMovedPieces() {
+  return remotelyMovedPieces;
 }
 
 // ================================
@@ -199,6 +227,7 @@ function setupRoomListeners() {
         localPiece.id,
         new Point(piece.x, piece.y),
       );
+      remotelyMovedPieces.add(localPiece.id);
 
       // Update rotation
       if (piece.rotation !== undefined) {

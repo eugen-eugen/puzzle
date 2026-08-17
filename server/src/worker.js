@@ -7,10 +7,8 @@ import {
   createPuzzleSession,
 } from "./shared/puzzle-session.js";
 
-const EMPTY_ROOM_LIST = {
-  rooms: [],
-  count: 0,
-};
+const ROOM_LIST_KEY = "recent_rooms";
+const MAX_RECENT_ROOMS = 5;
 
 function getCorsHeaders(request) {
   const origin = request.headers.get("Origin") || "*";
@@ -93,6 +91,20 @@ async function initRoom(env, roomId, requestBody = {}) {
       body: JSON.stringify(requestBody),
     }),
   );
+
+  // Track in room registry
+  if (env.ROOM_REGISTRY) {
+    const list = (await env.ROOM_REGISTRY.get(ROOM_LIST_KEY, "json")) || [];
+    list.unshift({
+      roomId,
+      imageUrl: requestBody.imageUrl || null,
+      pieceCount: requestBody.pieceCount || null,
+      createdAt: Date.now(),
+    });
+    if (list.length > MAX_RECENT_ROOMS) list.length = MAX_RECENT_ROOMS;
+    await env.ROOM_REGISTRY.put(ROOM_LIST_KEY, JSON.stringify(list));
+  }
+
   return roomId;
 }
 
@@ -263,7 +275,10 @@ export default {
     }
 
     if (url.pathname === "/api/rooms" && request.method === "GET") {
-      return jsonResponse(request, EMPTY_ROOM_LIST);
+      const rooms = env.ROOM_REGISTRY
+        ? (await env.ROOM_REGISTRY.get(ROOM_LIST_KEY, "json")) || []
+        : [];
+      return jsonResponse(request, { rooms, count: rooms.length });
     }
 
     if (url.pathname === "/api/rooms" && request.method === "POST") {

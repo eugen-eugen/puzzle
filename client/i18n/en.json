@@ -36,5 +36,10 @@
   "gallery.filterStudent": "Student (10-100 pieces)",
   "gallery.filterMaster": "Master (>100 pieces)",
   "gallery.noPictures": "No pictures available for this filter.",
-  "gallery.itemTooltip": "{title} - Start puzzle with {pieces} pieces"
+  "gallery.itemTooltip": "{title} - Start puzzle with {pieces} pieces",
+  "gallery.filterOnline": "Online Games",
+  "gallery.loadingRooms": "Loading online rooms…",
+  "gallery.noOnlineRooms": "No recent online games found.",
+  "gallery.joinRoom": "Join room",
+  "gallery.justNow": "Just now"
 }
