@@ -1,7 +1,10 @@
 // resume.js - Resume modal dialog for saved game management
 import { t } from "../i18n.js";
 import "../../css/resume.css";
-import { resumeModalTemplate, resumeActionsTemplate } from "../ui/templates/resume-modal-template.js";
+import {
+  resumeModalTemplate,
+  resumeActionsTemplate,
+} from "../ui/templates/resume-modal-template.js";
 
 let resumeModalOverlay = null;
 

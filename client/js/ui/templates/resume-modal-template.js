@@ -19,21 +19,21 @@ export function resumeActionsTemplate(hasResume) {
   return hasResume
     ? `
     <button class="resume-primary" data-action="resume">${t(
-      "resume.resume"
+      "resume.resume",
     )}</button>
     <button class="resume-warn" data-action="cancel">${t(
-      "resume.cancel"
+      "resume.cancel",
     )}</button>
     <button class="resume-danger" data-action="discard">${t(
-      "resume.discard"
+      "resume.discard",
     )}</button>
   `
     : `
     <button class="resume-primary" data-action="discard">${t(
-      "welcome.start"
+      "welcome.start",
     )}</button>
     <button class="resume-warn" data-action="cancel">${t(
-      "resume.cancel"
+      "resume.cancel",
     )}</button>
   `;
 }

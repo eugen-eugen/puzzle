@@ -56,7 +56,12 @@ import {
   onPuzzleReady,
   buildJoinUrl,
 } from "./comm/online-game.js";
-import { isOnlineMode, startOnlineGame, sendFullState, sendConfig } from "./comm/network-manager.js";
+import {
+  isOnlineMode,
+  startOnlineGame,
+  sendFullState,
+  sendConfig,
+} from "./comm/network-manager.js";
 import { Point } from "./geometry/point.js";
 import { Piece } from "./model/piece.js";
 import { renderPiecesAtPositions } from "./logic/piece-renderer.js";
@@ -183,7 +188,10 @@ function showShareButton() {
 
 function openShareMenu() {
   const existing = document.getElementById("share-menu");
-  if (existing) { existing.remove(); return; }
+  if (existing) {
+    existing.remove();
+    return;
+  }
 
   const roomId = state.onlineRoomId;
   if (!roomId) return;
@@ -204,7 +212,9 @@ function openShareMenu() {
   const waBtn = document.createElement("button");
   waBtn.textContent = `💬 ${t("online.shareWhatsApp")}`;
   waBtn.addEventListener("click", () => {
-    const text = encodeURIComponent(`${t("online.whatsAppMessage")} ${joinUrl}`);
+    const text = encodeURIComponent(
+      `${t("online.whatsAppMessage")} ${joinUrl}`,
+    );
     window.open(`https://wa.me/?text=${text}`, "_blank");
     menu.remove();
   });
@@ -282,34 +292,41 @@ function openOnlineDialog(roomId, joinUrl) {
   overlay.appendChild(dialog);
   document.body.appendChild(overlay);
 
-  dialog.querySelector("#online-dialog-share-btn").addEventListener("click", (e) => {
-    const existing = dialog.querySelector(".share-menu");
-    if (existing) { existing.remove(); return; }
+  dialog
+    .querySelector("#online-dialog-share-btn")
+    .addEventListener("click", (e) => {
+      const existing = dialog.querySelector(".share-menu");
+      if (existing) {
+        existing.remove();
+        return;
+      }
 
-    const menu = document.createElement("div");
-    menu.className = "share-menu";
-    menu.style.position = "absolute";
+      const menu = document.createElement("div");
+      menu.className = "share-menu";
+      menu.style.position = "absolute";
 
-    const copyBtn = document.createElement("button");
-    copyBtn.textContent = `📋 ${t("online.copyLink")}`;
-    copyBtn.addEventListener("click", () => {
-      navigator.clipboard.writeText(joinUrl);
-      copyBtn.textContent = `✓ ${t("online.copied")}`;
-      setTimeout(() => menu.remove(), 1000);
+      const copyBtn = document.createElement("button");
+      copyBtn.textContent = `📋 ${t("online.copyLink")}`;
+      copyBtn.addEventListener("click", () => {
+        navigator.clipboard.writeText(joinUrl);
+        copyBtn.textContent = `✓ ${t("online.copied")}`;
+        setTimeout(() => menu.remove(), 1000);
+      });
+
+      const waBtn = document.createElement("button");
+      waBtn.textContent = `💬 ${t("online.shareWhatsApp")}`;
+      waBtn.addEventListener("click", () => {
+        const text = encodeURIComponent(
+          `${t("online.whatsAppMessage")} ${joinUrl}`,
+        );
+        window.open(`https://wa.me/?text=${text}`, "_blank");
+        menu.remove();
+      });
+
+      menu.appendChild(copyBtn);
+      menu.appendChild(waBtn);
+      e.target.parentElement.appendChild(menu);
     });
-
-    const waBtn = document.createElement("button");
-    waBtn.textContent = `💬 ${t("online.shareWhatsApp")}`;
-    waBtn.addEventListener("click", () => {
-      const text = encodeURIComponent(`${t("online.whatsAppMessage")} ${joinUrl}`);
-      window.open(`https://wa.me/?text=${text}`, "_blank");
-      menu.remove();
-    });
-
-    menu.appendChild(copyBtn);
-    menu.appendChild(waBtn);
-    e.target.parentElement.appendChild(menu);
-  });
 
   dialog
     .querySelector("#online-close-btn")

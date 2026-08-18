@@ -171,7 +171,7 @@ function updateProgress() {
     numberOfGroups = groupManager.getGroupCount();
   } catch (error) {
     console.warn(
-      "[updateProgress] GroupManager not available, falling back to simple count"
+      "[updateProgress] GroupManager not available, falling back to simple count",
     );
     // Fallback to old method
     const groupIds = new Set(state.pieces.map((piece) => piece.groupId));
@@ -211,7 +211,7 @@ async function generatePuzzle() {
   const noRotate = state.noRotate || false;
   console.log(
     "[control-bar] generatePuzzle called with noRotate from state:",
-    noRotate
+    noRotate,
   );
 
   const pieceCount = sliderToPieceCount(parseInt(pieceSlider.value));
@@ -233,7 +233,7 @@ async function generatePuzzle() {
     state.pieces = [];
     state.totalPieces = 0;
     document.dispatchEvent(
-      new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "cleared" } })
+      new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "cleared" } }),
     );
     return;
   }
@@ -256,7 +256,7 @@ async function generatePuzzle() {
 
     const { pieces, rows, cols } = generateJigsawPieces(
       imageWithLicense,
-      pieceCount
+      pieceCount,
     );
     state.pieces = pieces;
     state.totalPieces = pieces.length;
@@ -271,7 +271,9 @@ async function generatePuzzle() {
       scatterInitialPieces(viewport, pieces, noRotate);
     }
     document.dispatchEvent(
-      new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "generated" } })
+      new CustomEvent(PUZZLE_STATE_CHANGED, {
+        detail: { action: "generated" },
+      }),
     );
     if (persistence && persistence.markDirty) persistence.markDirty();
   } catch (e) {
@@ -306,7 +308,7 @@ function handleOrientationTip() {
     document.dispatchEvent(
       new CustomEvent(PIECE_NORTH, {
         detail: { pieceId: selectedPiece.id },
-      })
+      }),
     );
     // Trigger persistence save after orientation change
     if (persistence && persistence.requestAutoSave) {
@@ -364,7 +366,7 @@ function handleKeyboardShortcuts(e) {
         document.dispatchEvent(
           new CustomEvent(PIECE_ROTATE, {
             detail: { pieceId: selectedPiece.id, rotation: rotationAmount },
-          })
+          }),
         );
       }
       break;
@@ -473,12 +475,12 @@ async function handleImageUpload(file) {
         setCurrentImageSource(`idb:${result.imageId}`); // Update state.image.source
         console.log(
           "[controlBar] File stored successfully in IndexedDB:",
-          result.imageId
+          result.imageId,
         );
       } catch (error) {
         console.warn(
           "[controlBar] Failed to store file in IndexedDB:",
-          error.message
+          error.message,
         );
         // Fallback to regular filename storage
         setCurrentImageSource(file.webkitRelativePath || file.name);
@@ -509,7 +511,7 @@ async function handleImageUpload(file) {
     state.pieces = [];
     state.totalPieces = 0;
     document.dispatchEvent(
-      new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "cleared" } })
+      new CustomEvent(PUZZLE_STATE_CHANGED, { detail: { action: "cleared" } }),
     );
     if (persistence && persistence.markDirty) persistence.markDirty();
   } catch (e) {
