@@ -170,7 +170,10 @@ function showOnlineGameInfo(roomId) {
 function openOnlineDialog(roomId, joinUrl) {
   // Remove existing
   const existing = document.getElementById("online-info-dialog");
-  if (existing) { existing.remove(); return; }
+  if (existing) {
+    existing.remove();
+    return;
+  }
 
   const overlay = document.createElement("div");
   overlay.id = "online-info-dialog";
@@ -218,11 +221,17 @@ function openOnlineDialog(roomId, joinUrl) {
   dialog.querySelector("#online-copy-btn").addEventListener("click", (e) => {
     navigator.clipboard.writeText(joinUrl);
     e.target.textContent = t("online.copied");
-    setTimeout(() => { e.target.textContent = t("online.copy"); }, 2000);
+    setTimeout(() => {
+      e.target.textContent = t("online.copy");
+    }, 2000);
   });
 
-  dialog.querySelector("#online-close-btn").addEventListener("click", () => overlay.remove());
-  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
+  dialog
+    .querySelector("#online-close-btn")
+    .addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => {
+    if (e.target === overlay) overlay.remove();
+  });
 }
 
 // Check if pieces are in correct positions
