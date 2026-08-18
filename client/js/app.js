@@ -136,30 +136,93 @@ function reconstructPiecesFromServer(
 }
 
 /**
- * Show online game info banner with shareable link.
+ * Show online mode indicator as a globe button; clicking opens a dialog with online info.
  */
 function showOnlineGameInfo(roomId) {
   const joinUrl = buildJoinUrl(roomId);
-  const banner = document.createElement("div");
-  banner.id = "online-game-banner";
-  banner.style.cssText =
-    "position:fixed;top:0;left:0;right:0;background:#2ea862;color:#fff;padding:8px 16px;text-align:center;z-index:9999;font-size:14px;";
-  banner.innerHTML = `
-    🌐 Online Game | Share link: <input type="text" value="${joinUrl}" readonly
-      style="width:300px;padding:2px 6px;border:none;border-radius:3px;font-size:12px;"
-      onclick="this.select()"/>
-    <button onclick="navigator.clipboard.writeText('${joinUrl}');this.textContent='Copied!'"
-      style="margin-left:8px;padding:2px 8px;border:none;border-radius:3px;cursor:pointer;">Copy</button>
-    <span id="online-player-count" style="margin-left:16px;">1 player</span>
-  `;
-  document.body.prepend(banner);
 
-  // Listen for player count updates
+  // Globe button
+  const btn = document.createElement("button");
+  btn.id = "online-game-btn";
+  btn.textContent = "🌐";
+  btn.title = t("online.openInfo");
+  btn.style.cssText =
+    "position:fixed;top:8px;right:8px;z-index:9999;font-size:24px;background:none;border:none;cursor:pointer;line-height:1;padding:4px;";
+  document.body.appendChild(btn);
+
+  // Player count badge
+  const badge = document.createElement("span");
+  badge.id = "online-player-badge";
+  badge.textContent = "1";
+  badge.style.cssText =
+    "position:absolute;top:0;right:0;background:#2ea862;color:#fff;font-size:10px;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;";
+  btn.style.position = "fixed";
+  btn.appendChild(badge);
+
+  btn.addEventListener("click", () => openOnlineDialog(roomId, joinUrl));
+
   document.addEventListener("online:player_count", (event) => {
-    const el = document.getElementById("online-player-count");
-    if (el)
-      el.textContent = `${event.detail.count} player${event.detail.count > 1 ? "s" : ""}`;
+    const el = document.getElementById("online-player-badge");
+    if (el) el.textContent = String(event.detail.count);
   });
+}
+
+function openOnlineDialog(roomId, joinUrl) {
+  // Remove existing
+  const existing = document.getElementById("online-info-dialog");
+  if (existing) { existing.remove(); return; }
+
+  const overlay = document.createElement("div");
+  overlay.id = "online-info-dialog";
+  overlay.style.cssText =
+    "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;";
+
+  const dialog = document.createElement("div");
+  dialog.style.cssText =
+    "background:#fff;border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);";
+
+  const badge = document.getElementById("online-player-badge");
+  const playerCount = badge ? badge.textContent : "1";
+
+  dialog.innerHTML = `
+    <h3 style="margin:0 0 16px;font-size:18px;">🌐 ${t("online.title")}</h3>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;color:#666;">${t("online.roomId")}</label>
+      <div style="font-family:monospace;font-size:14px;">${roomId}</div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <label style="font-size:12px;color:#666;">${t("online.players")}</label>
+      <div id="online-dialog-players" style="font-size:14px;">${playerCount}</div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:12px;color:#666;">${t("online.shareLink")}</label>
+      <div style="display:flex;gap:8px;margin-top:4px;">
+        <input type="text" value="${joinUrl}" readonly
+          style="flex:1;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;"
+          onclick="this.select()"/>
+        <button id="online-copy-btn"
+          style="padding:6px 12px;border:none;border-radius:4px;background:#2ea862;color:#fff;cursor:pointer;font-size:12px;">
+          ${t("online.copy")}
+        </button>
+      </div>
+    </div>
+    <button id="online-close-btn"
+      style="width:100%;padding:8px;border:none;border-radius:4px;background:#eee;cursor:pointer;font-size:14px;">
+      ${t("online.close")}
+    </button>
+  `;
+
+  overlay.appendChild(dialog);
+  document.body.appendChild(overlay);
+
+  dialog.querySelector("#online-copy-btn").addEventListener("click", (e) => {
+    navigator.clipboard.writeText(joinUrl);
+    e.target.textContent = t("online.copied");
+    setTimeout(() => { e.target.textContent = t("online.copy"); }, 2000);
+  });
+
+  dialog.querySelector("#online-close-btn").addEventListener("click", () => overlay.remove());
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.remove(); });
 }
 
 // Check if pieces are in correct positions

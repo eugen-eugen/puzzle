@@ -13,7 +13,10 @@ import { getPieceElement } from "../logic/piece-renderer.js";
 import { Util } from "../utils/numeric-util.js";
 import { state } from "../game-engine.js";
 import { gameTableController } from "../logic/game-table-controller.js";
-import { isOnlineMode, getRemotelyMovedPieces } from "../comm/network-manager.js";
+import {
+  isOnlineMode,
+  getRemotelyMovedPieces,
+} from "../comm/network-manager.js";
 import { Group } from "../model/group.js";
 import { NORTH, EAST, SOUTH, WEST } from "../constants/piece-constants.js";
 import {
