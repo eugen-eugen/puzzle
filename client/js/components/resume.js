@@ -1,6 +1,7 @@
 // resume.js - Resume modal dialog for saved game management
 import { t } from "../i18n.js";
 import "../../css/resume.css";
+import { resumeModalTemplate, resumeActionsTemplate } from "../ui/templates/resume-modal-template.js";
 
 let resumeModalOverlay = null;
 
@@ -25,40 +26,8 @@ export function showResumeModal({
   const overlay = document.createElement("div");
   overlay.id = "resume-modal-overlay";
 
-  // Build actions HTML based on whether there's a saved game
-  const actionsHTML = hasResume
-    ? `
-    <button class="resume-primary" data-action="resume">${t(
-      "resume.resume"
-    )}</button>
-    <button class="resume-warn" data-action="cancel">${t(
-      "resume.cancel"
-    )}</button>
-    <button class="resume-danger" data-action="discard">${t(
-      "resume.discard"
-    )}</button>
-  `
-    : `
-    <button class="resume-primary" data-action="discard">${t(
-      "welcome.start"
-    )}</button>
-    <button class="resume-warn" data-action="cancel">${t(
-      "resume.cancel"
-    )}</button>
-  `;
-
-  overlay.innerHTML = `
-    <div class="resume-modal" role="dialog" aria-modal="true" aria-labelledby="resume-modal-title">
-      <div style="text-align: center; font-size: 4rem; margin-bottom: 12px; line-height: 1;">🧩</div>
-      <h2 id="resume-modal-title">${
-        hasResume ? t("resume.title") : t("welcome.title")
-      }</h2>
-      <p>${hasResume ? t("resume.message") : t("welcome.message")}</p>
-      <div class="resume-actions">
-        ${actionsHTML}
-      </div>
-      ${hasResume ? `<div class="resume-meta">${t("resume.meta")}</div>` : ""}
-    </div>`;
+  const actionsHTML = resumeActionsTemplate(hasResume);
+  overlay.innerHTML = resumeModalTemplate({ hasResume, actionsHTML });
   document.body.appendChild(overlay);
 
   function close() {

@@ -56,10 +56,11 @@ import {
   onPuzzleReady,
   buildJoinUrl,
 } from "./comm/online-game.js";
-import { isOnlineMode } from "./comm/network-manager.js";
+import { isOnlineMode, startOnlineGame, sendFullState, sendConfig } from "./comm/network-manager.js";
 import { Point } from "./geometry/point.js";
 import { Piece } from "./model/piece.js";
 import { renderPiecesAtPositions } from "./logic/piece-renderer.js";
+import { onlineDialogTemplate } from "./ui/templates/online-dialog-template.js";
 
 // DOM elements for puzzle-specific functionality
 const piecesContainer = document.getElementById("piecesContainer");
@@ -136,10 +137,101 @@ function reconstructPiecesFromServer(
 }
 
 /**
+ * Show the share button in the top-right area. In offline mode it creates a new online room.
+ */
+function showShareButton() {
+  if (document.getElementById("share-btn")) return;
+
+  const btn = document.createElement("button");
+  btn.id = "share-btn";
+  btn.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>`;
+  btn.title = t("online.share");
+  btn.style.cssText =
+    "position:fixed;top:8px;right:8px;z-index:9999;font-size:24px;background:none;border:none;cursor:pointer;line-height:1;padding:4px;";
+  document.body.appendChild(btn);
+
+  btn.addEventListener("click", async () => {
+    if (isOnlineMode()) {
+      openShareMenu();
+      return;
+    }
+    if (!state.image) return;
+
+    btn.disabled = true;
+    try {
+      const config = {
+        imageUrl: state.deepLinkImageUrl || state.image?.source,
+        pieceCount: state.totalPieces,
+        noRotate: state.noRotate,
+        removeColor: state.puzzleSettings?.removeColor || false,
+        license: state.image?.license || null,
+      };
+      const roomId = await startOnlineGame(config);
+      state.onlineMode = "host";
+      state.onlineRoomId = roomId;
+      sendFullState();
+      sendConfig(config);
+      btn.style.right = "40px";
+      showOnlineGameInfo(roomId);
+    } catch (err) {
+      console.error("[share] Failed to create room:", err);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+}
+
+function openShareMenu() {
+  const existing = document.getElementById("share-menu");
+  if (existing) { existing.remove(); return; }
+
+  const roomId = state.onlineRoomId;
+  if (!roomId) return;
+  const joinUrl = buildJoinUrl(roomId);
+
+  const menu = document.createElement("div");
+  menu.id = "share-menu";
+  menu.className = "share-menu";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.textContent = `📋 ${t("online.copyLink")}`;
+  copyBtn.addEventListener("click", () => {
+    navigator.clipboard.writeText(joinUrl);
+    copyBtn.textContent = `✓ ${t("online.copied")}`;
+    setTimeout(() => menu.remove(), 1000);
+  });
+
+  const waBtn = document.createElement("button");
+  waBtn.textContent = `💬 ${t("online.shareWhatsApp")}`;
+  waBtn.addEventListener("click", () => {
+    const text = encodeURIComponent(`${t("online.whatsAppMessage")} ${joinUrl}`);
+    window.open(`https://wa.me/?text=${text}`, "_blank");
+    menu.remove();
+  });
+
+  menu.appendChild(copyBtn);
+  menu.appendChild(waBtn);
+  document.body.appendChild(menu);
+
+  // Close on outside click
+  const closeHandler = (e) => {
+    if (!menu.contains(e.target) && e.target.id !== "share-btn") {
+      menu.remove();
+      document.removeEventListener("click", closeHandler);
+    }
+  };
+  setTimeout(() => document.addEventListener("click", closeHandler), 0);
+}
+
+/**
  * Show online mode indicator as a globe button; clicking opens a dialog with online info.
  */
 function showOnlineGameInfo(roomId) {
   const joinUrl = buildJoinUrl(roomId);
+
+  // Move share button left to make room
+  const shareBtn = document.getElementById("share-btn");
+  if (shareBtn) shareBtn.style.right = "40px";
 
   // Globe button
   const btn = document.createElement("button");
@@ -177,53 +269,46 @@ function openOnlineDialog(roomId, joinUrl) {
 
   const overlay = document.createElement("div");
   overlay.id = "online-info-dialog";
-  overlay.style.cssText =
-    "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:10000;display:flex;align-items:center;justify-content:center;";
+  overlay.className = "dialog-overlay";
 
   const dialog = document.createElement("div");
-  dialog.style.cssText =
-    "background:#fff;border-radius:12px;padding:24px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);";
+  dialog.className = "dialog-panel";
 
   const badge = document.getElementById("online-player-badge");
   const playerCount = badge ? badge.textContent : "1";
 
-  dialog.innerHTML = `
-    <h3 style="margin:0 0 16px;font-size:18px;">🌐 ${t("online.title")}</h3>
-    <div style="margin-bottom:12px;">
-      <label style="font-size:12px;color:#666;">${t("online.roomId")}</label>
-      <div style="font-family:monospace;font-size:14px;">${roomId}</div>
-    </div>
-    <div style="margin-bottom:12px;">
-      <label style="font-size:12px;color:#666;">${t("online.players")}</label>
-      <div id="online-dialog-players" style="font-size:14px;">${playerCount}</div>
-    </div>
-    <div style="margin-bottom:16px;">
-      <label style="font-size:12px;color:#666;">${t("online.shareLink")}</label>
-      <div style="display:flex;gap:8px;margin-top:4px;">
-        <input type="text" value="${joinUrl}" readonly
-          style="flex:1;padding:6px 8px;border:1px solid #ccc;border-radius:4px;font-size:12px;"
-          onclick="this.select()"/>
-        <button id="online-copy-btn"
-          style="padding:6px 12px;border:none;border-radius:4px;background:#2ea862;color:#fff;cursor:pointer;font-size:12px;">
-          ${t("online.copy")}
-        </button>
-      </div>
-    </div>
-    <button id="online-close-btn"
-      style="width:100%;padding:8px;border:none;border-radius:4px;background:#eee;cursor:pointer;font-size:14px;">
-      ${t("online.close")}
-    </button>
-  `;
+  dialog.innerHTML = onlineDialogTemplate({ roomId, playerCount, joinUrl });
 
   overlay.appendChild(dialog);
   document.body.appendChild(overlay);
 
-  dialog.querySelector("#online-copy-btn").addEventListener("click", (e) => {
-    navigator.clipboard.writeText(joinUrl);
-    e.target.textContent = t("online.copied");
-    setTimeout(() => {
-      e.target.textContent = t("online.copy");
-    }, 2000);
+  dialog.querySelector("#online-dialog-share-btn").addEventListener("click", (e) => {
+    const existing = dialog.querySelector(".share-menu");
+    if (existing) { existing.remove(); return; }
+
+    const menu = document.createElement("div");
+    menu.className = "share-menu";
+    menu.style.position = "absolute";
+
+    const copyBtn = document.createElement("button");
+    copyBtn.textContent = `📋 ${t("online.copyLink")}`;
+    copyBtn.addEventListener("click", () => {
+      navigator.clipboard.writeText(joinUrl);
+      copyBtn.textContent = `✓ ${t("online.copied")}`;
+      setTimeout(() => menu.remove(), 1000);
+    });
+
+    const waBtn = document.createElement("button");
+    waBtn.textContent = `💬 ${t("online.shareWhatsApp")}`;
+    waBtn.addEventListener("click", () => {
+      const text = encodeURIComponent(`${t("online.whatsAppMessage")} ${joinUrl}`);
+      window.open(`https://wa.me/?text=${text}`, "_blank");
+      menu.remove();
+    });
+
+    menu.appendChild(copyBtn);
+    menu.appendChild(waBtn);
+    e.target.parentElement.appendChild(menu);
   });
 
   dialog
@@ -350,6 +435,9 @@ async function bootstrap() {
 
   // Initialize help modal
   initHelp();
+
+  // Show share button (works in both offline and online mode)
+  showShareButton();
 
   // Deep link mode: ?image=<url>&pieces=<n>&norotate=y&removeColor=y
   // Parse and save to state

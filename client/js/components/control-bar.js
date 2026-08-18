@@ -24,6 +24,7 @@ import {
   GROUPS_CHANGED,
   PUZZLE_STATE_CHANGED,
 } from "../constants/custom-events.js";
+import { originalImageTemplate } from "../ui/templates/original-image-template.js";
 import {
   getViewport,
   setZoom,
@@ -227,13 +228,7 @@ async function generatePuzzle() {
 
       // Restore original license
       state.deepLinkLicense = originalLicense;
-      viewport.innerHTML = `
-        <div class="original-image-container">
-          <img src="${displayImage.src}" alt="${t(
-        "alt.originalImage"
-      )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
-        </div>
-      `;
+      viewport.innerHTML = originalImageTemplate(displayImage.src);
     }
     state.pieces = [];
     state.totalPieces = 0;
@@ -508,13 +503,7 @@ async function handleImageUpload(file) {
 
       // Restore original license
       state.deepLinkLicense = originalLicense;
-      viewport.innerHTML = `
-        <div class="original-image-container">
-          <img src="${displayImage.src}" alt="${t(
-        "alt.originalImage"
-      )}" style="max-width:100%;max-height:100%;object-fit:contain;" />
-        </div>
-      `;
+      viewport.innerHTML = originalImageTemplate(displayImage.src);
     }
 
     state.pieces = [];

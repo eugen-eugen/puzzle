@@ -102,7 +102,9 @@ async function initRoom(env, roomId, requestBody = {}) {
       createdAt: Date.now(),
     });
     if (list.length > MAX_RECENT_ROOMS) list.length = MAX_RECENT_ROOMS;
-    await env.ROOM_REGISTRY.put(ROOM_LIST_KEY, JSON.stringify(list));
+    await env.ROOM_REGISTRY.put(ROOM_LIST_KEY, JSON.stringify(list), {
+      expirationTtl: 3600,
+    });
   }
 
   return roomId;
@@ -146,6 +148,8 @@ export class PuzzleRoom extends DurableObject {
       this.session = createPuzzleSession(options);
       this.initialized = true;
       await this.persistState();
+      // Self-destruct after 1 hour
+      await this.ctx.storage.setAlarm(Date.now() + 3600_000);
       return Response.json({ ok: true });
     }
 
@@ -175,6 +179,14 @@ export class PuzzleRoom extends DurableObject {
   async persistState() {
     await this.ctx.storage.put("session", this.session);
     await this.ctx.storage.put("initialized", this.initialized);
+  }
+
+  async alarm() {
+    for (const ws of this.getConnectedSockets()) {
+      ws.close(1000, "Room expired");
+    }
+    await this.ctx.storage.deleteAll();
+    this.initialized = false;
   }
 
   handleWebSocket(roomId) {
