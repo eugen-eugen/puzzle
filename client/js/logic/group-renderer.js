@@ -111,14 +111,54 @@ export function updateGroupPosition(groupId) {
   const refTop = parseFloat(refElement.style.top) || 0;
 
   const scale = getCurrentScale();
-  wrapper.style.left = refLeft + refOffsetX * scale + "px";
-  wrapper.style.top = refTop + refOffsetY * scale + "px";
-
-  // Sync rotation from reference piece
   const refPiece = group.allPieces.find((p) => p.id === refPieceId);
-  if (refPiece) {
-    wrapper.style.transform = `rotate(${refPiece.rotation}deg)`;
-  }
+  const rotation = refPiece ? refPiece.rotation : 0;
+
+  const wrapperPos = computeWrapperPosition(
+    new Point(refLeft, refTop),
+    new Point(refElement.offsetWidth, refElement.offsetHeight),
+    new Point(refOffsetX, refOffsetY).scaled(scale),
+    new Point(wrapper.offsetWidth, wrapper.offsetHeight),
+    rotation,
+  );
+
+  wrapper.style.left = wrapperPos.x + "px";
+  wrapper.style.top = wrapperPos.y + "px";
+  wrapper.style.transform = `rotate(${rotation}deg)`;
+}
+
+/**
+ * Compute the wrapper's top-left so that after CSS rotation (around the wrapper
+ * center) the reference piece rendered inside the wrapper coincides with the
+ * actual piece element (which rotates around its own center).
+ *
+ * Piece elements rotate around their own center, so a piece's visual center is
+ * elementPos + elementSize/2 regardless of rotation. The linear offset
+ * (refOffset) is only valid at 0°; at other angles the ref piece's local center
+ * must be rotated around the wrapper center before anchoring.
+ */
+function computeWrapperPosition(
+  refElementPos,
+  refElementSize,
+  scaledRefOffset,
+  wrapperSize,
+  rotationDeg,
+) {
+  // World center of the reference piece (rotation-invariant)
+  const refCenterWorld = refElementPos.add(refElementSize.scaled(0.5));
+
+  // Ref piece center in unrotated wrapper-local coordinates
+  const localRefCenter = scaledRefOffset
+    .scaled(-1)
+    .add(refElementSize.scaled(0.5));
+
+  const wrapperCenter = wrapperSize.scaled(0.5);
+  const rotatedLocalRefCenter = localRefCenter.rotatedAroundDeg(
+    wrapperCenter,
+    rotationDeg,
+  );
+
+  return refCenterWorld.sub(rotatedLocalRefCenter);
 }
 
 /**
@@ -535,8 +575,15 @@ function createOrUpdateGroupElement(groupId, canvas, groupBounds, pieces) {
   if (refElement) {
     const refLeft = parseFloat(refElement.style.left) || 0;
     const refTop = parseFloat(refElement.style.top) || 0;
-    wrapper.style.left = refLeft + scaledRefOffset.x + "px";
-    wrapper.style.top = refTop + scaledRefOffset.y + "px";
+    const wrapperPos = computeWrapperPosition(
+      new Point(refLeft, refTop),
+      new Point(refElement.offsetWidth, refElement.offsetHeight),
+      scaledRefOffset,
+      new Point(scaledW, scaledH),
+      refPiece.rotation,
+    );
+    wrapper.style.left = wrapperPos.x + "px";
+    wrapper.style.top = wrapperPos.y + "px";
   }
 
   wrapper.style.transform = `rotate(${refPiece.rotation}deg)`;

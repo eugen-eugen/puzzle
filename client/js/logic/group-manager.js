@@ -304,6 +304,9 @@ class GroupManager {
           detail: {
             pieceId: piece.id,
             neighbors,
+            fromGroupId: currentGroup.id,
+            newGroupId: newGroup.id,
+            fragmentGroupIds,
           },
         }),
       );

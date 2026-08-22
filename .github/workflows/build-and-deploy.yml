@@ -124,58 +124,58 @@ jobs:
           projectName: puzzle
           directory: client/dist
 
-  build-restricted:
-    needs: test
-    runs-on: ubuntu-latest
-    
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'client/package-lock.json'
-
-      - name: Install dependencies
-        working-directory: client
-        run: npm ci
-
-      - name: Build restricted mode
-        working-directory: client
-        run: npm run build:restricted -- --base /pzl/
-
-      - name: Deploy to eugen-eugen/pzl repository
-        env:
-          PZL_TOKEN: ${{ secrets.PZL_DEPLOY_TOKEN }}
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          
-          # Clone target repository using PAT
-          git clone https://x-access-token:${PZL_TOKEN}@github.com/eugen-eugen/pzl.git pzl-repo
-          cd pzl-repo
-          
-          # Configure git to use token for push operations
-          git remote set-url origin https://x-access-token:${PZL_TOKEN}@github.com/eugen-eugen/pzl.git
-          
-          # Create or checkout main branch
-          git checkout main || git checkout -b main
-          
-          # Remove all existing files except .git
-          find . -maxdepth 1 ! -name '.git' ! -name '.' ! -name '..' -exec rm -rf {} +
-          
-          # Copy build artifacts
-          cp -r ../client/dist/* .
-          cp ../LICENSE .
-          
-          # Add all changes
-          git add -A
-          
-          # Commit and push
-          git commit -m "chore: deploy restricted build from eugen-eugen/puzzle@${{ github.sha }}" || echo "No changes to commit"
-          git push origin main --force
+  # build-restricted:
+  #   needs: test
+  #   runs-on: ubuntu-latest
+  #   
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+  #
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #         cache: 'npm'
+  #         cache-dependency-path: 'client/package-lock.json'
+  #
+  #     - name: Install dependencies
+  #       working-directory: client
+  #       run: npm ci
+  #
+  #     - name: Build restricted mode
+  #       working-directory: client
+  #       run: npm run build:restricted -- --base /pzl/
+  #
+  #     - name: Deploy to eugen-eugen/pzl repository
+  #       env:
+  #         PZL_TOKEN: ${{ secrets.PZL_DEPLOY_TOKEN }}
+  #       run: |
+  #         git config --global user.name "github-actions[bot]"
+  #         git config --global user.email "github-actions[bot]@users.noreply.github.com"
+  #         
+  #         # Clone target repository using PAT
+  #         git clone https://x-access-token:${PZL_TOKEN}@github.com/eugen-eugen/pzl.git pzl-repo
+  #         cd pzl-repo
+  #         
+  #         # Configure git to use token for push operations
+  #         git remote set-url origin https://x-access-token:${PZL_TOKEN}@github.com/eugen-eugen/pzl.git
+  #         
+  #         # Create or checkout main branch
+  #         git checkout main || git checkout -b main
+  #         
+  #         # Remove all existing files except .git
+  #         find . -maxdepth 1 ! -name '.git' ! -name '.' ! -name '..' -exec rm -rf {} +
+  #         
+  #         # Copy build artifacts
+  #         cp -r ../client/dist/* .
+  #         cp ../LICENSE .
+  #         
+  #         # Add all changes
+  #         git add -A
+  #         
+  #         # Commit and push
+  #         git commit -m "chore: deploy restricted build from eugen-eugen/puzzle@${{ github.sha }}" || echo "No changes to commit"
+  #         git push origin main --force

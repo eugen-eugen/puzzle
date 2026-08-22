@@ -7,14 +7,18 @@ import { groupManager } from "../logic/group-manager.js";
 import { Group } from "../model/group.js";
 import {
   hasGroupElement,
+  getGroupElement,
   updateGroupPosition,
   renderGroup,
   removeGroupElement,
 } from "../logic/group-renderer.js";
 import { getPieceElement } from "../logic/piece-renderer.js";
 import { Point } from "../geometry/point.js";
+import { applyPieceTransform } from "../ui/display.js";
 import {
   DRAG_END,
+  PIECE_NORTH,
+  PIECE_ROTATE,
   PIECES_CONNECTED,
   PIECES_DISCONNECTED,
 } from "../constants/custom-events.js";
@@ -32,6 +36,9 @@ let client = null;
 let room = null;
 let isOnline = false;
 let localSessionId = null;
+
+const REMOTE_MOVE_EPSILON = 0.01;
+const REMOTE_MOVE_ANIMATION_MS = 260;
 
 /** Set of piece IDs currently being dragged locally (immune to remote updates) */
 const locallyDraggedPieces = new Set();
@@ -214,6 +221,8 @@ function setupRoomListeners() {
     const updatedGroupIds = new Set();
     const newGroupAssignments = new Map(); // groupId -> [pieces]
     const groupsLosingPieces = new Map(); // oldGroupId -> [pieces leaving]
+    const pieceFlightAnimations = [];
+    const groupFlightStart = new Map(); // groupId -> { left, top }
 
     for (const piece of data.pieces) {
       // Skip pieces being dragged locally (local wins during drag)
@@ -221,6 +230,41 @@ function setupRoomListeners() {
 
       const localPiece = state.pieces.find((p) => p.id === piece.id);
       if (!localPiece) continue;
+
+      const previousPosition = gameTableController.getPiecePosition(
+        localPiece.id,
+      );
+      const hasIncomingPosition =
+        typeof piece.x === "number" && typeof piece.y === "number";
+      const didMove =
+        hasIncomingPosition &&
+        previousPosition &&
+        (Math.abs(previousPosition.x - piece.x) > REMOTE_MOVE_EPSILON ||
+          Math.abs(previousPosition.y - piece.y) > REMOTE_MOVE_EPSILON);
+
+      const oldGroupId = localPiece.groupId;
+      const oldGroupRendered = oldGroupId && hasGroupElement(oldGroupId);
+
+      if (didMove && oldGroupRendered && !groupFlightStart.has(oldGroupId)) {
+        const groupEl = getGroupElement(oldGroupId);
+        if (groupEl) {
+          groupFlightStart.set(oldGroupId, {
+            left: parseFloat(groupEl.style.left) || 0,
+            top: parseFloat(groupEl.style.top) || 0,
+          });
+        }
+      }
+
+      if (didMove && !oldGroupRendered) {
+        const pieceEl = getPieceElement(localPiece.id);
+        if (pieceEl) {
+          pieceFlightAnimations.push({
+            element: pieceEl,
+            fromLeft: parseFloat(pieceEl.style.left) || 0,
+            fromTop: parseFloat(pieceEl.style.top) || 0,
+          });
+        }
+      }
 
       // Update position
       gameTableController.setPiecePosition(
@@ -232,6 +276,12 @@ function setupRoomListeners() {
       // Update rotation
       if (piece.rotation !== undefined) {
         localPiece.setRotation(piece.rotation);
+
+        // For standalone pieces, the transform must be reapplied now.
+        // Otherwise a pure rotation update only becomes visible on the next move.
+        if (!localPiece.groupId || !hasGroupElement(localPiece.groupId)) {
+          applyPieceTransform(localPiece);
+        }
       }
 
       // Update z-index
@@ -285,6 +335,31 @@ function setupRoomListeners() {
     // Update group element positions for all affected groups
     for (const groupId of updatedGroupIds) {
       updateGroupPosition(groupId);
+
+      const start = groupFlightStart.get(groupId);
+      if (!start) continue;
+
+      const groupEl = getGroupElement(groupId);
+      if (!groupEl) continue;
+
+      animateRemoteMove(
+        groupEl,
+        start.left,
+        start.top,
+        parseFloat(groupEl.style.left) || 0,
+        parseFloat(groupEl.style.top) || 0,
+      );
+    }
+
+    for (const animation of pieceFlightAnimations) {
+      const { element, fromLeft, fromTop } = animation;
+      animateRemoteMove(
+        element,
+        fromLeft,
+        fromTop,
+        parseFloat(element.style.left) || 0,
+        parseFloat(element.style.top) || 0,
+      );
     }
   });
 
@@ -302,6 +377,47 @@ function setupRoomListeners() {
     isOnline = false;
     document.dispatchEvent(new CustomEvent("online:disconnected"));
   });
+}
+
+function animateRemoteMove(element, fromLeft, fromTop, toLeft, toTop) {
+  if (!element) return;
+
+  const dx = Math.abs(fromLeft - toLeft);
+  const dy = Math.abs(fromTop - toTop);
+  if (dx <= REMOTE_MOVE_EPSILON && dy <= REMOTE_MOVE_EPSILON) return;
+
+  element.classList.add("remote-move-flash");
+
+  if (typeof element.animate === "function") {
+    element.animate(
+      [
+        {
+          left: `${fromLeft}px`,
+          top: `${fromTop}px`,
+          filter: "drop-shadow(0 0 0 rgba(46, 168, 98, 0))",
+        },
+        {
+          left: `${toLeft}px`,
+          top: `${toTop}px`,
+          filter: "drop-shadow(0 0 10px rgba(46, 168, 98, 0.8))",
+          offset: 0.7,
+        },
+        {
+          left: `${toLeft}px`,
+          top: `${toTop}px`,
+          filter: "drop-shadow(0 0 0 rgba(46, 168, 98, 0))",
+        },
+      ],
+      {
+        duration: REMOTE_MOVE_ANIMATION_MS,
+        easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+      },
+    );
+  }
+
+  setTimeout(() => {
+    element.classList.remove("remote-move-flash");
+  }, REMOTE_MOVE_ANIMATION_MS + 30);
 }
 
 async function createWorkerRoom(config) {
@@ -506,6 +622,35 @@ function removeFromGroupAndRerender(oldGroupId, piecesLeaving) {
   }
 }
 
+function collectPieceOrGroupState(pieceId) {
+  const piece = state.pieces.find((p) => p.id === pieceId);
+  if (!piece) return [];
+
+  const group = piece.groupId ? groupManager.getGroup(piece.groupId) : null;
+  const groupPieces = group ? group.allPieces : [piece];
+
+  return groupPieces.map((p) => {
+    const pos = gameTableController.getPiecePosition(p.id);
+    return {
+      id: p.id,
+      x: pos.x,
+      y: pos.y,
+      rotation: p.rotation,
+      groupId: p.groupId,
+      zIndex: p.zIndex,
+    };
+  });
+}
+
+function sendRotationUpdate(pieceId) {
+  if (!isOnline || !room || pieceId == null) return;
+
+  const piecesToSend = collectPieceOrGroupState(pieceId);
+  if (piecesToSend.length === 0) return;
+
+  sendMove(piecesToSend);
+}
+
 // ================================
 // Auto-send moves on drag end
 // ================================
@@ -540,6 +685,19 @@ registerGlobalEvent(DRAG_END, (event) => {
   sendMove(piecesToSend);
 });
 
+// Rotation must sync immediately; otherwise remotes only see it on a later move event.
+registerGlobalEvent(PIECE_ROTATE, (event) => {
+  const { pieceId } = event.detail;
+  // Defer one tick so local rotate handlers update model + group positions first.
+  setTimeout(() => sendRotationUpdate(pieceId), 0);
+});
+
+// The "orient north" action rotates to absolute 0deg via a different event path.
+registerGlobalEvent(PIECE_NORTH, (event) => {
+  const { pieceId } = event.detail || {};
+  setTimeout(() => sendRotationUpdate(pieceId), 0);
+});
+
 // When pieces connect (merge groups), send updated state for all pieces in the new group
 registerGlobalEvent(PIECES_CONNECTED, (event) => {
   if (!isOnline || !room) return;
@@ -570,21 +728,50 @@ registerGlobalEvent(PIECES_CONNECTED, (event) => {
 registerGlobalEvent(PIECES_DISCONNECTED, (event) => {
   if (!isOnline || !room) return;
 
-  const { pieceId } = event.detail;
+  const { pieceId, fromGroupId, newGroupId, fragmentGroupIds } = event.detail;
   if (pieceId == null) return;
 
-  const piece = state.pieces.find((p) => p.id === pieceId);
-  if (!piece) return;
+  const affectedGroupIds = new Set(
+    [fromGroupId, newGroupId, ...(fragmentGroupIds || [])].filter(Boolean),
+  );
 
-  const pos = gameTableController.getPiecePosition(piece.id);
-  sendMove([
-    {
+  const piecesToSync = [];
+  const syncedPieceIds = new Set();
+
+  for (const groupId of affectedGroupIds) {
+    const group = groupManager.getGroup(groupId);
+    if (!group) continue;
+
+    for (const p of group.allPieces) {
+      if (syncedPieceIds.has(p.id)) continue;
+      const pos = gameTableController.getPiecePosition(p.id);
+      piecesToSync.push({
+        id: p.id,
+        x: pos.x,
+        y: pos.y,
+        rotation: p.rotation,
+        groupId: p.groupId,
+        zIndex: p.zIndex,
+      });
+      syncedPieceIds.add(p.id);
+    }
+  }
+
+  // Fallback for older event payloads or unexpected state: at least sync detached piece.
+  if (piecesToSync.length === 0) {
+    const piece = state.pieces.find((p) => p.id === pieceId);
+    if (!piece) return;
+
+    const pos = gameTableController.getPiecePosition(piece.id);
+    piecesToSync.push({
       id: piece.id,
       x: pos.x,
       y: pos.y,
       rotation: piece.rotation,
       groupId: piece.groupId,
       zIndex: piece.zIndex,
-    },
-  ]);
+    });
+  }
+
+  sendMove(piecesToSync);
 });
