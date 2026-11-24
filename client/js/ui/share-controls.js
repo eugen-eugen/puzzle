@@ -8,6 +8,7 @@ import {
   startOnlineGame,
   sendFullState,
   sendConfig,
+  getPlayerCount,
 } from "../comm/network-manager.js";
 import { onlineDialogTemplate } from "./templates/online-dialog-template.js";
 
@@ -122,10 +123,13 @@ export function showOnlineGameInfo(roomId) {
     "position:fixed;top:8px;right:8px;z-index:9999;font-size:24px;background:none;border:none;cursor:pointer;line-height:1;padding:4px;";
   document.body.appendChild(btn);
 
-  // Player count badge
+  // Player count badge. Initialize with the current count (set from the
+  // server's init_state) rather than a hardcoded "1": the joining player only
+  // receives init_state, not a player_count message, so without this the badge
+  // would stay at "1" until the next player_count update.
   const badge = document.createElement("span");
   badge.id = "online-player-badge";
-  badge.textContent = "1";
+  badge.textContent = String(getPlayerCount());
   badge.style.cssText =
     "position:absolute;top:0;right:0;background:#2ea862;color:#fff;font-size:10px;border-radius:50%;width:14px;height:14px;display:flex;align-items:center;justify-content:center;";
   btn.style.position = "fixed";
