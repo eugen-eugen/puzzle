@@ -1,6 +1,6 @@
 # Deployment Setup
 
-This repository uses GitHub Actions to automatically build and deploy two versions of the puzzle application:
+This repository uses GitHub Actions to build and deploy the puzzle application:
 
 ## Deployment Targets
 
@@ -9,14 +9,24 @@ This repository uses GitHub Actions to automatically build and deploy two versio
    - Includes service worker, manifest.json, and local pictures
    - Deployed at: https://eugen-eugen.github.io/puzzle/
 
-2. **Restricted Build** → `main` branch in [eugen-eugen/pzl](https://github.com/eugen-eugen/pzl)
+2. **Cloudflare Pages Build** → `puzzle` project
+   - Builds the full application with `/` as its base path
+   - Deploys `client/dist` to the project's `main` production branch using Wrangler
+
+3. **Restricted Build** (currently disabled) → `main` branch in [eugen-eugen/pzl](https://github.com/eugen-eugen/pzl)
    - Minimal version without PWA features and control bar
    - Only remote pictures included
    - Deployed at: https://eugen-eugen.github.io/pzl/
 
 ## Required Setup
 
-### Create Fine-Grained Personal Access Token (Recommended)
+### Cloudflare Pages
+
+Add `CLOUDFLARE_ACCOUNT_ID` and `CLOUDFLARE_API_TOKEN` to the repository's Actions secrets.
+The API token needs the Account → Cloudflare Pages → Edit permission. The workflow
+uses Node.js 22 and attempts to create the `puzzle` project if it does not exist.
+
+### Create Fine-Grained Personal Access Token for Restricted Deployments
 
 GitHub's built-in `GITHUB_TOKEN` only works for the repository where the workflow runs. For cross-repository deployment, you need a Personal Access Token scoped to the target repository.
 
@@ -71,20 +81,20 @@ The workflow runs on every push to `main` branch:
 │  Tests  │
 └────┬────┘
      │
-     ├─────────────────┬─────────────────┐
-     │                 │                 │
-┌────▼────────┐  ┌────▼────────────┐  ┌─▼──────────────┐
-│   Standard  │  │   Restricted    │  │                │
-│    Build    │  │      Build      │  │  (Parallel)    │
-└────┬────────┘  └────┬────────────┘  └────────────────┘
-     │                │
+     ├─────────────────┐
+     │                 │
+┌────▼────────┐  ┌────▼────────────┐
+│  Standard   │  │   Cloudflare    │
+│   Build     │  │     Build       │
+└────┬────────┘  └────┬────────────┘
      │                │
 ┌────▼────────┐  ┌────▼────────────┐
-│   Deploy    │  │     Deploy      │
-│  to release │  │  to pzl repo    │
-│   branch    │  │   main branch   │
+│ Deploy to   │  │ Deploy to       │
+│ release     │  │ Cloudflare Pages│
 └─────────────┘  └─────────────────┘
 ```
+
+The restricted build and deployment are currently disabled in the workflow.
 
 ## Build Differences
 
