@@ -1,5 +1,0 @@
-/* game-table.css - styling for game table window */
-.layout {position:relative;}
-#gameCanvas {background:#121212;display:block;margin:0 auto;cursor:default;}
-.canvas-overlay {position:absolute;left:0;top:0;pointer-events:none;}
-.selection-outline {stroke:var(--accent-blue);stroke-width:2;fill:none;}
