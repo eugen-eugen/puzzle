@@ -197,18 +197,22 @@ export class PuzzleRoom extends DurableObject {
     this.ctx.acceptWebSocket(server);
     server.serializeAttachment({ clientId });
 
-    const playerCount = this.getConnectedSockets().length;
+    // Count the joining player explicitly. Right after acceptWebSocket() the
+    // runtime may not yet reflect the new socket in getWebSockets() (or it may
+    // not report readyState === OPEN yet), so deriving the count from
+    // getConnectedSockets() would undercount the joiner and existing players
+    // would keep the stale count. We therefore count the other connected
+    // sockets and add one for the socket we just accepted.
+    const otherSockets = this.getConnectedSockets().filter(
+      (socket) => socket !== server,
+    );
+    const playerCount = otherSockets.length + 1;
     send(
       server,
       "init_state",
       createInitState(this.session, roomId, playerCount),
     );
-    broadcast(
-      this.getConnectedSockets(),
-      "player_count",
-      { count: playerCount },
-      server,
-    );
+    broadcast(otherSockets, "player_count", { count: playerCount });
 
     return new Response(null, {
       status: 101,
